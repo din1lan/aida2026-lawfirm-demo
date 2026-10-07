@@ -1098,7 +1098,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
           <p class="text-slate-500 text-sm mt-1">上傳同一案件的全部文件（書狀、筆錄、證據），AI 閱卷助理整理案情概要、爭點、攻防注意與下次開庭準備；也可以直接貼入文字</p>
         </div>
         <div class="text-xs bg-amber-50 border border-amber-200 text-amber-800 rounded-lg px-4 py-2.5">
-          由 <b>AI 閱卷助理</b>（Google Gemini，依事務所設定的角色與規矩工作）讀文件、整理爭點；結果一律經過「回文件逐字比對」的防幻覺檢查，並標示原文／推論／待核。沒有金鑰或沒有網路時，可切換<b>離線備援</b>。</div>
+          由 <b>AI 閱卷助理</b>（Google Gemini，依事務所設定的角色與規矩工作）讀文件、整理爭點；結果一律經過「回文件逐字比對」的防幻覺檢查，並標示原文／推論／待核。沒有金鑰時可切換<b>示意版</b>體驗流程。</div>
 
         <div class="bg-white rounded-lg border-2 border-indigo-300 p-5">
           <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -1149,7 +1149,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
               <span>③ 分析引擎</span>
               <select id="aib-engine" class="w-full text-sm border rounded px-3 py-2">
                 <option value="gemini">AI 閱卷助理（Google Gemini）</option>
-                <option value="local">離線備援（免金鑰，只抓固定格式）</option>
+                <option value="local">示意版（免金鑰，供評審快速體驗）</option>
               </select>
             </label>
             <div id="aib-gemini-box" class="text-xs text-slate-500 space-y-1">
@@ -6557,10 +6557,10 @@ footer{font-size:12.5px;color:#8a8273;border-top:1px solid var(--rule);padding-t
     if (aibNorm(text).length < 30) { alert('請先貼入至少 30 字的書狀或判決書內容、上傳 PDF，或點「填入示範書狀」測試'); return; }
     const caseType = aibDetectCaseType(text);
     if (aibEngSel.value === 'gemini' && (!aibKeyIn.value.trim() || !aibModelSel.value)) {
-      if (confirm('還沒有貼上 Gemini 金鑰或選擇模型。\n要先用「離線備援」跑一次嗎？（只抓固定格式，不會傳送任何資料）')) { aibEngSel.value = 'local'; aibEngSel.dispatchEvent(new Event('change')); }
+      if (confirm('還沒有貼上 Gemini 金鑰或選擇模型。\n要先用「示意版」看一次流程嗎？（不需金鑰，不會傳送任何資料；正式使用為 Gemini）')) { aibEngSel.value = 'local'; aibEngSel.dispatchEvent(new Event('change')); }
       else return;
     }
-    if (aibEngSel.value === 'gemini' && !document.getElementById('aib-gemini-consent').checked) { alert('使用 Gemini 前，請先勾選同意卷宗文字傳送給 Google 分析；不想傳送可改用規則式引擎'); return; }
+    if (aibEngSel.value === 'gemini' && !document.getElementById('aib-gemini-consent').checked) { alert('使用 Gemini 前，請先勾選同意卷宗文字傳送給 Google 分析；也可改用示意版體驗流程'); return; }
     const skeleton = document.getElementById('aib-skeleton'), result = document.getElementById('aib-result'), trace = document.getElementById('aib-trace');
     btn.disabled = true; btn.classList.add('opacity-60'); btn.textContent = '分析中…';
     result.classList.add('hidden'); trace.classList.add('hidden'); skeleton.classList.remove('hidden');
@@ -6606,7 +6606,7 @@ footer{font-size:12.5px;color:#8a8273;border-top:1px solid var(--rule);padding-t
             });
           });
         } else findings = aibLocalFindings(local, text);
-        meta.engineLabel = '規則式引擎（本機執行，免金鑰）'; meta.caseType = caseType;
+        meta.engineLabel = '示意版（免金鑰；正式使用為 Gemini AI 閱卷助理）'; meta.caseType = caseType;
       }
       AIB_STATE.findings = aibVerify(findings); AIB_STATE.meta = meta;
       skeleton.classList.add('hidden');
@@ -6615,7 +6615,7 @@ footer{font-size:12.5px;color:#8a8273;border-top:1px solid var(--rule);padding-t
       try { trace.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) { /* ignore */ }
     } catch (err) {
       skeleton.classList.add('hidden');
-      alert('分析失敗：' + err.message + '\n可以先改用「規則式引擎」示範。');
+      alert('分析失敗：' + err.message + '\n可以先改用「示意版」體驗流程。');
     } finally {
       btn.disabled = false; btn.classList.remove('opacity-60'); btn.textContent = '🔍 開始分析';
     }
