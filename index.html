@@ -6100,7 +6100,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
           if (/\.html?$/i.test(f.name) || /^\s*</.test(raw)) {
             const dom = new DOMParser().parseFromString(raw, 'text/html');
             const js = dom.getElementById('lexflow-report');
-            if (js) { try { const r = JSON.parse(js.textContent); isReport = true; text = `全案整理報告（${r.exportedAt}，${r.caseLabel}）\n概要：${r.summary}\n` + r.items.map((it) => `[${it.section}][${it.tier}] ${it.text}${it.source ? `（出處：${it.source}）` : ''}`).join('\n'); } catch (e) { /* 當一般 HTML 讀 */ } }
+            if (js) { try { const r = JSON.parse(js.textContent); isReport = true; text = `全案整理報告（${r.exportedAt}，${r.caseLabel}）\n概要：${r.summary}\n` + r.items.map((it) => `[${it.section}]${it.role && it.role !== '其他' ? `[${it.role}]` : ''}[${it.tier}] ${it.date ? it.date + ' ' : ''}${it.text}${it.source ? `（出處：${it.source}）` : ''}`).join('\n'); } catch (e) { /* 當一般 HTML 讀 */ } }
             if (!isReport) { dom.querySelectorAll('script,style').forEach((n) => n.remove()); text = dom.body ? (dom.body.innerText || dom.body.textContent) : raw; }
           }
           text = aibFixChars(text); chars = aibNorm(text).length;
@@ -6203,7 +6203,9 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
       '使用者會提供同一案件的多份文件，每頁以「【文件N：檔名｜第M頁】」標示。請讀完全部文件，整理成律師開庭前可以直接使用的全案摘要。',
       '只輸出一個 JSON 物件，不要任何其他文字：',
       '{"caseType":"民事|刑事|行政（你依文件判斷）","summary":"兩三句話的全案概要","sections":[{"title":"案情概要","items":[ITEM]},{"title":"程序進度與重要期日","items":[ITEM]},{"title":"爭點一：（爭點名稱）","items":[ITEM]},{"title":"攻防注意事項","items":[ITEM]},{"title":"下次開庭前準備","items":[ITEM]}]}',
-      'ITEM 格式：{"text":"你的整理","tier":"原文|推論|待核","doc":N,"page":M,"quote":"文件中一字不差的連續原句（10 到 60 字）"}',
+      'ITEM 格式：{"text":"你的整理","role":"原告|被告|法院|評估|其他","date":"民國年月日（有期日才填）","tier":"原文|推論|待核","doc":N,"page":M,"quote":"文件中一字不差的連續原句（10 到 60 字）"}',
+      '- 每個 section 加上 "kind"：案情概要＝summary、程序進度與重要期日＝timeline、各爭點＝issue、攻防注意事項＝strategy、下次開庭前準備＝todo、與前次整理相比的新進展＝update。',
+      '- text 不要再寫「原告主張：」「被告主張：」前綴，改用 role 標示；爭點的評估 role 填「評估」。程序進度每項都要填 date。',
       '- 爭點依文件實際內容決定數量，每個爭點底下依序整理：原告主張、被告主張、雙方證據、目前評估（評估屬推論）。',
       '- 攻防注意事項：對造論點的弱點、我方需要補強的證據、可能的程序風險。',
       '- 下次開庭前準備：具體待辦事項與期限。',
@@ -6321,7 +6323,8 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
       ${groups.map(([c, a]) => `<div><p class="${meta.ordered ? 'text-sm font-bold text-slate-800 border-b border-slate-100 pb-1' : 'text-xs font-semibold text-slate-500'} mb-1.5">${esc(c)}</p><div class="space-y-1.5">${a.map(([f, i]) => `
         <div class="flex items-start gap-2 text-sm text-slate-700">${badge(f, i)}<span class="${f.status === 'wrong' ? 'line-through text-slate-400' : ''}">${esc(f.text)}${f.downgraded ? ' <span class="text-[11px] text-red-600">（AI 標為原文，但文件比對不到）</span>' : ''}</span></div>`).join('')}</div></div>`).join('')}
       <div class="flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
-        <button type="button" id="aib-export-html" class="text-sm px-3 py-1.5 rounded bg-navy-900 text-white">匯出 HTML 報告</button>
+        <button type="button" id="aib-preview" class="text-sm px-3 py-1.5 rounded bg-navy-900 text-white">開啟總整理頁</button>
+        <button type="button" id="aib-export-html" class="text-sm px-3 py-1.5 rounded border border-slate-300 text-slate-700 hover:bg-slate-50">匯出 HTML 報告</button>
         <button type="button" id="aib-export-pdf" class="text-sm px-3 py-1.5 rounded border border-slate-300 text-slate-700 hover:bg-slate-50">匯出 PDF（列印）</button>
         <span class="text-[11px] text-slate-400">核對完再匯出，存到事務所的案件資料夾；之後連同新文件一起上傳，AI 會接著更新進度</span>
       </div>
@@ -6336,27 +6339,95 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
     return `${fn} 第${pg.fn || pg.n}頁`;
   }
   const aibIsPending = (f) => f.tier === '待核' && f.status !== 'ok' && f.status !== 'wrong';
-  function aibReportHTML() {
+  // 全案總整理網頁：AI 只回結構化資料，版面由固定樣板排，每次長得一樣、也不會夾帶 AI 寫的程式碼
+  function aibKindOf(c, f) {
+    if (f && f.kind) return f.kind;
+    if (/新進展/.test(c)) return 'update';
+    if (/概要/.test(c)) return 'summary';
+    if (/期日|程序|進度|時間軸/.test(c)) return 'timeline';
+    if (/^爭點/.test(c)) return 'issue';
+    if (/攻防|注意/.test(c)) return 'strategy';
+    if (/準備|開庭前|待辦|行動/.test(c)) return 'todo';
+    return 'other';
+  }
+  function aibRoleOf(f) {
+    if (f.role) return f.role;
+    const m = String(f.text).match(/^(原告|被告|法院|評估)/); if (m) return m[1];
+    if (/評估/.test(f.text.slice(0, 8))) return '評估';
+    return f.tier === '推論' ? '評估' : '其他';
+  }
+  function aibReportData() {
     const F = AIB_STATE.findings, meta = AIB_STATE.meta || {};
     const now = new Date(); const pad = (x) => String(x).padStart(2, '0');
     const stamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
-    const pending = F.filter(aibIsPending).length;
     const tierTxt = (f) => f.tier === '待核' ? (f.status === 'ok' ? '已核' : f.status === 'wrong' ? '有誤' : '未核') : f.tier;
-    const tierCls = (f) => f.tier === '原文' ? 'g' : f.tier === '推論' ? 'a' : f.status === 'ok' ? 's' : 'r';
-    const order = [...new Set(F.map((f) => f.category))];
     const files = AIB_DOC.files.length ? AIB_DOC.files.map((x, i) => `文件${i + 1}：${x.name}`) : ['貼入的文字'];
-    const data = { app: 'lawfirm-ai-brief-report', version: 1, exportedAt: stamp, caseLabel: meta.caseLabel || '', caseType: meta.caseType || '', engine: meta.engineLabel || '', summary: meta.summary || '', files,
-      items: F.filter((f) => f.status !== 'wrong').map((f) => ({ section: f.category, text: f.text, tier: tierTxt(f), source: aibSourceLabel(f), quote: f.quote || '' })) };
-    const body = order.map((c) => `<h2>${esc(c)}</h2>` + F.filter((f) => f.category === c).map((f) => `<div class="it${f.status === 'wrong' ? ' x' : ''}"><span class="t ${tierCls(f)}">${tierTxt(f)}</span><div><div>${esc(f.text)}</div>${f.quote && f.page ? `<div class="src">出處：${esc(aibSourceLabel(f))}｜「${esc(f.quote)}」</div>` : ''}</div></div>`).join('')).join('');
-    const css = 'body{font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;color:#1c2431;max-width:860px;margin:32px auto;padding:0 24px;line-height:1.75;font-size:15px}h1{font-size:24px;margin:0 0 4px}h2{font-size:17px;margin:26px 0 8px;padding-bottom:4px;border-bottom:1px solid #ddd}.meta{color:#5b6472;font-size:13px}.sum{background:#f6f3ec;border-left:4px solid #a8834a;padding:12px 16px;margin:16px 0}.it{display:flex;gap:10px;margin:8px 0}.it.x{color:#999;text-decoration:line-through}.t{flex:none;font-size:12px;font-weight:700;padding:1px 8px;border-radius:10px;height:fit-content;margin-top:3px}.g{background:#e3eee6;color:#2f6b4f}.a{background:#f5ead3;color:#9a6510}.r{background:#f6e1dc;color:#a33a2c}.s{background:#eee;color:#555}.src{font-size:12.5px;color:#6b7280}.warn{color:#a33a2c;font-weight:700}.foot{margin-top:30px;font-size:12px;color:#8a8273;border-top:1px solid #ddd;padding-top:10px}';
-    const json = JSON.stringify(data).replace(/</g, '\\u003c');
-    return '<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><title>全案整理報告｜' + esc(meta.caseLabel || '') + '｜' + stamp.slice(0, 10) + '</title><style>' + css + '</style></head><body>'
-      + '<h1>全案整理報告</h1><div class="meta">' + esc(meta.caseLabel || '') + '｜案件類型：' + esc(meta.caseType || '—') + '｜匯出時間：' + stamp + '<br>分析引擎：' + esc(meta.engineLabel || '') + '<br>依據文件：' + files.map(esc).join('、') + '</div>'
-      + (pending ? '<p class="warn">尚有 ' + pending + ' 項待核未經人工核對，引用前請再確認。</p>' : '')
-      + (meta.summary ? '<div class="sum">' + esc(meta.summary) + '</div>' : '') + body
-      + '<div class="foot">本報告由 AI 閱卷助理整理，經律師核對；「原文」為文件逐字摘錄，「推論」為 AI 判斷，「已核」為人工確認項目。僅供事務所內部參考，不構成法律意見。</div>'
+    return { app: 'lawfirm-ai-brief-report', version: 2, exportedAt: stamp, caseLabel: meta.caseLabel || '', caseType: meta.caseType || '', engine: meta.engineLabel || '', summary: meta.summary || '', files,
+      items: F.filter((f) => f.status !== 'wrong').map((f) => ({ section: f.category, kind: aibKindOf(f.category, f), role: aibRoleOf(f), date: f.date || '', text: f.text.replace(/^(原告主張|被告主張|原告|被告)[：:]\s*/, ''), tier: tierTxt(f), source: aibSourceLabel(f), quote: f.quote || '' })) };
+  }
+  function aibBriefPage(d) {
+    const e = (x) => esc(x == null ? '' : x);
+    const tc = (t) => ({ 原文: 'g', 推論: 'a', 已核: 's', 未核: 'r', 待核: 'r' }[t] || 'a');
+    const chip = (it) => `<span class="tier ${tc(it.tier)}">${e(it.tier)}</span>`;
+    const src = (it) => it.source ? `<div class="src">${e(it.source)}${it.quote ? `｜「${e(it.quote)}」` : ''}</div>` : '';
+    const row = (it) => `<div class="row">${chip(it)}<div class="tx">${e(it.text)}${src(it)}</div></div>`;
+    const cnt = (t) => d.items.filter((x) => x.tier === t).length;
+    const pending = cnt('未核');
+    const secs = [...new Set(d.items.map((x) => x.section))];
+    const by = (sec) => d.items.filter((x) => x.section === sec);
+    const kindOf = (sec) => (by(sec)[0] || {}).kind || aibKindOf(sec);
+    const block = (sec) => {
+      const its = by(sec), k = kindOf(sec);
+      if (k === 'summary') return `<section class="card"><h2><i>01</i>案情概要</h2>${its.map(row).join('')}</section>`;
+      if (k === 'update') return `<section class="card upd"><h2><i>新</i>${e(sec)}</h2>${its.map(row).join('')}</section>`;
+      if (k === 'timeline') return `<section class="card"><h2><i>02</i>${e(sec)}</h2><ol class="tl">${its.map((it) => `<li><b>${e(it.date || '')}</b>${row(it)}</li>`).join('')}</ol></section>`;
+      if (k === 'issue') {
+        const col = (r) => its.filter((it) => it.role === r).map(row).join('') || '<div class="none">文件未載明</div>';
+        const evals = its.filter((it) => it.role === '評估'), others = its.filter((it) => !['原告', '被告', '評估'].includes(it.role));
+        return `<section class="card issue"><h2><i>爭</i>${e(sec.replace(/^爭點[一二三四五六七八九十\d]+[：:]\s*/, ''))}<small>${e((sec.match(/^爭點[一二三四五六七八九十\d]+/) || [''])[0])}</small></h2>
+          <div class="vs"><div class="side p"><h3>原告主張</h3>${col('原告')}</div><div class="side d"><h3>被告主張</h3>${col('被告')}</div></div>
+          ${others.length ? `<div class="oth">${others.map(row).join('')}</div>` : ''}
+          ${evals.length ? `<div class="eval"><h3>評估</h3>${evals.map(row).join('')}</div>` : ''}</section>`;
+      }
+      if (k === 'strategy') return `<section class="card"><h2><i>攻</i>${e(sec)}</h2>${its.map(row).join('')}</section>`;
+      if (k === 'todo') return `<section class="card todo"><h2><i>備</i>${e(sec)}</h2>${its.map((it) => `<label class="ck"><input type="checkbox">${row(it)}</label>`).join('')}</section>`;
+      return `<section class="card"><h2>${e(sec)}</h2>${its.map(row).join('')}</section>`;
+    };
+    const order = ['update', 'summary', 'timeline', 'issue', 'strategy', 'todo', 'other'];
+    const sorted = secs.slice().sort((a, b) => order.indexOf(kindOf(a)) - order.indexOf(kindOf(b)));
+    const css = `:root{--ink:#0e1826;--paper:#f4f1ea;--brass:#a8834a;--rule:#e2dccf;--text:#1c2431;--sub:#5b6472}
+*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--text);font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;font-size:16px;line-height:1.75}
+.wrap{max-width:1040px;margin:0 auto;padding:0 28px 48px}
+header{background:var(--ink);color:#efe8da;padding:34px 0 28px;margin-bottom:26px}header .wrap{padding-bottom:0}
+.k{font-size:13px;letter-spacing:.24em;color:#cfae73}h1{font-size:30px;margin:8px 0 6px;font-weight:900;letter-spacing:.02em}
+.meta{font-size:13.5px;color:#b9b3a6}.stats{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap}.stats span{font-size:13px;padding:4px 12px;border-radius:999px;background:rgba(255,255,255,.08)}
+.sum{background:#fff;border-left:5px solid var(--brass);border-radius:12px;padding:18px 22px;font-size:17px;margin-bottom:18px;box-shadow:0 10px 30px -24px rgba(14,24,38,.5)}
+.warn{background:#f6e1dc;color:#a33a2c;border-radius:10px;padding:10px 16px;font-weight:700;margin-bottom:16px}
+.card{background:#fff;border:1px solid var(--rule);border-radius:14px;padding:20px 24px;margin-bottom:18px;box-shadow:0 10px 30px -26px rgba(14,24,38,.5)}
+.card.upd{border-color:#cfae73;background:#fffaf0}
+h2{display:flex;align-items:center;gap:12px;font-size:20px;margin:0 0 12px;font-weight:900}h2 i{font-style:normal;flex:none;width:34px;height:34px;border-radius:9px;background:var(--ink);color:#cfae73;font-size:14px;display:flex;align-items:center;justify-content:center}
+h2 small{font-size:12px;color:var(--brass);letter-spacing:.15em;margin-left:auto}h3{font-size:14px;margin:0 0 8px;letter-spacing:.12em}
+.row{display:flex;gap:10px;align-items:flex-start;margin:7px 0}.tx{flex:1}.src{font-size:12.5px;color:#8a8273;margin-top:2px}
+.tier{flex:none;font-size:12px;font-weight:700;padding:2px 9px;border-radius:999px;margin-top:3px}.g{background:#e3eee6;color:#2f6b4f}.a{background:#f5ead3;color:#9a6510}.r{background:#f6e1dc;color:#a33a2c}.s{background:#eceae4;color:#555}
+.tl{list-style:none;margin:0;padding:0 0 0 18px;border-left:2px solid var(--rule)}.tl li{position:relative;padding:2px 0 8px 14px}.tl li:before{content:"";position:absolute;left:-25px;top:10px;width:12px;height:12px;border-radius:50%;background:#fff;border:3px solid var(--brass)}.tl b{display:block;font-size:14px;color:var(--brass)}
+.vs{display:grid;grid-template-columns:1fr 1fr;gap:14px}.side{border-radius:10px;padding:12px 16px}.side.p{background:#eef3fb}.side.p h3{color:#2f5597}.side.d{background:#fbefed}.side.d h3{color:#a33a2c}
+.eval{margin-top:14px;background:#f8f5ee;border-radius:10px;padding:12px 16px}.eval h3{color:var(--brass)}.oth{margin-top:8px}.none{color:#9a917f;font-size:14px}
+.ck{display:flex;gap:10px;align-items:flex-start;cursor:pointer}.ck input{margin-top:9px;width:16px;height:16px;flex:none}
+footer{font-size:12.5px;color:#8a8273;border-top:1px solid var(--rule);padding-top:12px;margin-top:8px}
+@media(max-width:720px){.vs{grid-template-columns:1fr}h1{font-size:24px}}
+@media print{body{background:#fff}header{-webkit-print-color-adjust:exact;print-color-adjust:exact}.card{break-inside:avoid;box-shadow:none}}`;
+    const json = JSON.stringify(d).replace(/</g, '\\u003c');
+    return '<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>全案整理報告｜' + e(d.caseLabel) + '｜' + e(d.exportedAt.slice(0, 10)) + '</title><style>' + css + '</style></head><body>'
+      + '<header><div class="wrap"><div class="k">全案整理報告　CASE BRIEF</div><h1>' + e(d.caseLabel || '未指定案件') + '</h1>'
+      + '<div class="meta">案件類型：' + e(d.caseType || '—') + '｜整理時間：' + e(d.exportedAt) + '｜' + e(d.engine) + '<br>依據文件：' + d.files.map(e).join('、') + '</div>'
+      + '<div class="stats"><span>原文 ' + cnt('原文') + '</span><span>推論 ' + cnt('推論') + '</span><span>已核 ' + cnt('已核') + '</span><span>未核 ' + pending + '</span></div></div></header>'
+      + '<div class="wrap">' + (pending ? '<div class="warn">尚有 ' + pending + ' 項待核未經人工核對，引用前請再確認。</div>' : '')
+      + (d.summary ? '<div class="sum">' + e(d.summary) + '</div>' : '') + sorted.map(block).join('')
+      + '<footer>本報告由 AI 閱卷助理整理、經律師核對。「原文」為文件逐字摘錄，「推論」為 AI 判斷，「已核」為人工確認項目。僅供事務所內部參考，不構成法律意見。</footer></div>'
       + '<script type="application/json" id="lexflow-report">' + json + '</scr' + 'ipt></body></html>';
   }
+  function aibReportHTML() { return aibBriefPage(aibReportData()); }
+  window.__aibBriefPage = aibBriefPage; // 比賽示範：供產生簡報截圖使用
   function aibReportFileName() {
     const meta = AIB_STATE.meta || {}; const d = new Date(); const pad = (x) => String(x).padStart(2, '0');
     const label = (meta.caseLabel || '案件').replace(/[\\/:*?"<>|（）()]/g, ' ').trim().replace(/\s+/g, '_').slice(0, 40);
@@ -6388,6 +6459,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
     logAudit('匯出全案整理報告（PDF）', (AIB_STATE.meta || {}).caseLabel || '', '');
   }
   document.getElementById('aib-trace').addEventListener('click', (e) => {
+    if (e.target.closest('#aib-preview')) { const w = window.open('', '_blank'); if (w) { w.document.open(); w.document.write(aibReportHTML()); w.document.close(); } else alert('瀏覽器擋住了新視窗，請允許彈出視窗後再試'); return; }
     if (e.target.closest('#aib-export-html')) { aibExportHTML(); return; }
     if (e.target.closest('#aib-export-pdf')) { aibExportPDF(); return; }
     const b = e.target.closest('.aib-badge'); if (!b) return;
@@ -6506,6 +6578,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
           (Array.isArray(g.sections) ? g.sections : []).forEach((sec) => (Array.isArray(sec.items) ? sec.items : []).filter((f) => f && f.text).forEach((f) => findings.push({
             category: String(sec.title || '其他'), text: String(f.text), quote: String(f.quote || ''),
             tier: ['原文', '推論', '待核'].includes(f.tier) ? f.tier : '推論', page: null,
+            kind: String(sec.kind || ''), role: String(f.role || ''), date: String(f.date || ''),
           })));
           meta.ordered = true; meta.caseType = String(g.caseType || '').slice(0, 6);
         } else {
