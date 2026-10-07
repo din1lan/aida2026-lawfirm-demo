@@ -6579,7 +6579,7 @@ footer{font-size:12.5px;color:#8a8273;border-top:1px solid var(--rule);padding-t
           g = await aibCallGemini(docText, caseType, aibCasePrompt('自動'));
           findings = [];
           (Array.isArray(g.sections) ? g.sections : []).forEach((sec) => (Array.isArray(sec.items) ? sec.items : []).filter((f) => f && f.text).forEach((f) => findings.push({
-            category: String(sec.title || '其他'), text: String(f.text), quote: String(f.quote || ''),
+            category: String(sec.title || '其他'), text: String(f.text).replace(/[（(]\s*待核\s*[）)]|，\s*待核(?=[）)])/g, ''), quote: String(f.quote || ''),
             tier: ['原文', '推論', '待核'].includes(f.tier) ? f.tier : '推論', page: null,
             kind: String(sec.kind || ''), role: String(f.role || ''), date: String(f.date || ''),
           })));
