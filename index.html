@@ -1106,7 +1106,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
               <textarea id="aib-text" rows="14" placeholder="例如：原告王小明主張，被告李大華於民國113年3月1日向其借款新臺幣50萬元，有借據（原證一）及匯款紀錄（原證二）可證，爰依民法第478條請求返還……" class="w-full text-sm border rounded-lg px-3 py-2.5 leading-relaxed"></textarea>
             </label>
             <div class="space-y-3">
-              <label class="text-xs text-slate-500 space-y-1 block">
+              <label class="text-xs text-slate-500 space-y-1 hidden">
                 <span>案件類型</span>
                 <select id="aib-case-type" class="w-full text-sm border rounded px-3 py-2">
                   <option value="民事">民事</option>
@@ -1138,8 +1138,8 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
                 <select id="aib-case-select" class="w-full text-sm border rounded px-3 py-2"></select>
               </label>
               <label class="text-xs text-slate-500 space-y-1 block">
-                <span>② 上傳全案文件（可一次選多份 PDF：書狀、筆錄、證據）</span>
-                <input id="aib-pdf" type="file" multiple accept="application/pdf" class="w-full text-xs border rounded px-2 py-1.5 bg-white" />
+                <span>② 上傳全案文件（可一次選多份：書狀、筆錄、證據的 PDF，或前次匯出的報告）</span>
+                <input id="aib-pdf" type="file" multiple accept=".pdf,.html,.htm,.txt,application/pdf,text/html,text/plain" class="w-full text-xs border rounded px-2 py-1.5 bg-white" />
                 <span id="aib-pdf-status" class="block text-[11px] text-slate-400">未選擇檔案時，使用上方貼入的文字</span>
               </label>
               <button id="aib-load-case" type="button" class="w-full text-xs px-3 py-2 rounded border border-slate-300 text-slate-600 hover:bg-slate-50">載入示範案件（4 份虛構文件）</button>
@@ -5844,7 +5844,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
       '- 對每一個推論標明依據（引用原文片段或證據標號）；不確定時明示「推測」並降低信心分數。',
       '- 發現文件可能涉及未到期之上訴期間或時效，無論使用者是否詢問，一律在 risks 置頂警示。',
       '- 不得提供規避法律、湮滅證據、虛偽陳述之建議。',
-      '- 本次分析的案件類型為：' + caseType + '，請以該程序法規為主軸。',
+      (caseType === '自動' ? '- 請先依文件內容自行判斷本案屬民事、刑事或行政案件，再以該程序法規為主軸。' : '- 本次分析的案件類型為：' + caseType + '，請以該程序法規為主軸。'),
     ].join('\n');
   }
   /* 未來後端串接示意（勿在前端放金鑰）：
@@ -6093,18 +6093,36 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
     try {
       const files = [], pages = [], notes = [];
       for (const f of list) {
-        const pdf = await pdfjsLib.getDocument({ data: await f.arrayBuffer() }).promise;
         const fi = files.length; let chars = 0;
+        if (!/\.pdf$/i.test(f.name) && f.type !== 'application/pdf') {
+          // HTML／純文字：前次匯出的整理報告優先讀內嵌 JSON，整份當成一頁
+          const raw = await f.text(); let text = raw, isReport = false;
+          if (/\.html?$/i.test(f.name) || /^\s*</.test(raw)) {
+            const dom = new DOMParser().parseFromString(raw, 'text/html');
+            const js = dom.getElementById('lexflow-report');
+            if (js) { try { const r = JSON.parse(js.textContent); isReport = true; text = `全案整理報告（${r.exportedAt}，${r.caseLabel}）\n概要：${r.summary}\n` + r.items.map((it) => `[${it.section}][${it.tier}] ${it.text}${it.source ? `（出處：${it.source}）` : ''}`).join('\n'); } catch (e) { /* 當一般 HTML 讀 */ } }
+            if (!isReport) { dom.querySelectorAll('script,style').forEach((n) => n.remove()); text = dom.body ? (dom.body.innerText || dom.body.textContent) : raw; }
+          }
+          text = aibFixChars(text); chars = aibNorm(text).length;
+          pages.push({ n: pages.length + 1, file: fi, fn: 1, text });
+          const nm = f.name.replace(/\.(html?|txt)$/i, '');
+          files.push({ name: isReport && !/全案整理報告/.test(nm) ? '全案整理報告_' + nm : nm, pdf: null, numPages: 1, report: isReport });
+          notes.push(`文件${fi + 1}：${f.name}（${isReport ? '前次整理報告' : '文字檔'}）`);
+          continue;
+        }
+        const pdf = await pdfjsLib.getDocument({ data: await f.arrayBuffer() }).promise;
         for (let i = 1; i <= pdf.numPages; i++) {
           const tc = await (await pdf.getPage(i)).getTextContent();
           const text = aibFixChars(tc.items.map((it) => it.str + (it.hasEOL ? '\n' : '')).join(''));
           chars += aibNorm(text).length;
           pages.push({ n: pages.length + 1, file: fi, fn: i, text });
         }
-        files.push({ name: f.name.replace(/\.pdf$/i, ''), pdf, numPages: pdf.numPages });
+        // 前次報告若存成 PDF（列印匯出），靠標題認出來，一樣只當背景參考
+        const isRep = /全案整理報告/.test(f.name) || /^\s*全案整理報告/.test((pages.find((x) => x.file === fi) || {}).text || '');
+        files.push({ name: f.name.replace(/\.pdf$/i, ''), pdf, numPages: pdf.numPages, report: isRep });
         notes.push(`文件${fi + 1}：${f.name}（${pdf.numPages} 頁${chars < 30 ? '，讀不到文字，可能是掃描檔' : ''}）`);
       }
-      AIB_DOC.files = files; AIB_DOC.pages = pages; AIB_DOC.source = 'pdf'; AIB_DOC.pdf = files[0].pdf; AIB_DOC.name = files.map((x) => x.name).join('、');
+      AIB_DOC.files = files; AIB_DOC.pages = pages; AIB_DOC.source = 'pdf'; AIB_DOC.pdf = (files.find((x) => x.pdf) || {}).pdf || null; AIB_DOC.name = files.map((x) => x.name).join('、');
       st.innerHTML = '✓ ' + notes.map((x) => esc(x)).join('<br>') + (notes.some((x) => x.includes('掃描檔')) ? '<br><span class="text-red-600">掃描檔需先做文字辨識，目前版本無法讀取其內容</span>' : '');
       document.getElementById('aib-text').value = pages.map((p) => `【文件${p.file + 1}：${files[p.file].name}｜第${p.fn}頁】\n${p.text}`).join('\n\n');
     } catch (err) { AIB_DOC.files = []; AIB_DOC.pages = []; AIB_DOC.pdf = null; st.textContent = '讀取失敗：' + err.message; }
@@ -6141,7 +6159,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
   try { aibKeyIn.value = sessionStorage.getItem('aib_gemini_key') || ''; } catch (e) { /* ignore */ }
   aibEngSel.addEventListener('change', () => document.getElementById('aib-gemini-box').classList.toggle('hidden', aibEngSel.value !== 'gemini'));
   // 比賽示範版：把 AI 閱卷助理的完整角色指令攤開給使用者看（與 LINE 接待一樣，靠角色設定讓 AI 照事務所的規矩做事）
-  try { document.getElementById('aib-role-prompt').textContent = aibCasePrompt('民事'); } catch (e) { /* ignore */ }
+  try { document.getElementById('aib-role-prompt').textContent = aibCasePrompt('自動'); } catch (e) { /* ignore */ }
   aibKeyIn.addEventListener('change', () => { try { sessionStorage.setItem('aib_gemini_key', aibKeyIn.value.trim()); } catch (e) { /* ignore */ } });
   document.getElementById('aib-gemini-load').addEventListener('click', async () => {
     const key = aibKeyIn.value.trim();
@@ -6170,12 +6188,21 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
       '- 文件沒寫的事不得出現，不得編造法條、判決或證據。findings 15 到 30 項，scores 為 0 到 100 的整數。',
     ].join('\n');
   }
+  // 案件類型由內容判斷，不用使用者選：先用關鍵字粗判（給離線備援用），Gemini 則請它自行判斷
+  function aibDetectCaseType(text) {
+    const t = String(text || '');
+    const n = (re) => (t.match(re) || []).length;
+    const crim = n(/起訴書|偵字|偵查|檢察官|告訴人|被告人|刑法第|罪嫌|易字|簡字/g), admin = n(/訴願|行政處分|原處分|行政法院|行政訴訟/g), civ = n(/民事|原告|民法第|訴之聲明|答辯狀/g);
+    if (admin > civ && admin >= crim && admin > 0) return '行政';
+    if (crim > civ && crim > 0) return '刑事';
+    return '民事';
+  }
   function aibCasePrompt(caseType) {
     return buildLegalAnalysisSystemPrompt(caseType) + '\n\n' + [
       '# 全案整理輸出規則（本次改用此格式，取代上面的【輸出格式】）',
       '使用者會提供同一案件的多份文件，每頁以「【文件N：檔名｜第M頁】」標示。請讀完全部文件，整理成律師開庭前可以直接使用的全案摘要。',
       '只輸出一個 JSON 物件，不要任何其他文字：',
-      '{"summary":"兩三句話的全案概要","sections":[{"title":"案情概要","items":[ITEM]},{"title":"程序進度與重要期日","items":[ITEM]},{"title":"爭點一：（爭點名稱）","items":[ITEM]},{"title":"攻防注意事項","items":[ITEM]},{"title":"下次開庭前準備","items":[ITEM]}]}',
+      '{"caseType":"民事|刑事|行政（你依文件判斷）","summary":"兩三句話的全案概要","sections":[{"title":"案情概要","items":[ITEM]},{"title":"程序進度與重要期日","items":[ITEM]},{"title":"爭點一：（爭點名稱）","items":[ITEM]},{"title":"攻防注意事項","items":[ITEM]},{"title":"下次開庭前準備","items":[ITEM]}]}',
       'ITEM 格式：{"text":"你的整理","tier":"原文|推論|待核","doc":N,"page":M,"quote":"文件中一字不差的連續原句（10 到 60 字）"}',
       '- 爭點依文件實際內容決定數量，每個爭點底下依序整理：原告主張、被告主張、雙方證據、目前評估（評估屬推論）。',
       '- 攻防注意事項：對造論點的弱點、我方需要補強的證據、可能的程序風險。',
@@ -6185,6 +6212,10 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
       '- 推論：你的判斷、歸納與建議；quote 填你依據的原句，沒有依據就填空字串。',
       '- 待核：所有法條條號、判決字號、金額、期間計算一律標「待核」。',
       '- 文件沒寫的事不得出現，不得編造法條、判決或證據。全部 items 合計 20 到 40 項。',
+      '# 前次整理報告',
+      '- 若某份文件標題含「全案整理報告」，那是事務所先前核對過的 AI 摘要，只能當背景參考。',
+      '- 「原文」只能引用原始書狀、筆錄、證據，不得引用前次整理報告的內容。',
+      '- 有前次報告時，sections 最前面多加一段 {"title":"與前次整理相比的新進展","items":[...]}，列出新文件帶來的變化。',
     ].join('\n');
   }
   async function aibCallGemini(docText, caseType, promptText) {
@@ -6241,6 +6272,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
         else if (q.length > 12) { hit = pagesN.find((p) => p.t.includes(q.slice(0, 12))); if (hit) f.found = 'partial'; }
         if (hit) f.page = hit.n; else if (f.tier !== '推論') f.page = null;
       }
+      if (f.found && AIB_DOC.files.length) { const pg = aibPageOf(f.page); if (pg && AIB_DOC.files[pg.file] && AIB_DOC.files[pg.file].report && f.tier === '原文') f.tier = '推論'; }
       if (f.tier === '原文' && f.found !== 'exact') { f.tier = '待核'; f.downgraded = true; }
       if (['法條', '金額'].includes(f.category) && f.tier !== '待核') f.tier = '待核';
       // 全案模式的段落沒有「法條／金額」分類，改看內容：提到條號、字號、金額的一律待核
@@ -6277,7 +6309,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
     box.innerHTML = `
       <div class="flex items-start justify-between gap-3 flex-wrap">
         <div><p class="text-base font-bold text-slate-900">${meta.ordered ? '全案整理結果' : '溯源分析結果'}${meta.caseLabel ? `<span class="ml-2 text-xs font-normal text-slate-500">${esc(meta.caseLabel)}</span>` : ''}</p>
-          <p class="text-xs text-slate-500">${esc(meta.engineLabel || '')}｜文件：${esc(meta.docLabel || '')}</p>
+          <p class="text-xs text-slate-500">${esc(meta.engineLabel || '')}｜文件：${esc(meta.docLabel || '')}${meta.caseType ? `｜案件類型：${esc(meta.caseType)}（${meta.ordered ? 'AI 判斷' : '自動判斷'}）` : ''}</p>
           ${meta.summary ? `<p class="text-sm text-slate-700 mt-1">${esc(meta.summary)}</p>` : ''}</div>
         <div class="flex gap-2 text-xs flex-wrap">
           <span class="px-2 py-1 rounded bg-emerald-50 text-emerald-800">原文 ${cnt('原文')}</span>
@@ -6288,10 +6320,76 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
       ${down ? `<div class="text-xs bg-red-50 border border-red-200 text-red-800 rounded px-3 py-2">🛡️ 防幻覺攔截：AI 標為「原文」、但在文件裡逐字比對不到的有 <b>${down}</b> 項，已自動降為「待核」。</div>` : ''}
       ${groups.map(([c, a]) => `<div><p class="${meta.ordered ? 'text-sm font-bold text-slate-800 border-b border-slate-100 pb-1' : 'text-xs font-semibold text-slate-500'} mb-1.5">${esc(c)}</p><div class="space-y-1.5">${a.map(([f, i]) => `
         <div class="flex items-start gap-2 text-sm text-slate-700">${badge(f, i)}<span class="${f.status === 'wrong' ? 'line-through text-slate-400' : ''}">${esc(f.text)}${f.downgraded ? ' <span class="text-[11px] text-red-600">（AI 標為原文，但文件比對不到）</span>' : ''}</span></div>`).join('')}</div></div>`).join('')}
-      <p class="text-[11px] text-slate-400 border-t border-slate-100 pt-2">點「原文」→ 跳到文件那一頁並標出原句；點「推論」→ 看它依據的原句；點「待核」→ 人工核對後才算數。</p>`;
+      <div class="flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
+        <button type="button" id="aib-export-html" class="text-sm px-3 py-1.5 rounded bg-navy-900 text-white">匯出 HTML 報告</button>
+        <button type="button" id="aib-export-pdf" class="text-sm px-3 py-1.5 rounded border border-slate-300 text-slate-700 hover:bg-slate-50">匯出 PDF（列印）</button>
+        <span class="text-[11px] text-slate-400">核對完再匯出，存到事務所的案件資料夾；之後連同新文件一起上傳，AI 會接著更新進度</span>
+      </div>
+      <p class="text-[11px] text-slate-400 pt-1">點「原文」→ 跳到文件那一頁並標出原句；點「推論」→ 看它依據的原句；點「待核」→ 人工核對後才算數。</p>`;
     box.classList.remove('hidden');
   }
+  // ===== 匯出全案整理報告（HTML／PDF）=====
+  // 報告內嵌一份 JSON，之後把報告丟回 AI 閱卷時，系統能認出這是「前次整理報告」
+  function aibSourceLabel(f) {
+    const pg = aibPageOf(f.page); if (!pg) return '';
+    const fn = AIB_DOC.files[pg.file] ? AIB_DOC.files[pg.file].name : '貼入文字';
+    return `${fn} 第${pg.fn || pg.n}頁`;
+  }
+  const aibIsPending = (f) => f.tier === '待核' && f.status !== 'ok' && f.status !== 'wrong';
+  function aibReportHTML() {
+    const F = AIB_STATE.findings, meta = AIB_STATE.meta || {};
+    const now = new Date(); const pad = (x) => String(x).padStart(2, '0');
+    const stamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+    const pending = F.filter(aibIsPending).length;
+    const tierTxt = (f) => f.tier === '待核' ? (f.status === 'ok' ? '已核' : f.status === 'wrong' ? '有誤' : '未核') : f.tier;
+    const tierCls = (f) => f.tier === '原文' ? 'g' : f.tier === '推論' ? 'a' : f.status === 'ok' ? 's' : 'r';
+    const order = [...new Set(F.map((f) => f.category))];
+    const files = AIB_DOC.files.length ? AIB_DOC.files.map((x, i) => `文件${i + 1}：${x.name}`) : ['貼入的文字'];
+    const data = { app: 'lawfirm-ai-brief-report', version: 1, exportedAt: stamp, caseLabel: meta.caseLabel || '', caseType: meta.caseType || '', engine: meta.engineLabel || '', summary: meta.summary || '', files,
+      items: F.filter((f) => f.status !== 'wrong').map((f) => ({ section: f.category, text: f.text, tier: tierTxt(f), source: aibSourceLabel(f), quote: f.quote || '' })) };
+    const body = order.map((c) => `<h2>${esc(c)}</h2>` + F.filter((f) => f.category === c).map((f) => `<div class="it${f.status === 'wrong' ? ' x' : ''}"><span class="t ${tierCls(f)}">${tierTxt(f)}</span><div><div>${esc(f.text)}</div>${f.quote && f.page ? `<div class="src">出處：${esc(aibSourceLabel(f))}｜「${esc(f.quote)}」</div>` : ''}</div></div>`).join('')).join('');
+    const css = 'body{font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;color:#1c2431;max-width:860px;margin:32px auto;padding:0 24px;line-height:1.75;font-size:15px}h1{font-size:24px;margin:0 0 4px}h2{font-size:17px;margin:26px 0 8px;padding-bottom:4px;border-bottom:1px solid #ddd}.meta{color:#5b6472;font-size:13px}.sum{background:#f6f3ec;border-left:4px solid #a8834a;padding:12px 16px;margin:16px 0}.it{display:flex;gap:10px;margin:8px 0}.it.x{color:#999;text-decoration:line-through}.t{flex:none;font-size:12px;font-weight:700;padding:1px 8px;border-radius:10px;height:fit-content;margin-top:3px}.g{background:#e3eee6;color:#2f6b4f}.a{background:#f5ead3;color:#9a6510}.r{background:#f6e1dc;color:#a33a2c}.s{background:#eee;color:#555}.src{font-size:12.5px;color:#6b7280}.warn{color:#a33a2c;font-weight:700}.foot{margin-top:30px;font-size:12px;color:#8a8273;border-top:1px solid #ddd;padding-top:10px}';
+    const json = JSON.stringify(data).replace(/</g, '\\u003c');
+    return '<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><title>全案整理報告｜' + esc(meta.caseLabel || '') + '｜' + stamp.slice(0, 10) + '</title><style>' + css + '</style></head><body>'
+      + '<h1>全案整理報告</h1><div class="meta">' + esc(meta.caseLabel || '') + '｜案件類型：' + esc(meta.caseType || '—') + '｜匯出時間：' + stamp + '<br>分析引擎：' + esc(meta.engineLabel || '') + '<br>依據文件：' + files.map(esc).join('、') + '</div>'
+      + (pending ? '<p class="warn">尚有 ' + pending + ' 項待核未經人工核對，引用前請再確認。</p>' : '')
+      + (meta.summary ? '<div class="sum">' + esc(meta.summary) + '</div>' : '') + body
+      + '<div class="foot">本報告由 AI 閱卷助理整理，經律師核對；「原文」為文件逐字摘錄，「推論」為 AI 判斷，「已核」為人工確認項目。僅供事務所內部參考，不構成法律意見。</div>'
+      + '<script type="application/json" id="lexflow-report">' + json + '</scr' + 'ipt></body></html>';
+  }
+  function aibReportFileName() {
+    const meta = AIB_STATE.meta || {}; const d = new Date(); const pad = (x) => String(x).padStart(2, '0');
+    const label = (meta.caseLabel || '案件').replace(/[\\/:*?"<>|（）()]/g, ' ').trim().replace(/\s+/g, '_').slice(0, 40);
+    return `全案整理報告_${label}_${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}.html`;
+  }
+  function aibConfirmPending() {
+    const pending = AIB_STATE.findings.filter(aibIsPending).length;
+    return !pending || confirm(`還有 ${pending} 項「待核」沒有核對。\n報告會把它們標成「未核」。仍要匯出嗎？`);
+  }
+  async function aibExportHTML() {
+    if (!AIB_STATE.findings.length || !aibConfirmPending()) return;
+    const html = aibReportHTML(); const name = aibReportFileName();
+    try {
+      if (window.showSaveFilePicker) { // Chrome／Edge：可直接選事務所的案件資料夾
+        const h = await window.showSaveFilePicker({ suggestedName: name, types: [{ description: 'HTML 報告', accept: { 'text/html': ['.html'] } }] });
+        const w = await h.createWritable(); await w.write(html); await w.close();
+      } else {
+        const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([html], { type: 'text/html' })); a.download = name;
+        document.body.appendChild(a); a.click(); a.remove();
+      }
+      logAudit('匯出全案整理報告', (AIB_STATE.meta || {}).caseLabel || '', name);
+    } catch (err) { if (err && err.name !== 'AbortError') alert('匯出失敗：' + err.message); }
+  }
+  function aibExportPDF() {
+    if (!AIB_STATE.findings.length || !aibConfirmPending()) return;
+    const w = window.open('', '_blank'); if (!w) { alert('瀏覽器擋住了新視窗，請允許彈出視窗後再試'); return; }
+    w.document.open(); w.document.write(aibReportHTML()); w.document.close();
+    setTimeout(() => { try { w.focus(); w.print(); } catch (e) { /* ignore */ } }, 400);
+    logAudit('匯出全案整理報告（PDF）', (AIB_STATE.meta || {}).caseLabel || '', '');
+  }
   document.getElementById('aib-trace').addEventListener('click', (e) => {
+    if (e.target.closest('#aib-export-html')) { aibExportHTML(); return; }
+    if (e.target.closest('#aib-export-pdf')) { aibExportPDF(); return; }
     const b = e.target.closest('.aib-badge'); if (!b) return;
     const f = AIB_STATE.findings[Number(b.dataset.aibI)]; if (!f) return;
     if (f.tier === '待核') aibOpenVerify(f);
@@ -6306,7 +6404,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
     document.getElementById('aib-viewer-sub').textContent = '標示原句：' + f.quote;
     body.innerHTML = '<p class="text-sm text-slate-500">載入中…</p>';
     ov.classList.remove('hidden');
-    if (AIB_DOC.source === 'pdf' && pf) {
+    if (AIB_DOC.source === 'pdf' && pf && pf.pdf) {
       const page = await pf.pdf.getPage(pg.fn);
       const vp0 = page.getViewport({ scale: 1 });
       const vp = page.getViewport({ scale: Math.max(0.6, Math.min(1.6, (body.clientWidth - 24) / vp0.width)) });
@@ -6337,7 +6435,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
         body.insertAdjacentHTML('afterbegin', '<p class="text-xs text-red-600 mb-2">這一頁找不到完全相同的句子（可能是 PDF 斷行），請人工比對。</p>');
       }
     } else {
-      const text = document.getElementById('aib-text').value;
+      const text = pf && !pf.pdf ? pg.text : document.getElementById('aib-text').value;
       const map = []; let flat = '';
       for (let i = 0; i < text.length; i++) { const c = aibFixChars(text[i]); if (/^[\s\u3000]*$/.test(c)) continue; flat += c; map.push(i); }
       const q = aibNorm(f.quote); const pos = flat.indexOf(q);
@@ -6382,7 +6480,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
     const pages = AIB_DOC.pages;
     const text = pages.map((p) => p.text).join('\n');
     if (aibNorm(text).length < 30) { alert('請先貼入至少 30 字的書狀或判決書內容、上傳 PDF，或點「填入示範書狀」測試'); return; }
-    const caseType = document.getElementById('aib-case-type').value;
+    const caseType = aibDetectCaseType(text);
     if (aibEngSel.value === 'gemini' && (!aibKeyIn.value.trim() || !aibModelSel.value)) {
       if (confirm('還沒有貼上 Gemini 金鑰或選擇模型。\n要先用「離線備援」跑一次嗎？（只抓固定格式，不會傳送任何資料）')) { aibEngSel.value = 'local'; aibEngSel.dispatchEvent(new Event('change')); }
       else return;
@@ -6403,13 +6501,13 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
         if (multi) {
           // 全案模式：多份文件一起送，產出「案情概要／程序進度／各爭點／攻防注意／開庭準備」
           const docText = pages.map((p) => `【文件${p.file + 1}：${AIB_DOC.files[p.file].name}｜第${p.fn}頁】\n${p.text}`).join('\n\n');
-          g = await aibCallGemini(docText, caseType, aibCasePrompt(caseType));
+          g = await aibCallGemini(docText, caseType, aibCasePrompt('自動'));
           findings = [];
           (Array.isArray(g.sections) ? g.sections : []).forEach((sec) => (Array.isArray(sec.items) ? sec.items : []).filter((f) => f && f.text).forEach((f) => findings.push({
             category: String(sec.title || '其他'), text: String(f.text), quote: String(f.quote || ''),
             tier: ['原文', '推論', '待核'].includes(f.tier) ? f.tier : '推論', page: null,
           })));
-          meta.ordered = true;
+          meta.ordered = true; meta.caseType = String(g.caseType || '').slice(0, 6);
         } else {
           g = await aibCallGemini(pages.map((p) => `【第${p.n}頁】\n${p.text}`).join('\n\n'), caseType);
           findings = (Array.isArray(g.findings) ? g.findings : []).filter((f) => f && f.text).map((f) => ({
@@ -6432,12 +6530,12 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
             });
           });
         } else findings = aibLocalFindings(local, text);
-        meta.engineLabel = '規則式引擎（本機執行，免金鑰）';
+        meta.engineLabel = '規則式引擎（本機執行，免金鑰）'; meta.caseType = caseType;
       }
       AIB_STATE.findings = aibVerify(findings); AIB_STATE.meta = meta;
       skeleton.classList.add('hidden');
       aibRenderTrace();
-      renderAibResult(local);
+      if (aibEngSel.value === 'gemini') { result.classList.add('hidden'); result.innerHTML = ''; } else renderAibResult(local);
       try { trace.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) { /* ignore */ }
     } catch (err) {
       skeleton.classList.add('hidden');
