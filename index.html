@@ -156,13 +156,13 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
             <select id="login-role-select" name="userId" class="w-full text-sm border rounded px-3 py-2"></select>
           </label>
           <!-- 2026-08-20：每人各自的登入密碼（選身分後輸入本人密碼） -->
-          <label class="text-xs text-slate-500 space-y-1 block">
+          <label class="text-xs text-slate-500 space-y-1 hidden">
             <span>個人密碼</span>
             <input id="login-password" name="password" type="password" inputmode="numeric" autocomplete="off" placeholder="請輸入您的個人密碼" class="w-full text-sm border rounded px-3 py-2" />
           </label>
           <div id="login-error" class="hidden text-xs text-red-600"></div>
           <button class="w-full text-sm px-4 py-2.5 rounded bg-navy-900 text-white hover:bg-navy-800 font-medium">進入系統</button>
-          <p id="login-demo-hint" class="text-[11px] text-slate-400 pt-1">比賽示範版：所有資料皆為虛構。任選一個身分，密碼一律為 <b>88888888</b>。資料只存在你自己的瀏覽器。</p>
+          <p id="login-demo-hint" class="text-[11px] text-slate-400 pt-1">比賽示範版：所有資料皆為虛構，選一個身分直接進入即可。資料只存在你自己的瀏覽器。<br>正式版需以事務所指定的 Google 帳號登入，並以個人密碼確認身分。</p>
         </form>
         <div id="signup-panel" class="hidden text-sm text-slate-600 space-y-3">
           <p>新帳號請洽主持律師或系統管理者於程式碼 <span class="font-mono text-xs bg-slate-100 px-1 py-0.5 rounded">USERS</span> 清單中新增，本預覽尚未開放線上自助註冊。</p>
@@ -1352,13 +1352,13 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
   // 注意：真正擋住外人的是 @事務所網域 Google 登入；此密碼寫在前端原始碼中，僅用於「所內同事之間互相區分」，
   // 對已能開啟本站的人不具保密效果。要改密碼直接改這裡的 password 欄位。password 為空＝尚未設定，可直接進入。
   const USERS = [
-    { id: 'ding', name: '王大明', roleLabel: '主持律師', roleGroup: 'boss', attorneyFullName: '王大明律師', canSeeFinance: true, password: '88888888' },
-    { id: 'cheng', name: '陳志明', roleLabel: '主持律師', roleGroup: 'boss', attorneyFullName: '陳志明律師', canSeeFinance: true, password: '88888888' },
-    { id: 'wang', name: '林淑芬', roleLabel: '律師', roleGroup: 'lawyer', attorneyFullName: '林淑芬律師', canSeeFinance: false, password: '88888888' },
-    { id: 'chen', name: '黃建宏', roleLabel: '律師', roleGroup: 'lawyer', attorneyFullName: '黃建宏律師', canSeeFinance: false, password: '88888888' },
-    { id: 'liu', name: '張雅婷', roleLabel: '受僱律師', roleGroup: 'lawyer', attorneyFullName: '張雅婷律師', canSeeFinance: false, password: '88888888' },
-    { id: 'finance', name: '李美玲', roleLabel: '財務', roleGroup: 'finance', attorneyFullName: null, canSeeFinance: true, password: '88888888' },
-    { id: 'assistant', name: '吳佩珊', roleLabel: '行政', roleGroup: 'assistant', attorneyFullName: null, canSeeFinance: false, password: '88888888' },
+    { id: 'ding', name: '王大明', roleLabel: '主持律師', roleGroup: 'boss', attorneyFullName: '王大明律師', canSeeFinance: true, password: '' },
+    { id: 'cheng', name: '陳志明', roleLabel: '主持律師', roleGroup: 'boss', attorneyFullName: '陳志明律師', canSeeFinance: true, password: '' },
+    { id: 'wang', name: '林淑芬', roleLabel: '律師', roleGroup: 'lawyer', attorneyFullName: '林淑芬律師', canSeeFinance: false, password: '' },
+    { id: 'chen', name: '黃建宏', roleLabel: '律師', roleGroup: 'lawyer', attorneyFullName: '黃建宏律師', canSeeFinance: false, password: '' },
+    { id: 'liu', name: '張雅婷', roleLabel: '受僱律師', roleGroup: 'lawyer', attorneyFullName: '張雅婷律師', canSeeFinance: false, password: '' },
+    { id: 'finance', name: '李美玲', roleLabel: '財務', roleGroup: 'finance', attorneyFullName: null, canSeeFinance: true, password: '' },
+    { id: 'assistant', name: '吳佩珊', roleLabel: '行政', roleGroup: 'assistant', attorneyFullName: null, canSeeFinance: false, password: '' },
   ];
   function findUser(id) { return USERS.find((u) => u.id === id) || null; }
 
