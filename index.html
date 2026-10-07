@@ -1094,10 +1094,10 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
       <section id="page-ai-brief" class="page space-y-4">
         <div>
           <h1 class="text-2xl font-bold text-slate-900">AI 智慧閱卷與訴訟爭點分析</h1>
-          <p class="text-slate-500 text-sm mt-1">貼入書狀／判決書全文，系統即時萃取當事人、時間軸、證據標號、法條引用並產出爭點分析面板</p>
+          <p class="text-slate-500 text-sm mt-1">上傳同一案件的全部文件（書狀、筆錄、證據），AI 閱卷助理整理案情概要、爭點、攻防注意與下次開庭準備；也可以直接貼入文字</p>
         </div>
         <div class="text-xs bg-amber-50 border border-amber-200 text-amber-800 rounded-lg px-4 py-2.5">
-          由 <b>AI 閱卷助理</b>（Google Gemini，依事務所設定的角色與規矩工作）讀卷宗、整理爭點；結果一律經過「回卷宗逐字比對」的防幻覺檢查，並標示原文／推論／待核。沒有金鑰或沒有網路時，可切換<b>離線備援</b>。</div>
+          由 <b>AI 閱卷助理</b>（Google Gemini，依事務所設定的角色與規矩工作）讀文件、整理爭點；結果一律經過「回文件逐字比對」的防幻覺檢查，並標示原文／推論／待核。沒有金鑰或沒有網路時，可切換<b>離線備援</b>。</div>
 
         <div class="bg-white rounded-lg border-2 border-indigo-300 p-5">
           <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -1115,7 +1115,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
                 </select>
               </label>
               <button id="aib-analyze" type="button" class="w-full text-sm px-4 py-2.5 rounded-lg bg-navy-900 text-white hover:bg-navy-800 font-medium">🔍 開始分析</button>
-              <button id="aib-load-sample" type="button" class="w-full text-xs px-4 py-2 rounded-lg border border-slate-300 text-slate-500 hover:bg-slate-50">填入示範書狀（測試用）</button>
+              <button id="aib-load-sample" type="button" class="w-full text-xs px-4 py-2 rounded-lg border border-slate-300 text-slate-500 hover:bg-slate-50">貼入示範文字（測試用）</button>
               <div class="text-[11px] text-slate-400 leading-relaxed">分析涵蓋：當事人角色識別、民國年日期時間軸、原證/被證標號、法條引用、金額萃取、五維攻防雷達評估。</div>
             </div>
           </div>
@@ -1124,47 +1124,54 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
         <!-- 比賽示範版 v2：溯源 AI 閱卷控制區 -->
         <div class="bg-white rounded-lg border border-slate-200 p-5 space-y-3" id="aib-trace-controls">
           <div class="flex items-center justify-between flex-wrap gap-2">
-            <p class="text-sm font-semibold text-slate-800">卷宗來源與 AI 引擎</p>
+            <p class="text-sm font-semibold text-slate-800">文件來源與 AI 引擎</p>
             <div class="flex items-center gap-2 text-[11px]">
-              <span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">原文：可回溯到卷宗</span>
+              <span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">原文：可回溯到文件</span>
               <span class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300">推論：AI 判斷</span>
               <span class="px-2 py-0.5 rounded-full bg-red-100 text-red-800 border border-red-300">待核：須人工核對</span>
             </div>
           </div>
           <div class="grid grid-cols-1 lg:grid-cols-3 gap-3">
+            <div class="space-y-2">
+              <label class="text-xs text-slate-500 space-y-1 block">
+                <span>① 這批文件屬於哪個案件</span>
+                <select id="aib-case-select" class="w-full text-sm border rounded px-3 py-2"></select>
+              </label>
+              <label class="text-xs text-slate-500 space-y-1 block">
+                <span>② 上傳全案文件（可一次選多份 PDF：書狀、筆錄、證據）</span>
+                <input id="aib-pdf" type="file" multiple accept="application/pdf" class="w-full text-xs border rounded px-2 py-1.5 bg-white" />
+                <span id="aib-pdf-status" class="block text-[11px] text-slate-400">未選擇檔案時，使用上方貼入的文字</span>
+              </label>
+              <button id="aib-load-case" type="button" class="w-full text-xs px-3 py-2 rounded border border-slate-300 text-slate-600 hover:bg-slate-50">載入示範案件（4 份虛構文件）</button>
+            </div>
             <label class="text-xs text-slate-500 space-y-1 block">
-              <span>① 上傳卷宗 PDF（只在你的瀏覽器裡讀取，不會上傳）</span>
-              <input id="aib-pdf" type="file" accept="application/pdf" class="w-full text-xs border rounded px-2 py-1.5 bg-white" />
-              <span id="aib-pdf-status" class="block text-[11px] text-slate-400">未選擇檔案時，使用上方貼入的文字</span>
-            </label>
-            <label class="text-xs text-slate-500 space-y-1 block">
-              <span>② 分析引擎</span>
+              <span>③ 分析引擎</span>
               <select id="aib-engine" class="w-full text-sm border rounded px-3 py-2">
                 <option value="gemini">AI 閱卷助理（Google Gemini）</option>
                 <option value="local">離線備援（免金鑰，只抓固定格式）</option>
               </select>
             </label>
             <div id="aib-gemini-box" class="text-xs text-slate-500 space-y-1">
-              <span>③ Gemini API 金鑰（只存在這個分頁，關掉就清除，不寫進檔案）</span>
+              <span>④ Gemini API 金鑰（只存在這個分頁，關掉就清除，不寫進檔案）</span>
               <input id="aib-gemini-key" type="password" autocomplete="off" placeholder="貼上你自己的金鑰" class="w-full text-sm border rounded px-3 py-2" />
               <div class="flex gap-2">
                 <select id="aib-gemini-model" class="flex-1 text-xs border rounded px-2 py-1.5"><option value="">先輸入金鑰再載入模型</option></select>
                 <button id="aib-gemini-load" type="button" class="text-xs px-2 py-1.5 rounded border border-slate-300 hover:bg-slate-50 whitespace-nowrap">載入模型</button>
               </div>
-              <label class="flex items-start gap-2 pt-1 text-slate-600"><input id="aib-gemini-consent" type="checkbox" class="mt-1" /><span>我了解選用 Gemini 時，卷宗文字會傳送給 Google 進行分析（正式版會留存同意紀錄）</span></label>
+              <label class="flex items-start gap-2 pt-1 text-slate-600"><input id="aib-gemini-consent" type="checkbox" class="mt-1" /><span>我了解選用 Gemini 時，文件文字會傳送給 Google 進行分析（正式版會留存同意紀錄）</span></label>
             </div>
           </div>
           <details id="aib-role" class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
             <summary class="cursor-pointer font-semibold text-slate-700">AI 閱卷助理的角色設定（點開查看完整指令）</summary>
             <ul class="mt-2 space-y-1 list-disc pl-5">
               <li><b>角色</b>：受聘於本事務所、熟悉台灣訴訟實務的資深訴訟律師助理</li>
-              <li><b>任務</b>：讀完卷宗，整理當事人、時間軸、證據、請求權基礎、爭點與攻防建議</li>
-              <li><b>規矩</b>：每一項都要附頁碼與卷宗原句；法條、判決字號、金額一律標「待核」；卷宗沒寫的不准編</li>
-              <li><b>把關</b>：助理說是原文的句子，系統會再回卷宗逐字比對，比對不到自動降為待核</li>
+              <li><b>任務</b>：讀完文件，整理當事人、時間軸、證據、請求權基礎、爭點與攻防建議</li>
+              <li><b>規矩</b>：每一項都要附頁碼與文件原句；法條、判決字號、金額一律標「待核」；文件沒寫的不准編</li>
+              <li><b>把關</b>：助理說是原文的句子，系統會再回文件逐字比對，比對不到自動降為待核</li>
             </ul>
             <pre id="aib-role-prompt" class="mt-3 max-h-72 overflow-auto whitespace-pre-wrap bg-white border border-slate-200 rounded p-3 text-[11px] leading-relaxed text-slate-600"></pre>
           </details>
-          <p class="text-[11px] text-slate-400 leading-relaxed">防幻覺機制：AI 標為「原文」的每一句，系統會回到卷宗逐字比對；比對不到就自動降為「待核」。法條、判決字號、金額一律列為「待核」，必須點開人工核對。</p>
+          <p class="text-[11px] text-slate-400 leading-relaxed">防幻覺機制：AI 標為「原文」的每一句，系統會回到文件逐字比對；比對不到就自動降為「待核」。法條、判決字號、金額一律列為「待核」，必須點開人工核對。</p>
         </div>
 
         <!-- 溯源分析結果 -->
@@ -6068,7 +6075,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
   // ===== 比賽示範版 v2：溯源 AI 閱卷（PDF 溯源＋三層來源分級＋Gemini）=====
   // 原文＝可回溯到卷宗的逐字片段（系統會回卷宗比對，比對不到自動降為待核）
   // 推論＝AI 的判斷與建議；待核＝法條、判決字號、金額，一律要人工核對
-  const AIB_DOC = { pages: [], source: 'text', pdf: null, name: '' };
+  const AIB_DOC = { pages: [], files: [], source: 'text', pdf: null, name: '' };
   const AIB_STATE = { findings: [], meta: null };
   // PDF 常把中文存成「部首字元」（例：⺠ 其實是 民），比對前一律轉回標準字
   const AIB_RADICALS = { '⺠': '民', '⻑': '長', '⻔': '門', '⺟': '母', '⻄': '西', '⻝': '食', '⻣': '骨', '⺩': '王', '⻅': '見', '⻆': '角', '⻓': '長', '⻋': '車', '⻤': '鬼', '⻢': '馬', '⺁': '厂', '⺅': '人', '⺈': '刀', '⺌': '小', '⺍': '小', '⺮': '竹', '⺶': '羊', '⺺': '聿', '⻊': '足', '⻌': '辵', '⻍': '辵', '⻏': '邑', '⻖': '阜', '⻗': '雨', '⻘': '青', '⻙': '韋', '⻚': '頁', '⻛': '風', '⻜': '飛', '⻥': '魚', '⻦': '鳥', '⻨': '麥', '⻩': '黃', '⻬': '齊', '⻮': '齒', '⻯': '龍', '⻳': '龜' };
@@ -6076,26 +6083,57 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
   const aibNorm = (s) => aibFixChars(s).replace(/[\s\u3000]+/g, '');
   if (window.pdfjsLib) { try { pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; } catch (e) { /* ignore */ } }
 
-  document.getElementById('aib-pdf').addEventListener('change', async (e) => {
-    const f = e.target.files && e.target.files[0];
+  // 全案模式：一次讀多份 PDF，每頁記住「第幾份文件、該文件第幾頁」；pages 的 n 是全案流水頁碼
+  async function aibLoadFiles(fileList) {
     const st = document.getElementById('aib-pdf-status');
-    if (!f) { AIB_DOC.pdf = null; AIB_DOC.pages = []; st.textContent = '未選擇檔案時，使用上方貼入的文字'; return; }
+    const list = [...(fileList || [])];
+    if (!list.length) { AIB_DOC.files = []; AIB_DOC.pages = []; AIB_DOC.pdf = null; st.textContent = '未選擇檔案時，使用上方貼入的文字'; return; }
     if (!window.pdfjsLib) { st.textContent = 'PDF 元件載入失敗（需要網路），請改用貼入文字'; return; }
-    st.textContent = '讀取中…'; AIB_DOC.loading = true; AIB_DOC.pdf = null;
+    st.textContent = `讀取中…（共 ${list.length} 份）`; AIB_DOC.loading = true; AIB_DOC.files = []; AIB_DOC.pages = []; AIB_DOC.pdf = null;
     try {
-      const pdf = await pdfjsLib.getDocument({ data: await f.arrayBuffer() }).promise;
-      const pages = [];
-      for (let i = 1; i <= pdf.numPages; i++) {
-        const tc = await (await pdf.getPage(i)).getTextContent();
-        pages.push({ n: i, text: aibFixChars(tc.items.map((it) => it.str + (it.hasEOL ? '\n' : '')).join('')) });
+      const files = [], pages = [], notes = [];
+      for (const f of list) {
+        const pdf = await pdfjsLib.getDocument({ data: await f.arrayBuffer() }).promise;
+        const fi = files.length; let chars = 0;
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const tc = await (await pdf.getPage(i)).getTextContent();
+          const text = aibFixChars(tc.items.map((it) => it.str + (it.hasEOL ? '\n' : '')).join(''));
+          chars += aibNorm(text).length;
+          pages.push({ n: pages.length + 1, file: fi, fn: i, text });
+        }
+        files.push({ name: f.name.replace(/\.pdf$/i, ''), pdf, numPages: pdf.numPages });
+        notes.push(`文件${fi + 1}：${f.name}（${pdf.numPages} 頁${chars < 30 ? '，讀不到文字，可能是掃描檔' : ''}）`);
       }
-      AIB_DOC.pdf = pdf; AIB_DOC.pages = pages; AIB_DOC.source = 'pdf'; AIB_DOC.name = f.name;
-      const chars = pages.reduce((s, p) => s + aibNorm(p.text).length, 0);
-      st.textContent = `✓ ${f.name}：${pdf.numPages} 頁、約 ${chars} 字` + (chars < 30 ? '（讀不到文字，可能是掃描檔，需先做文字辨識）' : '');
-      document.getElementById('aib-text').value = pages.map((p) => `【第${p.n}頁】\n${p.text}`).join('\n\n');
-    } catch (err) { AIB_DOC.pdf = null; st.textContent = '讀取失敗：' + err.message; }
+      AIB_DOC.files = files; AIB_DOC.pages = pages; AIB_DOC.source = 'pdf'; AIB_DOC.pdf = files[0].pdf; AIB_DOC.name = files.map((x) => x.name).join('、');
+      st.innerHTML = '✓ ' + notes.map((x) => esc(x)).join('<br>') + (notes.some((x) => x.includes('掃描檔')) ? '<br><span class="text-red-600">掃描檔需先做文字辨識，目前版本無法讀取其內容</span>' : '');
+      document.getElementById('aib-text').value = pages.map((p) => `【文件${p.file + 1}：${files[p.file].name}｜第${p.fn}頁】\n${p.text}`).join('\n\n');
+    } catch (err) { AIB_DOC.files = []; AIB_DOC.pages = []; AIB_DOC.pdf = null; st.textContent = '讀取失敗：' + err.message; }
     finally { AIB_DOC.loading = false; }
-  });
+  }
+  document.getElementById('aib-pdf').addEventListener('change', (e) => aibLoadFiles(e.target.files));
+  const AIB_DEMO_FILES = ['01_民事起訴狀', '02_民事答辯狀', '03_言詞辯論筆錄', '04_原告民事準備書狀'];
+  async function aibLoadDemoCase() {
+    const sel = document.getElementById('aib-case-select'); if (sel) sel.value = 'demo';
+    const files = [];
+    for (const n of AIB_DEMO_FILES) {
+      const blob = await (await fetch(encodeURIComponent(n) + '.pdf')).blob();
+      files.push(new File([blob], n + '.pdf', { type: 'application/pdf' }));
+    }
+    await aibLoadFiles(files);
+  }
+  document.getElementById('aib-load-case').addEventListener('click', () => aibLoadDemoCase().catch((err) => alert('示範案件載入失敗：' + err.message)));
+  // 案件選單：分析結果歸在哪一件案子底下（AI 本身沒有記憶，案件歸屬由本系統管理）
+  function aibFillCaseSelect() {
+    const sel = document.getElementById('aib-case-select'); if (!sel) return;
+    const keep = sel.value;
+    const open = cases.filter((c) => !c.closed && c.status !== '已結案');
+    sel.innerHTML = '<option value="demo">（示範）114訴0000 王小明 對 李大華｜返還借款</option>' + open.map((c) => `<option value="${esc(c.id)}">${esc(c.caseNumber || '未定案號')} ${esc(c.title || '')}</option>`).join('');
+    if (keep && [...sel.options].some((o) => o.value === keep)) sel.value = keep;
+  }
+  aibFillCaseSelect();
+  document.getElementById('aib-case-select').addEventListener('focus', aibFillCaseSelect);
+  const aibPageOf = (n) => AIB_DOC.pages.find((p) => p.n === n) || null;
+  const aibPageLabel = (n) => { const p = aibPageOf(n); return p && p.file !== undefined && AIB_DOC.files.length > 1 ? `文件${p.file + 1} p.${p.fn}` : (p && p.fn ? `p.${p.fn}` : `p.${n}`); };
 
   const aibEngSel = document.getElementById('aib-engine');
   const aibKeyIn = document.getElementById('aib-gemini-key');
@@ -6103,7 +6141,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
   try { aibKeyIn.value = sessionStorage.getItem('aib_gemini_key') || ''; } catch (e) { /* ignore */ }
   aibEngSel.addEventListener('change', () => document.getElementById('aib-gemini-box').classList.toggle('hidden', aibEngSel.value !== 'gemini'));
   // 比賽示範版：把 AI 閱卷助理的完整角色指令攤開給使用者看（與 LINE 接待一樣，靠角色設定讓 AI 照事務所的規矩做事）
-  try { document.getElementById('aib-role-prompt').textContent = aibGeminiPrompt('民事'); } catch (e) { /* ignore */ }
+  try { document.getElementById('aib-role-prompt').textContent = aibCasePrompt('民事'); } catch (e) { /* ignore */ }
   aibKeyIn.addEventListener('change', () => { try { sessionStorage.setItem('aib_gemini_key', aibKeyIn.value.trim()); } catch (e) { /* ignore */ } });
   document.getElementById('aib-gemini-load').addEventListener('click', async () => {
     const key = aibKeyIn.value.trim();
@@ -6122,23 +6160,40 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
   function aibGeminiPrompt(caseType) {
     return buildLegalAnalysisSystemPrompt(caseType) + '\n\n' + [
       '# 溯源輸出規則（本次改用此格式，取代上面的【輸出格式】）',
-      '卷宗以「【第N頁】」標示頁碼。只輸出一個 JSON 物件，不要任何其他文字：',
+      '文件以「【第N頁】」標示頁碼。只輸出一個 JSON 物件，不要任何其他文字：',
       '{"summary":"一句話案情","scores":{"legalBasis":0,"evidence":0,"procedure":0,"factDispute":0,"settlement":0},',
-      ' "findings":[{"category":"當事人|時間軸|證據|請求權基礎|法條|金額|爭點|優勢|劣勢|風險|行動建議","text":"你的整理","tier":"原文|推論|待核","page":1,"quote":"卷宗中逐字摘錄的原句"}]}',
+      ' "findings":[{"category":"當事人|時間軸|證據|請求權基礎|法條|金額|爭點|優勢|劣勢|風險|行動建議","text":"你的整理","tier":"原文|推論|待核","page":1,"quote":"文件中逐字摘錄的原句"}]}',
       '# 分級規則（違反即為失敗輸出）',
-      '- 原文：text 的內容完全出自卷宗；quote 必須是卷宗裡一字不差的連續片段（10 到 60 字），page 填該片段所在頁碼。',
-      '- 推論：你的判斷、歸納、策略建議（爭點、優勢、劣勢、風險、行動建議多屬此類）；quote 填你所依據的卷宗原句（逐字），page 同上；沒有依據就填空字串。',
-      '- 待核：所有法條條號、判決字號、金額、期間計算一律標「待核」；quote 填卷宗中提到它的原句。',
-      '- 卷宗沒寫的事不得出現，不得編造法條、判決或證據。findings 15 到 30 項，scores 為 0 到 100 的整數。',
+      '- 原文：text 的內容完全出自文件；quote 必須是文件裡一字不差的連續片段（10 到 60 字），page 填該片段所在頁碼。',
+      '- 推論：你的判斷、歸納、策略建議（爭點、優勢、劣勢、風險、行動建議多屬此類）；quote 填你所依據的文件原句（逐字），page 同上；沒有依據就填空字串。',
+      '- 待核：所有法條條號、判決字號、金額、期間計算一律標「待核」；quote 填文件中提到它的原句。',
+      '- 文件沒寫的事不得出現，不得編造法條、判決或證據。findings 15 到 30 項，scores 為 0 到 100 的整數。',
     ].join('\n');
   }
-  async function aibCallGemini(docText, caseType) {
+  function aibCasePrompt(caseType) {
+    return buildLegalAnalysisSystemPrompt(caseType) + '\n\n' + [
+      '# 全案整理輸出規則（本次改用此格式，取代上面的【輸出格式】）',
+      '使用者會提供同一案件的多份文件，每頁以「【文件N：檔名｜第M頁】」標示。請讀完全部文件，整理成律師開庭前可以直接使用的全案摘要。',
+      '只輸出一個 JSON 物件，不要任何其他文字：',
+      '{"summary":"兩三句話的全案概要","sections":[{"title":"案情概要","items":[ITEM]},{"title":"程序進度與重要期日","items":[ITEM]},{"title":"爭點一：（爭點名稱）","items":[ITEM]},{"title":"攻防注意事項","items":[ITEM]},{"title":"下次開庭前準備","items":[ITEM]}]}',
+      'ITEM 格式：{"text":"你的整理","tier":"原文|推論|待核","doc":N,"page":M,"quote":"文件中一字不差的連續原句（10 到 60 字）"}',
+      '- 爭點依文件實際內容決定數量，每個爭點底下依序整理：原告主張、被告主張、雙方證據、目前評估（評估屬推論）。',
+      '- 攻防注意事項：對造論點的弱點、我方需要補強的證據、可能的程序風險。',
+      '- 下次開庭前準備：具體待辦事項與期限。',
+      '# 分級規則（違反即為失敗輸出）',
+      '- 原文：內容完全出自文件；quote 必須逐字摘錄，doc、page 填出處。',
+      '- 推論：你的判斷、歸納與建議；quote 填你依據的原句，沒有依據就填空字串。',
+      '- 待核：所有法條條號、判決字號、金額、期間計算一律標「待核」。',
+      '- 文件沒寫的事不得出現，不得編造法條、判決或證據。全部 items 合計 20 到 40 項。',
+    ].join('\n');
+  }
+  async function aibCallGemini(docText, caseType, promptText) {
     const key = aibKeyIn.value.trim(), model = aibModelSel.value;
     if (!key || !model) throw new Error('請貼上金鑰，按「載入模型」並選擇一個模型');
     const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        systemInstruction: { parts: [{ text: aibGeminiPrompt(caseType) }] },
+        systemInstruction: { parts: [{ text: promptText || aibGeminiPrompt(caseType) }] },
         contents: [{ role: 'user', parts: [{ text: docText }] }],
         generationConfig: { responseMimeType: 'application/json', temperature: 0.2 },
       }),
@@ -6173,7 +6228,8 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
     a.risks.forEach((x) => F.push({ category: '風險', text: x, tier: '推論', quote: '' }));
     return F;
   }
-  // 防幻覺核心：回到卷宗逐字比對
+  // 防幻覺核心：回到文件逐字比對
+  const AIB_STD_CATS = ['當事人', '時間軸', '證據', '請求權基礎', '法條', '金額', '爭點', '優勢', '劣勢', '風險', '行動建議'];
   function aibVerify(findings) {
     const pagesN = AIB_DOC.pages.map((p) => ({ n: p.n, t: aibNorm(p.text) }));
     findings.forEach((f) => {
@@ -6187,6 +6243,8 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
       }
       if (f.tier === '原文' && f.found !== 'exact') { f.tier = '待核'; f.downgraded = true; }
       if (['法條', '金額'].includes(f.category) && f.tier !== '待核') f.tier = '待核';
+      // 全案模式的段落沒有「法條／金額」分類，改看內容：提到條號、字號、金額的一律待核
+      if (!AIB_STD_CATS.includes(f.category) && f.tier === '原文' && /第\s*\d+\s*條|字第\s*\d+\s*號|新臺幣|[\d,]+\s*元/.test(f.text)) f.tier = '待核';
       if (f.tier === '推論' && !f.found) f.page = null;
     });
     return findings;
@@ -6205,17 +6263,21 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
         : f.status === 'ok' ? 'bg-slate-100 text-slate-600 border-slate-300'
         : f.status === 'wrong' ? 'bg-red-600 text-white border-red-700' : 'bg-red-100 text-red-800 border-red-300';
       const label = f.tier === '待核' ? (f.status === 'ok' ? '已核 ✓' : f.status === 'wrong' ? '有誤 ✕' : '待核') : f.tier;
-      return `<button type="button" data-aib-i="${i}" class="aib-badge shrink-0 text-[11px] px-2 py-0.5 rounded-full border ${cls}">${label}${f.page ? ` p.${f.page}` : ''}</button>`;
+      return `<button type="button" data-aib-i="${i}" class="aib-badge shrink-0 text-[11px] px-2 py-0.5 rounded-full border ${cls}">${label}${f.page ? ' ' + aibPageLabel(f.page) : ''}</button>`;
     };
     const cats = ['當事人', '時間軸', '證據', '請求權基礎', '法條', '金額', '爭點', '優勢', '劣勢', '風險', '行動建議'];
     const withI = F.map((f, i) => [f, i]);
-    const groups = cats.map((c) => [c, withI.filter(([f]) => f.category === c)]).filter(([, a]) => a.length);
-    const other = withI.filter(([f]) => !cats.includes(f.category));
-    if (other.length) groups.push(['其他', other]);
+    let groups;
+    if (meta.ordered) { const order = [...new Set(F.map((f) => f.category))]; groups = order.map((c) => [c, withI.filter(([f]) => f.category === c)]); }
+    else {
+      groups = cats.map((c) => [c, withI.filter(([f]) => f.category === c)]).filter(([, a]) => a.length);
+      const other = withI.filter(([f]) => !cats.includes(f.category));
+      if (other.length) groups.push(['其他', other]);
+    }
     box.innerHTML = `
       <div class="flex items-start justify-between gap-3 flex-wrap">
-        <div><p class="text-base font-bold text-slate-900">溯源分析結果</p>
-          <p class="text-xs text-slate-500">${esc(meta.engineLabel || '')}｜卷宗：${esc(meta.docLabel || '')}</p>
+        <div><p class="text-base font-bold text-slate-900">${meta.ordered ? '全案整理結果' : '溯源分析結果'}${meta.caseLabel ? `<span class="ml-2 text-xs font-normal text-slate-500">${esc(meta.caseLabel)}</span>` : ''}</p>
+          <p class="text-xs text-slate-500">${esc(meta.engineLabel || '')}｜文件：${esc(meta.docLabel || '')}</p>
           ${meta.summary ? `<p class="text-sm text-slate-700 mt-1">${esc(meta.summary)}</p>` : ''}</div>
         <div class="flex gap-2 text-xs flex-wrap">
           <span class="px-2 py-1 rounded bg-emerald-50 text-emerald-800">原文 ${cnt('原文')}</span>
@@ -6223,10 +6285,10 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
           <span class="px-2 py-1 rounded bg-red-50 text-red-800">待核 ${cnt('待核')}（已核 ${verified}${wrong ? `、有誤 ${wrong}` : ''}）</span>
         </div>
       </div>
-      ${down ? `<div class="text-xs bg-red-50 border border-red-200 text-red-800 rounded px-3 py-2">🛡️ 防幻覺攔截：AI 標為「原文」、但在卷宗裡逐字比對不到的有 <b>${down}</b> 項，已自動降為「待核」。</div>` : ''}
-      ${groups.map(([c, a]) => `<div><p class="text-xs font-semibold text-slate-500 mb-1.5">${esc(c)}</p><div class="space-y-1.5">${a.map(([f, i]) => `
-        <div class="flex items-start gap-2 text-sm text-slate-700">${badge(f, i)}<span class="${f.status === 'wrong' ? 'line-through text-slate-400' : ''}">${esc(f.text)}${f.downgraded ? ' <span class="text-[11px] text-red-600">（AI 標為原文，但卷宗比對不到）</span>' : ''}</span></div>`).join('')}</div></div>`).join('')}
-      <p class="text-[11px] text-slate-400 border-t border-slate-100 pt-2">點「原文」→ 跳到卷宗那一頁並標出原句；點「推論」→ 看它依據的原句；點「待核」→ 人工核對後才算數。</p>`;
+      ${down ? `<div class="text-xs bg-red-50 border border-red-200 text-red-800 rounded px-3 py-2">🛡️ 防幻覺攔截：AI 標為「原文」、但在文件裡逐字比對不到的有 <b>${down}</b> 項，已自動降為「待核」。</div>` : ''}
+      ${groups.map(([c, a]) => `<div><p class="${meta.ordered ? 'text-sm font-bold text-slate-800 border-b border-slate-100 pb-1' : 'text-xs font-semibold text-slate-500'} mb-1.5">${esc(c)}</p><div class="space-y-1.5">${a.map(([f, i]) => `
+        <div class="flex items-start gap-2 text-sm text-slate-700">${badge(f, i)}<span class="${f.status === 'wrong' ? 'line-through text-slate-400' : ''}">${esc(f.text)}${f.downgraded ? ' <span class="text-[11px] text-red-600">（AI 標為原文，但文件比對不到）</span>' : ''}</span></div>`).join('')}</div></div>`).join('')}
+      <p class="text-[11px] text-slate-400 border-t border-slate-100 pt-2">點「原文」→ 跳到文件那一頁並標出原句；點「推論」→ 看它依據的原句；點「待核」→ 人工核對後才算數。</p>`;
     box.classList.remove('hidden');
   }
   document.getElementById('aib-trace').addEventListener('click', (e) => {
@@ -6234,17 +6296,18 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
     const f = AIB_STATE.findings[Number(b.dataset.aibI)]; if (!f) return;
     if (f.tier === '待核') aibOpenVerify(f);
     else if (f.quote && f.page) aibOpenViewer(f);
-    else alert('這一項是 AI 的整體判斷，卷宗裡沒有單一句子可以對應。');
+    else alert('這一項是 AI 的整體判斷，文件裡沒有單一句子可以對應。');
   });
 
   async function aibOpenViewer(f) {
     const ov = document.getElementById('aib-viewer'), body = document.getElementById('aib-viewer-body');
-    document.getElementById('aib-viewer-title').textContent = AIB_DOC.source === 'pdf' && AIB_DOC.pdf ? `${AIB_DOC.name}｜第 ${f.page} 頁` : '貼入的書狀文字';
+    const pg = aibPageOf(f.page); const pf = pg && AIB_DOC.files[pg.file];
+    document.getElementById('aib-viewer-title').textContent = AIB_DOC.source === 'pdf' && pf ? `${pf.name}｜第 ${pg.fn} 頁` : '貼入的書狀文字';
     document.getElementById('aib-viewer-sub').textContent = '標示原句：' + f.quote;
     body.innerHTML = '<p class="text-sm text-slate-500">載入中…</p>';
     ov.classList.remove('hidden');
-    if (AIB_DOC.source === 'pdf' && AIB_DOC.pdf) {
-      const page = await AIB_DOC.pdf.getPage(f.page);
+    if (AIB_DOC.source === 'pdf' && pf) {
+      const page = await pf.pdf.getPage(pg.fn);
       const vp0 = page.getViewport({ scale: 1 });
       const vp = page.getViewport({ scale: Math.max(0.6, Math.min(1.6, (body.clientWidth - 24) / vp0.width)) });
       const wrap = document.createElement('div');
@@ -6293,14 +6356,14 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
     aibVerifyTarget = f;
     aibVChk.checked = false; aibVOk.disabled = true; aibVOk.className = 'text-sm px-3 py-1.5 rounded bg-slate-300 text-white cursor-not-allowed';
     const tip = f.category === '法條' ? '請到「全國法規資料庫」確認條號、項款與內容正確，且為現行條文。'
-      : f.category === '金額' ? '請對照卷宗原件，確認數字、幣別與單位（萬／元）正確。'
-      : '請對照卷宗原件與官方資料確認。';
+      : f.category === '金額' ? '請對照文件原件，確認數字、幣別與單位（萬／元）正確。'
+      : '請對照文件原件與官方資料確認。';
     document.getElementById('aib-verify-body').innerHTML = `
       <p><b>${esc(f.category)}：</b>${esc(f.text)}</p>
-      ${f.quote ? `<p class="text-xs text-slate-500">卷宗出處：「${esc(f.quote)}」${f.page ? `（第 ${f.page} 頁）` : ''}</p>` : ''}
-      ${f.downgraded ? '<p class="text-xs text-red-600">AI 原本標為「原文」，但在卷宗裡找不到這句話，請特別小心。</p>' : ''}
+      ${f.quote ? `<p class="text-xs text-slate-500">文件出處：「${esc(f.quote)}」${f.page ? `（${aibPageLabel(f.page)}）` : ''}</p>` : ''}
+      ${f.downgraded ? '<p class="text-xs text-red-600">AI 原本標為「原文」，但在文件裡找不到這句話，請特別小心。</p>' : ''}
       <p class="text-xs text-slate-500">${tip}</p>
-      ${f.page ? '<button type="button" id="aib-verify-view" class="text-xs underline text-indigo-600">打開卷宗出處</button>' : ''}`;
+      ${f.page ? '<button type="button" id="aib-verify-view" class="text-xs underline text-indigo-600">打開文件出處</button>' : ''}`;
     document.getElementById('aib-verify').classList.remove('hidden');
     const vb = document.getElementById('aib-verify-view'); if (vb) vb.onclick = () => aibOpenViewer(f);
   }
@@ -6315,7 +6378,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
     const btn = document.getElementById('aib-analyze');
     if (btn.disabled) return;
     if (AIB_DOC.loading) { alert('PDF 還在讀取中，請稍候再按分析'); return; }
-    if (!AIB_DOC.pdf) { AIB_DOC.source = 'text'; AIB_DOC.pages = [{ n: 1, text: document.getElementById('aib-text').value }]; }
+    if (!AIB_DOC.files.length) { AIB_DOC.source = 'text'; AIB_DOC.pages = [{ n: 1, text: document.getElementById('aib-text').value }]; }
     const pages = AIB_DOC.pages;
     const text = pages.map((p) => p.text).join('\n');
     if (aibNorm(text).length < 30) { alert('請先貼入至少 30 字的書狀或判決書內容、上傳 PDF，或點「填入示範書狀」測試'); return; }
@@ -6331,20 +6394,45 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
     try { if (skeleton.scrollIntoView) skeleton.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch (e) { /* ignore */ }
     try {
       const local = analyzeBriefLocally(text, caseType);
-      const meta = { docLabel: AIB_DOC.pdf ? `${AIB_DOC.name}（${pages.length} 頁 PDF）` : '貼入的文字', summary: '' };
+      const csel = document.getElementById('aib-case-select');
+      const multi = AIB_DOC.files.length > 0;
+      const meta = { docLabel: multi ? `${AIB_DOC.files.length} 份文件、共 ${pages.length} 頁` : '貼入的文字', summary: '', caseLabel: csel && csel.selectedOptions[0] ? csel.selectedOptions[0].textContent : '' };
       let findings;
       if (aibEngSel.value === 'gemini') {
-        const docText = pages.map((p) => `【第${p.n}頁】\n${p.text}`).join('\n\n');
-        const g = await aibCallGemini(docText, caseType);
-        findings = (Array.isArray(g.findings) ? g.findings : []).filter((f) => f && f.text).map((f) => ({
-          category: String(f.category || '其他'), text: String(f.text), quote: String(f.quote || ''),
-          tier: ['原文', '推論', '待核'].includes(f.tier) ? f.tier : '推論', page: Number(f.page) || null,
-        }));
+        let g;
+        if (multi) {
+          // 全案模式：多份文件一起送，產出「案情概要／程序進度／各爭點／攻防注意／開庭準備」
+          const docText = pages.map((p) => `【文件${p.file + 1}：${AIB_DOC.files[p.file].name}｜第${p.fn}頁】\n${p.text}`).join('\n\n');
+          g = await aibCallGemini(docText, caseType, aibCasePrompt(caseType));
+          findings = [];
+          (Array.isArray(g.sections) ? g.sections : []).forEach((sec) => (Array.isArray(sec.items) ? sec.items : []).filter((f) => f && f.text).forEach((f) => findings.push({
+            category: String(sec.title || '其他'), text: String(f.text), quote: String(f.quote || ''),
+            tier: ['原文', '推論', '待核'].includes(f.tier) ? f.tier : '推論', page: null,
+          })));
+          meta.ordered = true;
+        } else {
+          g = await aibCallGemini(pages.map((p) => `【第${p.n}頁】\n${p.text}`).join('\n\n'), caseType);
+          findings = (Array.isArray(g.findings) ? g.findings : []).filter((f) => f && f.text).map((f) => ({
+            category: String(f.category || '其他'), text: String(f.text), quote: String(f.quote || ''),
+            tier: ['原文', '推論', '待核'].includes(f.tier) ? f.tier : '推論', page: Number(f.page) || null,
+          }));
+        }
         if (g.scores) Object.keys(local.scores).forEach((k) => { const v = Number(g.scores[k]); if (Number.isFinite(v)) local.scores[k] = Math.max(0, Math.min(100, Math.round(v))); });
-        meta.engineLabel = `Google Gemini（${aibModelSel.value}）`; meta.summary = String(g.summary || '');
+        meta.engineLabel = `AI 閱卷助理・Google Gemini（${aibModelSel.value}）`; meta.summary = String(g.summary || '');
       } else {
         await new Promise((r) => setTimeout(r, 600));
-        findings = aibLocalFindings(local, text); meta.engineLabel = '規則式引擎（本機執行，免金鑰）';
+        if (AIB_DOC.files.length) {
+          // 多份文件時逐頁分析，避免時間軸片段跨頁、跨文件黏在一起；同樣內容只留一筆
+          findings = []; const seen = new Set();
+          pages.forEach((pg) => {
+            const t = pg.text.replace(/【示範案件[^】]*】/g, '');
+            aibLocalFindings(analyzeBriefLocally(t, caseType), t).forEach((f) => {
+              if (f.category === '當事人' && (f.text.split('：')[1] || '').length > 4) return; // 規則式抓人名容易抓到整句，只留像人名的
+              const k = f.category + '|' + f.text; if (!seen.has(k)) { seen.add(k); findings.push(f); }
+            });
+          });
+        } else findings = aibLocalFindings(local, text);
+        meta.engineLabel = '規則式引擎（本機執行，免金鑰）';
       }
       AIB_STATE.findings = aibVerify(findings); AIB_STATE.meta = meta;
       skeleton.classList.add('hidden');
@@ -6732,27 +6820,26 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
       if (mode === 'text') { document.getElementById('aib-load-sample').click(); }
       else {
         try {
-          const blob = await (await fetch(encodeURIComponent('示範卷宗.pdf'))).blob();
-          const dt = new DataTransfer(); dt.items.add(new File([blob], '示範卷宗.pdf', { type: 'application/pdf' }));
-          const inp = document.getElementById('aib-pdf'); inp.files = dt.files; inp.dispatchEvent(new Event('change'));
-          for (let i = 0; i < 40 && (AIB_DOC.loading || !AIB_DOC.pdf); i++) await wait(250);
+          document.getElementById('aib-load-case').click();
+          await wait(300);
+          for (let i = 0; i < 60 && (AIB_DOC.loading || !AIB_DOC.files.length); i++) await wait(250);
         } catch (e) { document.getElementById('aib-load-sample').click(); }
       }
       document.getElementById('aib-analyze').click();
       for (let i = 0; i < 40 && !AIB_STATE.findings.length; i++) await wait(250);
       await wait(300);
       const badges = [...document.querySelectorAll('#aib-trace .aib-badge')];
-      if (mode === 'pdf-view') { const b = badges.find((x) => /原文 p\.3/.test(x.textContent)) || badges.find((x) => /^原文/.test(x.textContent)); if (b) b.click(); }
+      if (mode === 'pdf-view') { const b = badges.find((x) => /^原文 文件3/.test(x.textContent)) || badges.find((x) => /^原文/.test(x.textContent)); if (b) b.click(); }
       if (mode === 'verify') { const b = badges.find((x) => /^待核/.test(x.textContent)); if (b) b.click(); }
     })();
   })();
 })();
 </script>
-<!-- 比賽示範版 v2：卷宗原文檢視 / 待核核對視窗 -->
+<!-- 比賽示範版 v2：文件原文檢視 / 待核核對視窗 -->
 <div id="aib-viewer" class="hidden fixed inset-0 z-[90] bg-black/50 flex items-center justify-center p-4">
   <div class="bg-white rounded-xl shadow-xl w-full max-w-5xl max-h-[92vh] flex flex-col">
     <div class="flex items-center justify-between px-5 py-3 border-b">
-      <div><p class="font-semibold text-slate-800" id="aib-viewer-title">卷宗原文</p><p class="text-[11px] text-slate-500" id="aib-viewer-sub"></p></div>
+      <div><p class="font-semibold text-slate-800" id="aib-viewer-title">文件原文</p><p class="text-[11px] text-slate-500" id="aib-viewer-sub"></p></div>
       <button type="button" id="aib-viewer-close" class="text-slate-400 hover:text-slate-700 text-xl px-2">✕</button>
     </div>
     <div class="overflow-auto p-4 bg-slate-100 flex-1" id="aib-viewer-body"></div>
