@@ -6206,7 +6206,8 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
       '{"caseType":"民事|刑事|行政（你依文件判斷）","summary":"兩三句話的全案概要","sections":[{"title":"案情概要","items":[ITEM]},{"title":"程序進度與重要期日","items":[ITEM]},{"title":"爭點一：（爭點名稱）","items":[ITEM]},{"title":"攻防注意事項","items":[ITEM]},{"title":"下次開庭前準備","items":[ITEM]}]}',
       'ITEM 格式：{"text":"你的整理","role":"原告|被告|法院|評估|其他","date":"民國年月日（有期日才填）","tier":"原文|推論|待核","doc":N,"page":M,"quote":"文件中一字不差的連續原句（10 到 60 字）"}',
       '- 每個 section 加上 "kind"：案情概要＝summary、程序進度與重要期日＝timeline、各爭點＝issue、攻防注意事項＝strategy、下次開庭前準備＝todo、與前次整理相比的新進展＝update。',
-      '- text 不要再寫「原告主張：」「被告主張：」前綴，改用 role 標示；爭點的評估 role 填「評估」。程序進度每項都要填 date。',
+      '- text 不要再寫「原告主張：」「被告主張：」前綴，改用 role 標示；爭點的評估 role 填「評估」。程序進度每項都要填 date，格式為「114年4月15日」。',
+      '- 本事務所律師為：' + ATTORNEYS.map((a) => a.fullName).join('、') + '。請先依文件中的訴訟代理人判斷本所代理哪一方；「攻防注意事項」與「下次開庭前準備」一律從本所當事人的立場寫，不要替對造規劃。判斷不出時，在 summary 註明「無法判斷本所代理方」。',
       '- 爭點依文件實際內容決定數量，每個爭點底下依序整理：原告主張、被告主張、雙方證據、目前評估（評估屬推論）。',
       '- 攻防注意事項：對造論點的弱點、我方需要補強的證據、可能的程序風險。',
       '- 下次開庭前準備：具體待辦事項與期限。',
@@ -6279,7 +6280,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
       if (f.tier === '原文' && f.found !== 'exact') { f.tier = '待核'; f.downgraded = true; }
       if (['法條', '金額'].includes(f.category) && f.tier !== '待核') f.tier = '待核';
       // 全案模式的段落沒有「法條／金額」分類，改看內容：提到條號、字號、金額的一律待核
-      if (!AIB_STD_CATS.includes(f.category) && f.tier === '原文' && /第\s*\d+\s*條|字第\s*\d+\s*號|新臺幣|[\d,]+\s*元/.test(f.text)) f.tier = '待核';
+      if (!AIB_STD_CATS.includes(f.category) && f.tier === '原文' && /第\s*\d+\s*條|字第\s*\d+\s*號|新臺幣|[\d,.]+\s*萬?\s*元/.test(f.text)) f.tier = '待核';
       if (f.tier === '推論' && !f.found) f.page = null;
     });
     return findings;
@@ -6381,7 +6382,8 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
       const its = by(sec), k = kindOf(sec);
       if (k === 'summary') return `<section class="card"><h2><i>01</i>案情概要</h2>${its.map(row).join('')}</section>`;
       if (k === 'update') return `<section class="card upd"><h2><i>新</i>${e(sec)}</h2>${its.map(row).join('')}</section>`;
-      if (k === 'timeline') return `<section class="card"><h2><i>02</i>${e(sec)}</h2><ol class="tl">${its.map((it) => `<li><b>${e(it.date || '')}</b>${row(it)}</li>`).join('')}</ol></section>`;
+      const rocD = (x) => { const m = String(x || '').match(/^(\d{2,3})(\d{2})(\d{2})$/); return m ? `${+m[1]}年${+m[2]}月${+m[3]}日` : (x || ''); };
+      if (k === 'timeline') return `<section class="card"><h2><i>02</i>${e(sec)}</h2><ol class="tl">${its.map((it) => `<li><b>${e(rocD(it.date))}</b>${row(it)}</li>`).join('')}</ol></section>`;
       if (k === 'issue') {
         const col = (r) => its.filter((it) => it.role === r).map(row).join('') || '<div class="none">文件未載明</div>';
         const evals = its.filter((it) => it.role === '評估'), others = its.filter((it) => !['原告', '被告', '評估'].includes(it.role));
