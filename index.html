@@ -388,7 +388,8 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
         <div class="flex flex-wrap items-center gap-3">
           <button type="button" id="line-inbox-fetch" class="text-sm px-4 py-2 rounded-lg bg-[#06C755] text-white font-medium hover:opacity-90">⟳ 接收 LINE 新預約</button>
           <span id="line-inbox-fetch-msg" class="text-sm text-slate-500"></span>
-          <button type="button" id="line-inbox-setup" class="ml-auto text-xs text-slate-400 underline">連線設定</button>
+          <button type="button" id="line-inbox-reset" class="ml-auto text-xs text-slate-400 underline">重設示範資料</button>
+          <button type="button" id="line-inbox-setup" class="text-xs text-slate-400 underline">連線設定</button>
         </div>
         <div class="flex flex-wrap gap-2" id="line-inbox-filters"></div>
         <div id="line-inbox-list" class="space-y-4"></div>
@@ -2104,6 +2105,8 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
     });
   }
   // 開機載入所有持久化鍵到記憶體快照（之後 loadState 為同步讀快照，不改動全站既有呼叫方式）
+  // 收件匣「重設示範資料」：在開機載入任何資料之前清空，才不會被記憶體裡的舊資料寫回去
+  try { if (sessionStorage.getItem('lf_demoResetPending') === '1') { sessionStorage.removeItem('lf_demoResetPending'); const keepK = { lf_lastResetApplied: 1, lf_conflictCache: 1, lf_lineInboxUrl: 1 }; Object.keys(localStorage).forEach((k) => { if (k.indexOf('lf_') === 0 && !keepK[k]) localStorage.removeItem(k); }); await idbClearAll(); } } catch (e) { console.warn('demo reset', e); }
   const __snapshot = {};
   for (const k of PERSIST_KEYS) {
     let v = await idbGet(k);
@@ -2184,7 +2187,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
   // 並寫入 resetAt 讓其他裝置一起歸零。不動 conflictRegistry（8,236 筆利益衝突表）與 lf_conflictCache。
   // 清掉本機所有 lf_ 資料鍵（保留重設戳與利益衝突快取）
   function wipeLocalForReset() {
-    try { const keep = { lf_lastResetApplied: 1, lf_conflictCache: 1 }; const rm = [];
+    try { const keep = { lf_lastResetApplied: 1, lf_conflictCache: 1, lf_lineInboxUrl: 1 }; // 示範用的 LINE 讀取網址重設後保留 const rm = [];
       for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.indexOf('lf_') === 0 && !keep[k]) rm.push(k); }
       rm.forEach((k) => localStorage.removeItem(k));
     } catch (e) { /* ignore */ }
@@ -3040,6 +3043,11 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
     } finally { lineFeedBusy = false; }
   }
   document.getElementById('line-inbox-fetch').addEventListener('click', () => lineInboxFetch(false));
+  document.getElementById('line-inbox-reset').addEventListener('click', () => {
+    if (!confirm('把這台電腦上的示範資料全部回到初始狀態？\n排練時新增的預約、案件、客戶、AI 閱卷歸檔都會清掉（LINE 讀取網址會保留）。')) return;
+    try { sessionStorage.setItem('lf_demoResetPending', '1'); } catch (e) { alert('瀏覽器不允許重設（是不是開了無痕視窗？）'); return; }
+    location.reload();
+  });
   document.getElementById('line-inbox-setup').addEventListener('click', () => {
     const v = prompt('貼上 Make「比賽示範_收件匣讀取」的網址（只存在這台電腦的瀏覽器）。清空後按確定可移除。', lineFeedUrl());
     if (v === null) return;
