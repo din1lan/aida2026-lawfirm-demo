@@ -6405,7 +6405,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
         <span class="text-[11px] text-slate-400">核對完再匯出，存到事務所的案件資料夾；之後連同新文件一起上傳，AI 會接著更新進度</span>
       </div>
       <div id="aib-archive-msg" class="text-sm"></div>
-      <p class="text-[11px] text-slate-400 pt-1">點「原文」→ 跳到文件那一頁並標出原句；點「推論」→ 看它依據的原句；點「重點」→ 對照原文確認法條、金額。</p>`;
+      <p class="text-[11px] text-slate-400 pt-1">點「原文」→ 跳到文件那一頁並標出原句；點「推論」→ 看它依據的原句；點「重點」→ 直接看法條、金額在文件裡的原句。</p>`;
     box.classList.remove('hidden');
   }
   // ===== 匯出全案整理報告（HTML／PDF）=====
@@ -6513,7 +6513,7 @@ footer{font-size:12.5px;color:#8a8273;border-top:1px solid var(--rule);padding-t
   }
   function aibConfirmPending() {
     const pending = AIB_STATE.findings.filter(aibIsPending).length;
-    return !pending || confirm(`還有 ${pending} 項「重點」還沒點開對照原文。\n報告裡每項都附文件出處，仍要匯出嗎？`);
+    return pending >= 0; // 比賽版：重點不需逐項確認，報告裡每項都附文件出處
   }
   async function aibExportHTML() {
     if (!AIB_STATE.findings.length || !aibConfirmPending()) return;
@@ -6600,8 +6600,7 @@ footer{font-size:12.5px;color:#8a8273;border-top:1px solid var(--rule);padding-t
     if (e.target.closest('#aib-export-pdf')) { aibExportPDF(); return; }
     const b = e.target.closest('.aib-badge'); if (!b) return;
     const f = AIB_STATE.findings[Number(b.dataset.aibI)]; if (!f) return;
-    if (f.tier === '待核') aibOpenVerify(f);
-    else if (f.quote && f.page) aibOpenViewer(f);
+    if (f.quote && f.page) aibOpenViewer(f);
     else alert('這一項是 AI 的整體判斷，文件裡沒有單一句子可以對應。');
   });
 
