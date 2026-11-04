@@ -6197,7 +6197,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
         for (const pg of rd.pages) {
           const text = aibFixChars(pg.text);
           chars += aibNorm(text).length;
-          pages.push({ n: pages.length + 1, file: fi, fn: pg.n, text, image: pg.image, ocr: pg.ocr, marked: pg.ocr ? aibFixChars(pg.marked || pg.text) : '', skipped: pg.skippedLines || 0, gemini: pg.gemini });
+          pages.push({ n: pages.length + 1, file: fi, fn: pg.n, text, image: pg.image, ocr: pg.ocr, marked: pg.ocr ? aibFixChars(pg.marked || pg.text) : '', skipped: pg.skippedLines || 0, gemini: pg.gemini, src: pg });
         }
         // 前次報告若存成 PDF（列印匯出），靠標題認出來，一樣只當背景參考
         const isRep = /全案整理報告/.test(f.name) || /^\s*全案整理報告/.test((pages.find((x) => x.file === fi) || {}).text || '');
@@ -6714,7 +6714,39 @@ footer{font-size:12.5px;color:#8a8273;border-top:1px solid var(--rule);padding-t
     else alert('這一項是 AI 的整體判斷，文件裡沒有單一句子可以對應。');
   });
 
+  // 掃描頁的螢光標示：chars 是辨識時存下的「字＋座標」（只在記憶體）；Gemini 頁要等背景本機辨識跑完才有座標
+  let aibViewing = null;
+  function aibHighlightScan(f, pg, vp, hl, body) {
+    const P = window.LF_PdfText; const src = pg.src || {};
+    const who = pg.gemini ? 'Gemini' : 'OCR';
+    const note = (html, cls) => { const old = body.querySelector('.aib-scan-note'); if (old) old.remove(); if (html) body.insertAdjacentHTML('afterbegin', `<p class="aib-scan-note text-xs ${cls} mb-2">${html}</p>`); };
+    const fallback = () => note(`這一頁是掃描檔，文字由 ${who} 辨識（可能有錯字），這句在圖上找不到夠接近的位置，請對照下方原圖人工核對。`, 'text-amber-700');
+    const draw = () => {
+      if (!P || !src.ocrChars) return false;
+      const m = P.matchQuote(src.ocrChars, f.quote);
+      if (!m || m.score < P.MATCH_MIN) return false;
+      const rects = P.quoteRects(src.ocrChars, m.start, m.end); const k = vp.scale;
+      const ctx = hl.getContext('2d'); ctx.clearRect(0, 0, hl.width, hl.height); ctx.fillStyle = 'rgba(250,204,21,0.45)';
+      const out = rects.map((r) => { const x = r.x0 * k - 2, y = r.y0 * k - 2, w = (r.x1 - r.x0) * k + 4, h = (r.y1 - r.y0) * k + 4; ctx.fillRect(x, y, w, h); return { x, y, w, h }; });
+      hl.dataset.rects = JSON.stringify(out); hl.dataset.score = m.score.toFixed(2);
+      note(`這一頁是掃描檔，黃色是依 ${who} 辨識結果推估的位置（相似度 ${Math.round(m.score * 100)}%），請對照原圖確認。`, 'text-slate-500');
+      if (out.length) body.scrollTop = Math.max(0, Math.min(...out.map((r) => r.y)) - 120);
+      return true;
+    };
+    if (draw()) return;
+    if (!src.ocrChars && src.boxes) {
+      note('正在用本機辨識取得這一頁的文字位置（圖片不上傳），完成後會自動標出黃色位置…', 'text-slate-500');
+      const token = aibViewing;
+      src.boxes.then(() => { if (aibViewing !== token || !hl.isConnected) return; if (!draw()) fallback(); });
+      return;
+    }
+    fallback();
+  }
+
+  // 測試與示範用：從外部打開原文視窗（f＝{ page, quote }）
+  window.LF_AibViewer = (f) => aibOpenViewer(f);
   async function aibOpenViewer(f) {
+    aibViewing = {};
     const ov = document.getElementById('aib-viewer'), body = document.getElementById('aib-viewer-body');
     const pg = aibPageOf(f.page); const pf = pg && AIB_DOC.files[pg.file];
     document.getElementById('aib-viewer-title').textContent = AIB_DOC.source === 'pdf' && pf ? `${pf.name}｜第 ${pg.fn} 頁` : '貼入的書狀文字';
@@ -6735,6 +6767,8 @@ footer{font-size:12.5px;color:#8a8273;border-top:1px solid var(--rule);padding-t
       let flat = ''; const owner = [];
       items.forEach((it, idx) => { for (const ch0 of it.str) { for (const ch of aibFixChars(ch0)) { if (/[\s\u3000]/.test(ch)) continue; flat += ch; owner.push(idx); } } });
       const q = aibNorm(f.quote);
+      // 掃描頁（本機 OCR 或 Gemini 辨識）：用辨識時留下的字座標做模糊比對，畫黃框
+      if (pg && (pg.ocr || pg.gemini)) { aibHighlightScan(f, pg, vp, hl, body); return; }
       let pos = flat.indexOf(q), len = q.length;
       if (pos < 0 && q.length > 12) { pos = flat.indexOf(q.slice(0, 12)); len = 12; }
       if (pos >= 0) {

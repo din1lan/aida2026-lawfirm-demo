@@ -480,6 +480,7 @@
         // 共用讀取（modules/pdftext.js）：帶中文字型對照表，並標出「是圖片、讀不到文字」的頁
         const rd = await window.LF_PdfText.read(await file.arrayBuffer(), {
           remoteOcr: window.LF_GeminiOcr && window.LF_GeminiOcr.hookFor('af-gemini-ocr', (t) => setStatus(esc(t))),
+          locate: false, // AI 自動填沒有「原文」螢光，不用背景取座標
           onProgress: (x) => setStatus(x.done < x.total ? `文字辨識中（OCR）：掃描頁 ${x.done + 1}／${x.total}（第 ${x.page} 頁）｜在你的瀏覽器裡辨識，圖片不會上傳${x.done === 0 ? '；第一次使用需下載辨識元件約 3MB' : ''}` : '文字辨識完成'),
         });
         const text = rd.pages.map((p) => p.text).join('\n');

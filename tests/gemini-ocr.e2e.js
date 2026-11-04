@@ -88,7 +88,8 @@ async function route(ctx, gem) {
       check(calls.length === 1 && calls[0].page === 2 && calls[0].hasImg, '只送第 2 頁（掃描頁）的圖片，第 1、3 頁有文字層不送');
       check(calls.every((c) => c.url.includes('key=' + FAKE_KEY)), '用「AI 智慧閱卷」頁貼的金鑰');
       check(st.includes('第 2 頁由 Gemini 辨識') && st.includes('沒有遮姓名') && st.includes('會先遮姓名'), '畫面標示「由 Gemini 辨識」與圖片沒遮、分析有遮');
-      check(tess === 0, '全部成功時不下載本機 OCR 元件');
+      // AI 智慧閱卷：文字用 Gemini 的，但背景會用本機 OCR 取得座標（只為了「原文」螢光，圖片不上傳）；AI 自動填不需要
+      if (!isAib) check(tess === 0, '全部成功時不下載本機 OCR 元件（AI 自動填）');
       if (isAib) check(aibText.includes('此頁由 Gemini 辨識') && aibText.includes('李大華'), '文字框裡該頁標示「此頁由 Gemini 辨識」');
     } else {
       check(calls.length === 1, '金鑰錯：試過一次就停');

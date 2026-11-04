@@ -136,6 +136,81 @@
     return { text: j.text, marked: j.marked, skipped: all.length - keep.length };
   }
 
+  // ---- 掃描頁的「原文」螢光標示：每個辨識出的字＋座標（頁面單位＝pdf.js scale 1，左上角為原點；只存在記憶體） ----
+  function ocrChars(data, scale) {
+    const out = []; const k = 1 / (scale || 1); let li = 0;
+    ((data && data.blocks) || []).forEach((bl) => (bl.paragraphs || []).forEach((pa) => (pa.lines || []).forEach((ln) => {
+      (ln.words || []).forEach((w) => (w.symbols || []).forEach((sy) => {
+        if (!sy || !sy.text || !sy.bbox) return;
+        for (const c of sy.text) out.push({ c, li, x0: sy.bbox.x0 * k, y0: sy.bbox.y0 * k, x1: sy.bbox.x1 * k, y1: sy.bbox.y1 * k });
+      }));
+      li++;
+    })));
+    return out;
+  }
+  // 比對時只看字（中文、英數、○），標點與空白略過；0／O／○ 視為同一個（去識別化的○○常被認成 00）
+  const canon = (c) => { const x = String(c).normalize('NFKC'); return /[0Oo○〇]/.test(x) ? '○' : x; };
+  const isKey = (c) => /[\u4E00-\u9FFF0-9A-Za-z○〇]/.test(String(c).normalize('NFKC'));
+  // 模糊比對（容許錯字、漏字、多字）：在 chars 裡找和 quote 最接近的連續範圍。回傳 { score 0～1, start, end }（chars 的索引，含頭含尾）
+  function matchQuote(chars, quote) {
+    const T = []; (chars || []).forEach((ch, i) => { if (isKey(ch.c)) T.push({ c: canon(ch.c), i }); });
+    const Q = [...String(quote || '')].filter(isKey).map(canon);
+    const m = Q.length, n = T.length;
+    if (m < 4 || !n) return null;
+    let prev = new Uint16Array(n + 1), cur = new Uint16Array(n + 1);
+    let pst = new Int32Array(n + 1), cst = new Int32Array(n + 1);
+    for (let j = 0; j <= n; j++) { prev[j] = 0; pst[j] = j; }           // 開頭不用從第一個字對起
+    for (let i = 1; i <= m; i++) {
+      cur[0] = i; cst[0] = 0;
+      for (let j = 1; j <= n; j++) {
+        const sub = prev[j - 1] + (Q[i - 1] === T[j - 1].c ? 0 : 1), del = prev[j] + 1, ins = cur[j - 1] + 1;
+        if (sub <= del && sub <= ins) { cur[j] = sub; cst[j] = pst[j - 1]; }
+        else if (del <= ins) { cur[j] = del; cst[j] = pst[j]; }
+        else { cur[j] = ins; cst[j] = cst[j - 1]; }
+      }
+      [prev, cur] = [cur, prev]; [pst, cst] = [cst, pst];
+    }
+    let best = Infinity, bj = 0;
+    for (let j = 1; j <= n; j++) if (prev[j] < best) { best = prev[j]; bj = j; }
+    const sj = pst[bj];
+    if (bj <= sj) return null;
+    return { score: Math.max(0, 1 - best / m), start: T[sj].i, end: T[bj - 1].i };
+  }
+  // 範圍內的字依行合併成方框（頁面單位）
+  function quoteRects(chars, start, end) {
+    const by = new Map();
+    for (let i = start; i <= end; i++) {
+      const ch = chars[i]; if (!ch) continue;
+      const r = by.get(ch.li) || { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity };
+      r.x0 = Math.min(r.x0, ch.x0); r.y0 = Math.min(r.y0, ch.y0); r.x1 = Math.max(r.x1, ch.x1); r.y1 = Math.max(r.y1, ch.y1);
+      by.set(ch.li, r);
+    }
+    return [...by.values()];
+  }
+  const MATCH_MIN = 0.6; // 比對分數低於這個就不標，改顯示提示
+
+  // Gemini 辨識的頁沒有座標：背景用本機 Tesseract 再跑一次，只為了取得座標（文字不用）。一次只跑一份工作
+  let boxQueue = Promise.resolve();
+  function locateInBackground(pdf, pgs) {
+    const job = boxQueue.then(async () => {
+      let worker = null;
+      try {
+        const T = await loadTesseract();
+        worker = await T.createWorker(OCR.lang, 1, { workerPath: OCR.workerPath, corePath: OCR.corePath, langPath: OCR.langPath });
+        for (const pg of pgs) {
+          const cv = await renderToCanvas(await pdf.getPage(pg.n));
+          const r = await worker.recognize(cv, {}, { blocks: true });
+          pg.ocrChars = ocrChars(r && r.data, OCR.scale || 3);
+          cv.width = cv.height = 0;
+        }
+      } catch (e) { pgs.forEach((pg) => { if (!pg.ocrChars) pg.boxError = (e && e.message) || String(e); }); }
+      finally { if (worker) { try { await worker.terminate(); } catch (e) { /* ignore */ } } }
+    });
+    boxQueue = job.catch(() => {});
+    pgs.forEach((pg) => { pg.boxes = job; });
+    return job;
+  }
+
   // ---- 紙本印的東西（不是正文）：左右邊界行號 01～31、頁底文件序號（16～20 碼英數）、單獨頁碼 ----
   // 只刪「整行就是這些」或「句尾空白後的 2 位數行號」；正文裡的金額、日期、條號、卷頁不動
   const NUM_UNIT = '[年月日時分秒元萬億千百條項款目頁號卷冊歲人件次個位筆張份週天成%％]';
@@ -286,7 +361,7 @@
           const r = await worker.recognize(cv, {}, { text: true, blocks: true });
           const res = ocrPageText(r && r.data, OCR);
           const n = squash(res.text).length;
-          if (n >= MIN_PAGE_CHARS) { pg.text = res.text; pg.marked = res.marked; pg.skippedLines = res.skipped; pg.chars = n; pg.image = false; pg.ocr = true; chars += n; ocrPages.push(pg.n); }
+          if (n >= MIN_PAGE_CHARS) { pg.text = res.text; pg.marked = res.marked; pg.skippedLines = res.skipped; pg.chars = n; pg.image = false; pg.ocr = true; pg.ocrChars = ocrChars(r && r.data, OCR.scale || 3); chars += n; ocrPages.push(pg.n); }
           cv.width = cv.height = 0;
         }
         report(ocrTodo.length);
@@ -300,11 +375,13 @@
       if (pg.marked) pg.marked = stripPrintMarks(pg.marked).text;
       const n = squash(pg.text).length; chars += n - pg.chars; pg.chars = n;
     });
+    const gem = pages.filter((pg) => pg.gemini && !pg.ocrChars);
+    if (gem.length && opts.ocr !== false && opts.locate !== false) locateInBackground(pdf, gem);
     const stillImage = ocrTodo.filter((n) => !ocrPages.includes(n));
     return { printMarks, pdf, numPages: pdf.numPages, pages, imagePages: stillImage, ocrPages, blankPages, chars, ocrError, ocrMs, geminiPages: remote.pages, geminiError: remote.error || '' };
   }
 
-  const api = { OPTIONS, OCR, MIN_PAGE_CHARS, pageText, imagePagesNote, ocrPagesNote, cleanOcr, ocrPageText, isJunkLine, joinLines, preprocess, skippedNote, stripPrintMarks, open, read };
+  const api = { OPTIONS, OCR, MIN_PAGE_CHARS, pageText, imagePagesNote, ocrPagesNote, cleanOcr, ocrPageText, isJunkLine, joinLines, preprocess, skippedNote, stripPrintMarks, ocrChars, matchQuote, quoteRects, MATCH_MIN, open, read };
   if (typeof module === 'object' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') window.LF_PdfText = api;
 })(typeof window !== 'undefined' ? window : globalThis);
