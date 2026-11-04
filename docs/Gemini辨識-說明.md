@@ -1,6 +1,6 @@
 # 掃描頁用 Gemini 辨識（可選功能）
 
-分支：`feature/gemini-ocr`（從 main 開，還沒合併）
+分支：`feature/gemini-ocr`，已合併到 main（11/4，同時併入 `fix/ocr-quality` 的 OCR 品質改善）
 
 ## 一句話說明
 
@@ -74,12 +74,13 @@
   涵蓋：送出的指示（逐字、不摘要、不改寫、保留段落）、正常回應、空回應、金鑰錯、超過額度、伺服器錯誤、沒網路、預設不勾、沒金鑰、只送掃描頁、中途失敗退回本機、畫面說明、轉回文字仍會去識別化
 - 瀏覽器實測：`python3 -m http.server 8765` 後 `node tests/gemini-ocr.e2e.js`（假的 Gemini 回應、假金鑰），跑 5 種情況：
   AI 智慧閱卷 × 不勾／勾／勾但金鑰錯、AI 自動填 × 不勾／勾 → 截圖在 `docs/screenshots/gemini-ocr/`
-- 既有測試全部照過：`autofill` 28/28、`deidentify` 33/33、`pdftext` 12/12、`progress-report` 16/16、一鍵示範 `?demo=ding&autorun=pdf-view`、示範內容檢查、進度回報 e2e、中文 PDF 轉錄 e2e
+- 既有測試全部照過（合併 OCR 品質改善之後重跑）：`autofill` 28/28、`deidentify` 40/40、`pdftext` 16/16、`progress-report` 16/16、一鍵示範 `?demo=ding&autorun=pdf-view`、示範內容檢查、進度回報 e2e、中文 PDF 轉錄 e2e（7 份 × 2 個功能）
 - 測試環境連不到外部 CDN，所以測試時 pdf.js、Tesseract 等換成 npm 上同版本的檔案（`CDN_DIR`），樣式用先編好的 Tailwind 3.4.17（`TW_CSS`，只為截圖）；**沒有呼叫真的 Gemini、沒用任何真的金鑰**
 
 ## 改了哪些檔（給合併的人）
 
 - 新檔：`modules/gemini-ocr.js`（全部邏輯）、`tests/gemini-ocr.test.js`、`tests/gemini-ocr.e2e.js`、本說明、截圖
-- `modules/pdftext.js`：`read()` 多一個可選的 `opts.remoteOcr`；本機 OCR 迴圈改成只跑「Gemini 沒成功的頁」（`ocrTodo`）；回傳多 `geminiPages`、`geminiError`。**沒動** `cleanOcr` 等後處理，跟 `fix/ocr-quality` 合併時只有 `read()` 這一段要留意
+- `modules/pdftext.js`：`read()` 多一個可選的 `opts.remoteOcr`；本機 OCR 迴圈改成只跑「Gemini 沒成功的頁」（`ocrTodo`）；回傳多 `geminiPages`、`geminiError`。沒動後處理
+- 送 Gemini 的圖片由 `gemini-ocr.js` 自己轉（原樣、寬約 2000 像素），**不用**本機 OCR 的黑白／去雜點前處理
 - `index.html`：載入新模組、放勾選框、讀檔時傳 `remoteOcr`、顯示「由 Gemini 辨識」說明（共約 10 行）
 - `modules/autofill.js`：放勾選框、讀檔時傳 `remoteOcr`、顯示說明（共約 6 行）

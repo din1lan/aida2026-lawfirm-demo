@@ -7,6 +7,7 @@
  *   reidentify(text, map)                 → 還原後的文字
  *   reidentifyDeep(obj, map)              → 把物件裡所有字串都還原（AI 回傳的 JSON 用）
  *   findLeftoverTokens(text, map)         → 還原後仍殘留、認不出的代號
+ *   joinSpacedHan(text)                   → 把「上　訴　人」這種拉開的字合回去
  *   knownNamesFromCase(caseRecord)        → 從案件資料整理出已知名單
  *
  * 鐵則：這個模組不寫任何儲存（localStorage 等）、不連網、不印 console。
@@ -83,12 +84,21 @@
    * 遮蔽
    * @param {string} text 原文
    * @param {Array<string|{name,role}>} knownNames 已知名單；role：client 當事人／opponent 對造／related 關係人／lawyer 律師／company 公司／person 人名／other 遮蔽
-   * @param {{keep?: string[], useRules?: boolean}} options keep：律師在預覽取消勾選、不要遮的原文
+   * @param {{keep?: string[], useRules?: boolean, joinHanSpaces?: boolean}} options keep：律師在預覽取消勾選、不要遮的原文；joinHanSpaces（預設 true）：先拿掉中文字之間的空白
    */
+  // 「上　訴　人　王　小　明」→「上訴人　王小明」：只合併「一個字、空白、一個字…」這種被拉開的字，
+  // 一般句子裡的空白（例如「李大華 否認」）不動
+  function joinSpacedHan(text) {
+    return String(text || '').replace(/(?<![\u4e00-\u9fff○〇])[\u4e00-\u9fff○〇](?:[ \t\u3000]+[\u4e00-\u9fff○〇](?![\u4e00-\u9fff○〇]))+/g, (m) => m.replace(/[ \t\u3000]+/g, ''));
+  }
+
   function deidentify(text, knownNames, options) {
     const opt = Object.assign({ keep: [], useRules: true }, options || {});
     const keep = new Set(opt.keep || []);
     let t = String(text == null ? '' : text);
+    // 掃描檔 OCR、或排版成寬字距的文件，常見「上　訴　人　王　小　明」：中文字（含○）之間的空白先拿掉，
+    // 角色字與姓名規則、已知名單才比對得到。只改送給 AI 的版本；原文出處比對由呼叫端用原文做。
+    if (opt.joinHanSpaces !== false) t = joinSpacedHan(t);
 
     const map = { entries: [] };           // { token, original, label, kind }
     const byOriginal = new Map();          // 原文 → entry
@@ -263,5 +273,5 @@
     return [...new Set(String(text || '').match(re) || [])];
   }
 
-  return { deidentify, reidentify, reidentifyDeep, findLeftoverTokens, knownNamesFromCase, _toHalf: toHalf };
+  return { deidentify, reidentify, reidentifyDeep, findLeftoverTokens, knownNamesFromCase, joinSpacedHan, _toHalf: toHalf };
 });

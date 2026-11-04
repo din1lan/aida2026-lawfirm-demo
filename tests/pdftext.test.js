@@ -46,12 +46,34 @@ ok('OCR 清理：○○ 被認成 00／OO 時換回，一般數字不動', () =>
 ok('OCR 清理：掃描雜點的孤立符號拿掉，多餘空行收掉', () => {
   assert.strictEqual(T.cleanOcr('原告 “ 庚 _ 住\n\n\n\n下一行 | '), '原告庚住\n\n下一行');
 });
-ok('OCR 依位置組行：字距很寬的地方留全形空格（原告　姓名），一般字距不留', () => {
-  const W = (text, x0, x1) => ({ text, bbox: { x0, x1, y0: 0, y1: 48 } });
-  const data = { blocks: [{ paragraphs: [{ lines: [{ words: [W('原', 240, 290), W('告', 300, 345), W('庚', 411, 460), W('00', 462, 540)] }] }, { lines: [{ words: [W('主', 240, 288), W('文', 300, 338)] }] }] }] };
-  assert.strictEqual(T.ocrLinesText(data), '原 告\u3000庚 00\n\n主 文');
-  assert.strictEqual(T.cleanOcr(T.ocrLinesText(data)), '原告\u3000庚○○\n\n主文');
-  assert.strictEqual(T.ocrLinesText({ text: '沒有位置資料時用純文字' }), '沒有位置資料時用純文字');
+const W = (text, conf, x) => ({ text, symbols: [...text].map((c) => ({ text: c, confidence: conf })) });
+const L = (conf, ...words) => ({ confidence: conf, words });
+const DATA = (...lines) => ({ blocks: [{ paragraphs: [{ lines }] }] });
+ok('OCR 後處理：字距空白拿掉、被切斷的行接回同一段、段落開頭才換段', () => {
+  const r = T.ocrPageText(DATA(
+    L(90, W('上', 90), W('訴', 90), W('人', 90), W('王小明', 90)),
+    L(90, W('上列當事人間請求返還價金事件，上訴人對於中華', 90)),
+    L(90, W('民國一一三年三月一日判決提起上訴，本院判決如', 90)),
+    L(90, W('下：', 90)),
+    L(90, W('一、上訴人主張：兩造於民國一一二年六月一日簽', 90)),
+    L(90, W('訂買賣契約。', 90))));
+  assert.strictEqual(r.text, '上訴人王小明\n上列當事人間請求返還價金事件，上訴人對於中華民國一一三年三月一日判決提起上訴，本院判決如下：\n一、上訴人主張：兩造於民國一一二年六月一日簽訂買賣契約。');
+  assert.strictEqual(r.skipped, 0);
+});
+ok('OCR 後處理：亂碼行（低信心、中文少）丟掉並計數，正常行留下', () => {
+  const r = T.ocrPageText(DATA(L(88, W('被上訴人則以上訴人未依約驗收等語置辯。', 88)), L(5, W('-@e#', 5), W('OK', 5)), L(0, W('呈TEEEE', 0)), L(45, W('人', 45))));
+  assert.strictEqual(r.text, '被上訴人則以上訴人未依約驗收等語置辯。'); assert.strictEqual(r.skipped, 3);
+});
+ok('OCR 後處理：低信心的字在標示版加〔?〕，送 AI 的版本不加', () => {
+  const r = T.ocrPageText(DATA(L(80, { text: '汞認', symbols: [{ text: '汞', confidence: 30 }, { text: '認', confidence: 95 }] }, W('被上訴人', 95))));
+  assert.strictEqual(r.text, '汞認被上訴人'); assert.strictEqual(r.marked, '汞〔?〕認被上訴人');
+});
+ok('OCR 後處理：行頭雜點、行尾黏著的英文字母／單一數字拿掉，案號數字不動', () => {
+  const r = T.ocrPageText(DATA(L(90, W('“上列當事人間請求返還價金事件，本院判決如下1', 90)), L(90, W('被上訴人癸○○（虛構）ee', 90)), L(90, W('一一三年度上字第六六六號', 90)), L(90, W('第2', 90))));
+  assert.strictEqual(r.text, '上列當事人間請求返還價金事件，本院判決如下\n被上訴人癸○○（虛構）\n一一三年度上字第六六六號\n第2');
+});
+ok('OCR 後處理：沒有逐行資料時退回整頁文字', () => {
+  assert.strictEqual(T.ocrPageText({ text: '被 告 應 給 付' }).text, '被告應給付');
 });
 ok('OCR 元件版本全部釘死（不會自動跳新版）', () => {
   for (const k of ['script', 'workerPath', 'corePath', 'langPath']) assert(/@\d+\.\d+\.\d+/.test(T.OCR[k]), k);

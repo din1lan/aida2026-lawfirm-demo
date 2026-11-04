@@ -17,6 +17,7 @@
   const DEFAULT_MODEL = 'gemini-2.5-flash'; // 使用者還沒按「載入模型」時用這個
   const TIMEOUT_MS = 90000;
   const MIN_CHARS = 5;
+  const RENDER_WIDTH = 2000;
   const LABEL = '掃描頁用 Gemini 辨識（較準，但頁面圖片會原樣送給 Google，無法先遮姓名）';
 
   const PROMPT = [
@@ -105,13 +106,23 @@
     return parseResponse(r.status, j);
   }
 
+  // 頁面轉成圖片：用原本的樣子（不做本機 OCR 用的黑白、去雜點處理），寬度約 2000 像素
+  async function renderPage(page) {
+    const vp0 = page.getViewport({ scale: 1 });
+    const vp = page.getViewport({ scale: Math.min(3, Math.max(1, RENDER_WIDTH / vp0.width)) });
+    const cv = root.document.createElement('canvas'); cv.width = Math.round(vp.width); cv.height = Math.round(vp.height);
+    const c2 = cv.getContext('2d'); c2.fillStyle = '#fff'; c2.fillRect(0, 0, cv.width, cv.height);
+    await page.render({ canvasContext: c2, viewport: vp }).promise;
+    return cv;
+  }
+
   // 畫面上的勾選框（每個功能各一個；狀態只在畫面上，不記住）
   function checkboxHtml(id) {
     return `<label class="text-xs text-slate-600 flex items-start gap-2"><input id="${id}" type="checkbox" class="mt-0.5" data-lf-gemini-ocr="1" /><span>${LABEL}<span class="block text-[11px] text-slate-400">選檔前勾選才有效；要用「AI 智慧閱卷」頁貼的金鑰。沒勾、沒金鑰或失敗時，改用本機辨識（圖片不上傳）。</span></span></label>`;
   }
 
   // 給 LF_PdfText.read 的 opts.remoteOcr：沒勾就回傳 undefined（照舊本機 OCR）
-  //   ctx：{ pdf, pages, imagePages, renderToCanvas }；回傳 { pages:[頁碼], error }
+  //   ctx：{ pdf, pages, imagePages }（pdftext.js 傳入）；回傳 { pages:[頁碼], error }
   //   onStatus(text)：進度文字
   function hookFor(checkboxId, onStatus, opt) {
     opt = opt || {};
@@ -126,7 +137,7 @@
       for (let k = 0; k < list.length; k++) {
         const pg = ctx.pages[list[k] - 1];
         say(`Gemini 辨識中：掃描頁 ${k + 1}／${list.length}（第 ${pg.n} 頁）｜頁面圖片會原樣送給 Google`);
-        const cv = await ctx.renderToCanvas(await ctx.pdf.getPage(pg.n));
+        const cv = await renderPage(await ctx.pdf.getPage(pg.n));
         const b64 = cv.toDataURL('image/jpeg', 0.9).split(',')[1] || '';
         cv.width = cv.height = 0;
         const r = await recognize(b64, 'image/jpeg', { key: cred.key, model: cred.model, page: pg.n, fetch: opt.fetch });

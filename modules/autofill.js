@@ -341,7 +341,8 @@
   }
   /** 送 AI 前先在本機用規則找出文件裡的當事人名字，交給去識別化模組一起遮（不連網、不存檔） */
   function partyNamesFromText(text) {
-    const t = String(text || ''); const out = [];
+    // 寬字距／OCR 文字「上　訴　人　王　小　明」：先拿掉中文字之間的空白
+    const t = String(text || '').replace(/(?<![\u4e00-\u9fff○〇])[\u4e00-\u9fff○〇](?:[ \t\u3000]+[\u4e00-\u9fff○〇](?![\u4e00-\u9fff○〇]))+/g, (m) => m.replace(/[ \t\u3000]+/g, '')); const out = [];
     const add = (re, role) => {
       let m; while ((m = re.exec(t))) {
         const n = m[1].replace(/律師$/, '').trim();
@@ -483,7 +484,7 @@
         });
         const text = rd.pages.map((p) => p.text).join('\n');
         if (squash(text).length < 20) throw new Error('這份 PDF 讀不到文字（可能是掃描檔）' + (rd.ocrError ? '，文字辨識也沒有成功：' + rd.ocrError : '') + '。請改拍照上傳並用 Gemini，或手動輸入');
-        UI.doc = { name: file.name, image: false, text, numPages: rd.numPages, imagePages: rd.imagePages, ocrPages: rd.ocrPages, geminiPages: rd.geminiPages, geminiError: rd.geminiError };
+        UI.doc = { name: file.name, image: false, text, numPages: rd.numPages, imagePages: rd.imagePages, ocrPages: rd.ocrPages, geminiPages: rd.geminiPages, geminiError: rd.geminiError, skipNote: window.LF_PdfText.skippedNote ? window.LF_PdfText.skippedNote(rd.pages) : '' };
         setStatus(`✓ 已讀入：${esc(file.name)}（${rd.numPages} 頁，約 ${squash(text).length} 字）${pageNotes(UI.doc)}`);
       }
       $('af-run').disabled = false; paintConsent();
@@ -496,7 +497,7 @@
     const G = window.LF_GeminiOcr;
     return (G && doc.geminiPages && doc.geminiPages.length ? `<br><b class="text-indigo-700">ⓘ ${G.pagesNote(doc.geminiPages)}</b>` : '')
       + (G && doc.geminiError ? `<br><b class="text-amber-700">⚠ ${esc(G.fallbackNote(doc.geminiError))}</b>` : '')
-      + (doc.ocrPages && doc.ocrPages.length ? `<br><b class="text-amber-700">⚠ ${P.ocrPagesNote(doc.ocrPages)}</b>，確認欄位時請對照原檔` : '')
+      + (doc.ocrPages && doc.ocrPages.length ? `<br><b class="text-amber-700">⚠ ${P.ocrPagesNote(doc.ocrPages)}</b>，確認欄位時請對照原檔${doc.skipNote ? `；${doc.skipNote}` : ''}` : '')
       + (doc.imagePages && doc.imagePages.length ? `<br><b class="text-red-600">⚠ ${P.imagePagesNote(doc.imagePages)}</b>，這幾頁的欄位請對照原檔自己填` : '');
   }
 

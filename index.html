@@ -6197,20 +6197,21 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
         for (const pg of rd.pages) {
           const text = aibFixChars(pg.text);
           chars += aibNorm(text).length;
-          pages.push({ n: pages.length + 1, file: fi, fn: pg.n, text, image: pg.image, ocr: pg.ocr, gemini: pg.gemini });
+          pages.push({ n: pages.length + 1, file: fi, fn: pg.n, text, image: pg.image, ocr: pg.ocr, marked: pg.ocr ? aibFixChars(pg.marked || pg.text) : '', skipped: pg.skippedLines || 0, gemini: pg.gemini });
         }
         // 前次報告若存成 PDF（列印匯出），靠標題認出來，一樣只當背景參考
         const isRep = /全案整理報告/.test(f.name) || /^\s*全案整理報告/.test((pages.find((x) => x.file === fi) || {}).text || '');
         files.push({ name: f.name.replace(/\.pdf$/i, ''), pdf, numPages: pdf.numPages, report: isRep });
         const G = window.LF_GeminiOcr;
+        const skipNote = window.LF_PdfText.skippedNote(rd.pages);
         const imgNote = (G && rd.geminiPages && rd.geminiPages.length ? `；<b class="text-indigo-700">${G.pagesNote(rd.geminiPages)}</b>` : '') + (G && rd.geminiError ? `；<b class="text-amber-700">${esc(G.fallbackNote(rd.geminiError))}</b>` : '')
-          + (rd.ocrPages.length ? `；<b class="text-amber-700">${window.LF_PdfText.ocrPagesNote(rd.ocrPages)}</b>` : '')
+          + (rd.ocrPages.length ? `；<b class="text-amber-700">${window.LF_PdfText.ocrPagesNote(rd.ocrPages)}${skipNote ? '；' + skipNote : ''}</b>` : '')
           + (chars >= 30 && rd.imagePages.length ? `；<b class="text-red-600">${window.LF_PdfText.imagePagesNote(rd.imagePages)}</b>，這幾頁的內容不會送去分析${rd.ocrError ? `（${esc(rd.ocrError)}）` : ''}` : '');
         notes.push(`文件${fi + 1}：${esc(f.name)}（${pdf.numPages} 頁${chars < 30 ? `，讀不到文字，可能是掃描檔${rd.ocrError ? `；文字辨識沒有成功：${esc(rd.ocrError)}` : ''}` : ''}）${imgNote}`);
       }
       AIB_DOC.files = files; AIB_DOC.pages = pages; AIB_DOC.source = 'pdf'; AIB_DOC.pdf = (files.find((x) => x.pdf) || {}).pdf || null; AIB_DOC.name = files.map((x) => x.name).join('、');
       st.innerHTML = '✓ ' + notes.join('<br>') + (notes.some((x) => x.includes('掃描檔')) ? '<br><span class="text-red-600">掃描檔要靠文字辨識（OCR）才讀得到：請確認網路連線後重新選擇檔案，或改用貼入文字</span>' : '');
-      document.getElementById('aib-text').value = pages.map((p) => `【文件${p.file + 1}：${files[p.file].name}｜第${p.fn}頁】\n${p.image ? '（這一頁是圖片，讀不到文字）' : (p.gemini ? window.LF_GeminiOcr.PAGE_MARK + '\n' : '') + (p.ocr ? '（此頁為 OCR 辨識，可能有錯字，請核對原文）\n' : '') + p.text}`).join('\n\n');
+      document.getElementById('aib-text').value = pages.map((p) => `【文件${p.file + 1}：${files[p.file].name}｜第${p.fn}頁】\n${p.image ? '（這一頁是圖片，讀不到文字）' : p.gemini ? window.LF_GeminiOcr.PAGE_MARK + '\n' + p.text : (p.ocr ? `（此頁為 OCR 辨識，可能有錯字，請核對原文；標〔?〕的字辨識信心較低${p.skipped ? `；有 ${p.skipped} 行無法辨識，已略過` : ''}）\n` + (p.marked || p.text) : p.text)}`).join('\n\n');
     } catch (err) { AIB_DOC.files = []; AIB_DOC.pages = []; AIB_DOC.pdf = null; st.textContent = '讀取失敗：' + err.message; }
     finally { AIB_DOC.loading = false; }
   }
