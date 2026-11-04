@@ -7214,6 +7214,15 @@ footer{font-size:12.5px;color:#8a8273;border-top:1px solid var(--rule);padding-t
   if (startPage === 'page-petty-cash' && !canSeePettyCash(currentUser())) startPage = 'page-dashboard';
   showPage(startPage);
 
+  // ===== AI 自動填（modules/autofill.js）接點：只借出既有函式與資料，不改原有邏輯；規格見 docs/AI自動填-規格.md =====
+  window.LF_AutofillHost = {
+    getCases: () => cases, getHearings: () => hearings, getDeadlines: () => deadlines,
+    caseParty, caseCause, caseAttorneys, ATTORNEYS, DEADLINE_RULES, CASE_STAGES, CASE_TYPES, CONTRACT_STATUSES, FEE_STATUSES, BILLING_TYPES,
+    computeActionDeadline, computeReminderDate, getAdvanceReminderDays, addDaysISO, buildDeadlineTitle, buildReminderTitle,
+    combineCaseNumberDivision, abbreviateCourtName, calendarLabelFor, showPage, persistAll, renderAll, logAudit,
+  };
+  document.dispatchEvent(new Event('lf-autofill-host-ready'));
+
   // ===== 比賽示範版：一鍵示範網址 =====
   // ?demo=ding               → 自動以「王大明（主持律師）」登入
   // ?demo=ding&autorun=text  → 打開 AI 智慧閱卷，自動用示範書狀分析
@@ -7272,5 +7281,7 @@ footer{font-size:12.5px;color:#8a8273;border-top:1px solid var(--rule);padding-t
   </div>
 </div>
 
+<!-- AI 自動填（書狀自動填案件／開庭通知排行事曆），規格見 docs/AI自動填-規格.md -->
+<script src="modules/autofill.js"></script>
 </body>
 </html>
