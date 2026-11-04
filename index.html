@@ -7,6 +7,7 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="modules/pdftext.js"></script>
 <!-- 去識別化模組（送 AI 前遮個資；規格見 docs/去識別化-規格.md） -->
 <script src="modules/deidentify.js"></script>
 <script>
@@ -6182,24 +6183,26 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
           pages.push({ n: pages.length + 1, file: fi, fn: 1, text });
           const nm = f.name.replace(/\.(html?|txt)$/i, '');
           files.push({ name: isReport && !/全案整理報告/.test(nm) ? '全案整理報告_' + nm : nm, pdf: null, numPages: 1, report: isReport });
-          notes.push(`文件${fi + 1}：${f.name}（${isReport ? '前次整理報告' : '文字檔'}）`);
+          notes.push(`文件${fi + 1}：${esc(f.name)}（${isReport ? '前次整理報告' : '文字檔'}）`);
           continue;
         }
-        const pdf = await pdfjsLib.getDocument({ data: await f.arrayBuffer() }).promise;
-        for (let i = 1; i <= pdf.numPages; i++) {
-          const tc = await (await pdf.getPage(i)).getTextContent();
-          const text = aibFixChars(tc.items.map((it) => it.str + (it.hasEOL ? '\n' : '')).join(''));
+        // 共用讀取（modules/pdftext.js）：帶中文字型對照表，並標出「是圖片、讀不到文字」的頁
+        const rd = await window.LF_PdfText.read(await f.arrayBuffer());
+        const pdf = rd.pdf;
+        for (const pg of rd.pages) {
+          const text = aibFixChars(pg.text);
           chars += aibNorm(text).length;
-          pages.push({ n: pages.length + 1, file: fi, fn: i, text });
+          pages.push({ n: pages.length + 1, file: fi, fn: pg.n, text, image: pg.image });
         }
         // 前次報告若存成 PDF（列印匯出），靠標題認出來，一樣只當背景參考
         const isRep = /全案整理報告/.test(f.name) || /^\s*全案整理報告/.test((pages.find((x) => x.file === fi) || {}).text || '');
         files.push({ name: f.name.replace(/\.pdf$/i, ''), pdf, numPages: pdf.numPages, report: isRep });
-        notes.push(`文件${fi + 1}：${f.name}（${pdf.numPages} 頁${chars < 30 ? '，讀不到文字，可能是掃描檔' : ''}）`);
+        const imgNote = chars >= 30 && rd.imagePages.length ? `；<b class="text-red-600">${window.LF_PdfText.imagePagesNote(rd.imagePages)}</b>，這幾頁的內容不會送去分析` : '';
+        notes.push(`文件${fi + 1}：${esc(f.name)}（${pdf.numPages} 頁${chars < 30 ? '，讀不到文字，可能是掃描檔' : ''}）${imgNote}`);
       }
       AIB_DOC.files = files; AIB_DOC.pages = pages; AIB_DOC.source = 'pdf'; AIB_DOC.pdf = (files.find((x) => x.pdf) || {}).pdf || null; AIB_DOC.name = files.map((x) => x.name).join('、');
-      st.innerHTML = '✓ ' + notes.map((x) => esc(x)).join('<br>') + (notes.some((x) => x.includes('掃描檔')) ? '<br><span class="text-red-600">掃描檔需先做文字辨識，目前版本無法讀取其內容</span>' : '');
-      document.getElementById('aib-text').value = pages.map((p) => `【文件${p.file + 1}：${files[p.file].name}｜第${p.fn}頁】\n${p.text}`).join('\n\n');
+      st.innerHTML = '✓ ' + notes.join('<br>') + (notes.some((x) => x.includes('掃描檔')) ? '<br><span class="text-red-600">掃描檔需先做文字辨識，目前版本無法讀取其內容</span>' : '');
+      document.getElementById('aib-text').value = pages.map((p) => `【文件${p.file + 1}：${files[p.file].name}｜第${p.fn}頁】\n${p.image ? '（這一頁是圖片，讀不到文字）' : p.text}`).join('\n\n');
     } catch (err) { AIB_DOC.files = []; AIB_DOC.pages = []; AIB_DOC.pdf = null; st.textContent = '讀取失敗：' + err.message; }
     finally { AIB_DOC.loading = false; }
   }

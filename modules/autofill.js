@@ -474,17 +474,14 @@
         UI.doc = { name: file.name, image: true, mime: file.type || 'image/png', dataUrl, text: null };
         setStatus(`✓ 已讀入照片：${esc(file.name)}（照片沒有文字可比對出處，確認時請對照原圖）`);
       } else {
-        if (typeof pdfjsLib === 'undefined') throw new Error('PDF 讀取元件沒有載入');
-        const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
-        const pages = [];
-        for (let i = 1; i <= pdf.numPages; i++) {
-          const tc = await (await pdf.getPage(i)).getTextContent();
-          pages.push(tc.items.map((it) => it.str + (it.hasEOL ? '\n' : '')).join(''));
-        }
-        const text = pages.join('\n');
+        if (typeof pdfjsLib === 'undefined' || !window.LF_PdfText) throw new Error('PDF 讀取元件沒有載入');
+        // 共用讀取（modules/pdftext.js）：帶中文字型對照表，並標出「是圖片、讀不到文字」的頁
+        const rd = await window.LF_PdfText.read(await file.arrayBuffer());
+        const text = rd.pages.map((p) => p.text).join('\n');
         if (squash(text).length < 20) throw new Error('這份 PDF 讀不到文字（可能是掃描檔）。請改拍照上傳並用 Gemini，或手動輸入');
-        UI.doc = { name: file.name, image: false, text, numPages: pdf.numPages };
-        setStatus(`✓ 已讀入：${esc(file.name)}（${pdf.numPages} 頁）`);
+        UI.doc = { name: file.name, image: false, text, numPages: rd.numPages, imagePages: rd.imagePages };
+        const imgNote = rd.imagePages.length ? `<br><b class="text-red-600">⚠ ${window.LF_PdfText.imagePagesNote(rd.imagePages)}</b>，這幾頁的欄位請對照原檔自己填` : '';
+        setStatus(`✓ 已讀入：${esc(file.name)}（${rd.numPages} 頁，約 ${squash(text).length} 字）${imgNote}`);
       }
       $('af-run').disabled = false; paintConsent();
     } catch (err) { setStatus('⚠ 讀取失敗：' + esc(err.message || err), 'text-red-600'); }
@@ -543,7 +540,7 @@
       UI.result = checkResponse(obj || raw, UI.kind, doc.image ? null : doc.text);
       const sw = $('af-sent-wrap'); if (sw) { sw.classList.remove('hidden'); $('af-sent').textContent = doc.image ? '（照片，原圖送出，未遮蔽個資）' : sent; }
       const notMasked = doc.image || !hasDeid;
-      setStatus(`${UI.result.ok ? '✓ 讀完了，請逐欄確認' : '⚠ ' + esc(UI.result.error)}　${notMasked ? '<span class="text-red-600 font-semibold">｜' + (doc.image ? '照片無法先遮個資' : '尚未遮蔽個資') + '</span>' : `<span class="text-emerald-700">｜已遮蔽 ${masked} 項個資</span>`}　<span class="text-slate-400">｜${engine === 'gemini' ? 'Gemini' : '示意版'}</span>`, UI.result.ok ? 'text-slate-600' : 'text-amber-700');
+      setStatus(`${UI.result.ok ? '✓ 讀完了，請逐欄確認' : '⚠ ' + esc(UI.result.error)}　${notMasked ? '<span class="text-red-600 font-semibold">｜' + (doc.image ? '照片無法先遮個資' : '尚未遮蔽個資') + '</span>' : `<span class="text-emerald-700">｜已遮蔽 ${masked} 項個資</span>`}　<span class="text-slate-400">｜${engine === 'gemini' ? 'Gemini' : '示意版'}</span>${doc.imagePages && doc.imagePages.length ? `<br><b class="text-red-600">⚠ ${window.LF_PdfText.imagePagesNote(doc.imagePages)}</b>，這幾頁的欄位請對照原檔自己填` : ''}`, UI.result.ok ? 'text-slate-600' : 'text-amber-700');
       renderReview();
     } finally { $('af-run').disabled = false; }
   }
