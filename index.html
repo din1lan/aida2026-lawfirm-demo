@@ -395,7 +395,6 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
         </div>
         <div class="flex flex-wrap gap-2" id="line-inbox-filters"></div>
         <div id="line-inbox-list" class="space-y-4"></div>
-        <p class="text-[11px] text-slate-400">設計上：預約資料可由 LINE 接待系統寫入事務所自有的 Google 試算表，本頁讀取後顯示；AI 只負責收集資訊與排時段，利益衝突與是否委任一律由事務所人工判斷。</p>
       </section>
 
       <section id="page-new-intake" class="page space-y-6">
@@ -461,22 +460,13 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
 
       <!-- ============ 案件與時效 ============ -->
       <section id="page-cases" class="page space-y-6">
-        <div class="bg-indigo-50 border border-indigo-200 text-indigo-900 text-sm rounded-lg px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
-          <span>💡 開案請至「<a href="#" id="link-to-new-intake-from-cases" class="underline font-medium">新增接案</a>」頁面，統一入口，送出後將自動同步顯示在本頁案件列表。</span>
-        </div>
 
         <div>
           <h1 class="text-2xl font-bold text-slate-900">案件與時效（現在案件）</h1>
           <p class="text-slate-500 text-sm mt-1">案件總覽、開庭行事曆自動化、末日提醒自動化；已結案的完整歷史紀錄請到 <a href="#" id="link-to-closed-cases" class="text-indigo-600 hover:underline">結案案件表</a> 查詢</p>
         </div>
 
-        <div class="bg-blue-50 border border-blue-200 text-blue-900 rounded-lg px-4 py-3 text-sm font-medium">
-          💡 溫馨提醒：請同仁務必遵守標準化檔名規範：<span class="font-mono bg-white/70 px-1.5 py-0.5 rounded">[日期] + [收文/筆錄/書狀種類] + [當事人姓名]</span>
-        </div>
 
-        <div class="bg-indigo-50 border border-indigo-200 text-indigo-900 text-xs rounded-lg px-4 py-2.5">
-          💡「⚡ 今日待辦與時效提醒」已移至<a href="#" id="link-to-dashboard-from-cases" class="underline font-medium">首頁</a>最上方，並依登入角色自動過濾顯示您自己承辦的緊急期限。
-        </div>
 
         <div class="bg-white rounded-lg border border-slate-200 p-5">
           <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
@@ -582,10 +572,6 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
           <div id="closed-import-area" class="flex items-center gap-2"></div>
         </div>
 
-        <div class="bg-indigo-50 border border-indigo-200 text-indigo-900 text-sm rounded-lg px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
-          <span>💡 手動新增結案登記表單已移除，統一由「案件與時效」頁案件列表的「✓ 結案」按鈕觸發，避免資料重複建立與流程分歧。</span>
-          <a href="#" id="link-to-cases-from-closed" class="text-xs px-3 py-1.5 rounded bg-indigo-600 text-white hover:bg-indigo-700 whitespace-nowrap">前往案件與時效 →</a>
-        </div>
 
         <div>
           <input id="closed-search" placeholder="搜尋人名、案號或年份（民國年或西元年皆可，如「115」或「2026」）" class="w-full max-w-lg text-sm border border-slate-200 rounded-md px-3 py-2 placeholder:text-slate-400" />
@@ -621,9 +607,6 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
         </div>
         <div id="crm-search-results" class="hidden bg-white rounded-lg border border-slate-200 p-5 space-y-4"></div>
 
-        <div class="text-xs bg-blue-50 border border-blue-200 text-blue-900 rounded-lg px-4 py-2.5">
-          💡 統一輸入源：客戶資料一律透過「<a href="#" id="link-to-new-case-from-crm" class="underline font-medium">新增接案</a>」建立與同步，此頁僅供查詢與維護既有客戶欄位，不再提供獨立新增客戶功能。
-        </div>
 
         <div class="bg-white rounded-lg border border-slate-200 overflow-hidden">
           <div class="px-5 py-3 border-b border-slate-200 flex items-center justify-between gap-3">
@@ -1181,7 +1164,6 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
             </ul>
             <pre id="aib-role-prompt" class="mt-3 max-h-72 overflow-auto whitespace-pre-wrap bg-white border border-slate-200 rounded p-3 text-[11px] leading-relaxed text-slate-600"></pre>
           </details>
-          <p class="text-[11px] text-slate-400 leading-relaxed">防幻覺機制：AI 標為「原文」的句子，系統會到文件裡找相同的句子，找到的可以一鍵跳回文件原句對照；找不到就改列為「重點」，提醒律師自己看原文。「推論」是綜合判斷、對不到單一句子，由律師自行確認。</p>
         </div>
 
         <!-- 溯源分析結果 -->
@@ -1226,7 +1208,6 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
           </div>
           <button id="btn-export-audit-csv" type="button" class="text-xs px-3 py-1.5 rounded border border-slate-300 text-slate-600 hover:bg-slate-50 whitespace-nowrap">匯出開放式格式 (Google Sheets/CSV)</button>
         </div>
-        <div class="bg-amber-50 border border-amber-200 text-amber-800 text-xs px-4 py-2.5 rounded-lg font-medium">🔒 此分頁僅主持律師與財務行政可見；紀錄無法由介面刪除（僅首頁「回復出廠」會一併清空）</div>
         <div class="bg-white rounded-lg border border-slate-200 overflow-hidden">
           <div class="px-5 py-3 border-b border-slate-200 text-xs text-slate-400" id="audit-count"></div>
           <table class="w-full text-sm">
@@ -3203,8 +3184,8 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
   document.getElementById('btn-toggle-closed-cases').addEventListener('click', () => { showClosedCases = !showClosedCases; renderCasesTable(); });
   document.getElementById('link-to-closed-cases').addEventListener('click', (e) => { e.preventDefault(); showPage('page-closed-cases'); });
   { const _lrp = document.getElementById('link-to-retainer-page'); if (_lrp) _lrp.addEventListener('click', (e) => { e.preventDefault(); showPage('page-retainer'); }); }
-  document.getElementById('link-to-dashboard-from-cases').addEventListener('click', (e) => { e.preventDefault(); showPage('page-dashboard'); });
-  document.getElementById('link-to-new-intake-from-cases').addEventListener('click', (e) => { e.preventDefault(); showPage('page-new-intake'); });
+  document.getElementById('link-to-dashboard-from-cases')?.addEventListener('click', (e) => { e.preventDefault(); showPage('page-dashboard'); });
+  document.getElementById('link-to-new-intake-from-cases')?.addEventListener('click', (e) => { e.preventDefault(); showPage('page-new-intake'); });
 
   // 2026-07-15 四次會議（新增接案表單規格）：流水號防呆邏輯收斂為「僅法律諮詢類型允許自動產生」——
   // 依「選取【法律諮詢】時，系統才允許並自動產生流水號；選取其他訴訟或一般案件類型，則關閉自動流水號，
@@ -3589,8 +3570,6 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
           <label class="text-xs text-slate-500 space-y-1"><span>法庭（選填，如：第三法庭）</span><input name="courtroom" placeholder="第三法庭" class="w-full text-sm border rounded px-2 py-1.5" /></label>
           <label class="text-xs text-slate-500 space-y-1"><span>提前提醒天數（留空 = 自動）</span><input type="number" min="0" name="advanceOverride" class="w-full text-sm border rounded px-2 py-1.5" /></label>
         </div>
-        <div class="text-xs bg-emerald-50 border border-emerald-200 rounded p-3 text-emerald-900">✓ 提前提醒天數表已於 2026-07-08 由事務所確認：14~20日限期採分級表版本（提前5日），原始範例文字「提前20日」認定為誤植，不採用。表單中仍可手動覆寫個案的提前天數。</div>
-        <div class="text-xs bg-amber-50 border border-amber-200 rounded p-3 text-amber-900">✓ 國定假日表已填入 2026（民國115年）與 2027（民國116年，全年0補班），來源：行政院人事行政總處辦公日曆表。跨到 2028 年以後使用前，再請補上當年度假日。</div>
         <div id="deadline-preview" class="text-sm bg-slate-50 border border-slate-200 rounded p-3 space-y-1 hidden"></div>
         <button class="text-sm px-4 py-2 rounded bg-indigo-600 text-white hover:bg-indigo-700">儲存為草稿（末日 + 提醒各一筆）</button>
       </form>`;
@@ -4014,7 +3993,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
     renderClosedImportArea(); renderClosedTabs(); renderClosedTable();
   }
   document.getElementById('closed-search').addEventListener('input', (e) => { closedSearchQuery = e.target.value; renderClosedTable(); });
-  document.getElementById('link-to-cases-from-closed').addEventListener('click', (e) => { e.preventDefault(); showPage('page-cases'); });
+  document.getElementById('link-to-cases-from-closed')?.addEventListener('click', (e) => { e.preventDefault(); showPage('page-cases'); });
 
   // 2026-07-10 新增：結案案件表匯出成 CSV（Google Sheets/Excel 皆可開啟編輯），依目前分頁+搜尋條件匯出
   document.getElementById('btn-export-closed-csv').addEventListener('click', () => {
@@ -4175,7 +4154,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
   document.getElementById('crm-search').addEventListener('input', (e) => renderCrmSearch(e.target.value));
 
   // 2026-07-14 二次會議：統一輸入源，客戶資料不再提供獨立新增表單，一律透過「開案一站式表單」建立/同步
-  document.getElementById('link-to-new-case-from-crm').addEventListener('click', (e) => { e.preventDefault(); showPage('page-new-intake'); });
+  document.getElementById('link-to-new-case-from-crm')?.addEventListener('click', (e) => { e.preventDefault(); showPage('page-new-intake'); });
 
   // 2026-07-13 會議新增：客戶資料匯出成 CSV（含身分證號/地址，屬敏感個資，下載後請妥善保管）
   document.getElementById('btn-export-clients-csv').addEventListener('click', () => {
