@@ -1,7 +1,7 @@
 // 去識別化模組測試：node tests/deidentify.test.js
 // 測試資料全部是明顯虛構的人名（王小明、李大華、測試甲…），電話、證號都是假的
 const assert = require('assert');
-const { deidentify, reidentify, reidentifyDeep, findLeftoverTokens, knownNamesFromCase } = require('../modules/deidentify.js');
+const { deidentify, reidentify, reidentifyDeep, findLeftoverTokens, knownNamesFromCase, safeFileLabel } = require('../modules/deidentify.js');
 
 const tests = [];
 const test = (name, fn) => tests.push({ name, fn });
@@ -216,6 +216,60 @@ test('39 已經匿名的「○○○」不被當成人名，也不出錯', () =>
 test('40 一般句子裡的空白不動（只合併被拉開的單字）', () => {
   const r = deidentify('被告：李大華 否認王小明的主張', K);
   has(r.text, '【對造A】 否認');
+});
+
+// ── 角色字後面沒有冒號、罕見姓氏（2026-11-04）：不靠姓氏表，靠前後文抓。姓名全部虛構，刻意用罕見姓（冷、井、亓官、殷、龔、卞）──
+test('41 上訴人＋姓名＋住【地址】（無冒號、罕見姓）', () => {
+  const r = deidentify('上訴人冷若冰住臺北市中正區測試路1號', []); no(r.text, '冷若冰'); has(r.text, '上訴人【'); has(r.text, '住【地址');
+});
+test('42 被上訴人＋四字姓名（複姓）＋住', () => {
+  const r = deidentify('被上訴人亓官明月住新北市板橋區範例街2號', []); no(r.text, '亓官明月'); has(r.text, '被上訴人【');
+});
+test('43 姓名後接「設」（公司所在地寫法）', () => {
+  const r = deidentify('上訴人井上雲設臺中市西區測試路3號', []); no(r.text, '井上雲');
+});
+test('44 姓名後接「即」（即某商行負責人）', () => {
+  const r = deidentify('聲請人冷玉珍即冷記商行負責人', []); no(r.text, '冷玉珍');
+});
+test('45 姓名後接「，」「、」：一行兩個角色都抓', () => {
+  const r = deidentify('上訴人冷若冰，被上訴人井上雲、告訴人殷國華、相對人龔麗娟', []);
+  ['冷若冰', '井上雲', '殷國華', '龔麗娟'].forEach((n) => no(r.text, n));
+});
+test('46 姓名在行尾（換行）：債權人／債務人／法定代理人', () => {
+  const r = deidentify('債權人冷明哲\n債務人井文彬\n法定代理人卞美惠', []);
+  ['冷明哲', '井文彬', '卞美惠'].forEach((n) => no(r.text, n));
+});
+test('47 原告／被告無冒號＋罕見姓，後面接逗號', () => {
+  const r = deidentify('原告冷素貞，被告井俊傑。', []); no(r.text, '冷素貞'); no(r.text, '井俊傑');
+});
+test('48 訴訟代理人列表：第二位律師獨立一行「XXX律師」也遮', () => {
+  const r = deidentify('訴訟代理人　陳大文律師\n　　　　　　冷小華律師', []);
+  no(r.text, '陳大文'); no(r.text, '冷小華'); has(r.text, '【律師B】律師');
+});
+test('49 複代理人＋罕見姓律師（無冒號）', () => {
+  const r = deidentify('複代理人冷志豪律師', []); no(r.text, '冷志豪'); has(r.text, '【律師A】律師');
+});
+test('50 行內「、XXX律師」列舉也遮', () => {
+  const r = deidentify('上訴人之訴訟代理人為陳大文律師、殷小華律師', []); no(r.text, '殷小華'); no(r.text, '陳大文');
+});
+test('51 不誤遮：「上訴人主張，」「原告負擔。」「委任律師到庭」「選任辯護人」', () => {
+  const t = '上訴人主張，被上訴人則以：訴訟費用由原告負擔。委任律師到庭，本件由選任辯護人到庭，原告之訴駁回。';
+  const r = deidentify(t, []); assert.strictEqual(r.text, t, JSON.stringify(r.items));
+});
+test('52 不誤遮：已匿名的「上訴人○○○住」、角色後面接一般句子', () => {
+  const t = '上訴人○○○住所不明。被告對於原告之請求，均不爭執。';
+  const r = deidentify(t, []); assert.strictEqual(r.text, t, JSON.stringify(r.items));
+});
+test('53 抓到的姓名在全文其他地方也一起遮、可還原', () => {
+  const t = '上訴人冷若冰住臺北市中正區測試路1號\n冷若冰主張兩造間有借貸關係。';
+  const r = deidentify(t, []); no(r.text, '冷若冰'); assert.strictEqual(reidentify(r.text, r.map), t);
+});
+test('54 檔名不送 AI：只留文件種類，姓名與案號都拿掉', () => {
+  assert.strictEqual(safeFileLabel('冷若冰_民事起訴狀_113訴123.pdf'), '民事起訴狀');
+  assert.strictEqual(safeFileLabel('03_言詞辯論筆錄'), '言詞辯論筆錄');
+  assert.strictEqual(safeFileLabel('井上雲判決書'), '判決');
+  assert.strictEqual(safeFileLabel('全案整理報告_2026-11-04'), '全案整理報告');
+  assert.strictEqual(safeFileLabel('冷若冰的資料'), '');
 });
 
 let pass = 0; const fails = [];

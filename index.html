@@ -6282,7 +6282,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
   function aibCasePrompt(caseType) {
     return buildLegalAnalysisSystemPrompt(caseType) + '\n\n' + [
       '# 全案整理輸出規則（本次改用此格式，取代上面的【輸出格式】）',
-      '使用者會提供同一案件的多份文件，每頁以「【文件N：檔名｜第M頁】」標示。請讀完全部文件，整理成律師開庭前可以直接使用的全案摘要。',
+      '使用者會提供同一案件的多份文件，每頁以「【文件N（文件種類）｜第M頁】」標示（為保護個資不提供檔名）。請讀完全部文件，整理成律師開庭前可以直接使用的全案摘要。',
       '只輸出一個 JSON 物件，不要任何其他文字：',
       '{"caseType":"民事|刑事|行政（你依文件判斷）","summary":"兩三句話的全案概要","sections":[{"title":"案情概要","items":[ITEM]},{"title":"程序進度與重要期日","items":[ITEM]},{"title":"爭點一：（爭點名稱）","items":[ITEM]},{"title":"攻防注意事項","items":[ITEM]},{"title":"下次開庭前準備","items":[ITEM]}]}',
       'ITEM 格式：{"text":"你的整理","role":"原告|被告|法院|評估|其他","date":"民國年月日（有期日才填）","tier":"原文|推論|待核","doc":N,"page":M,"quote":"文件中一字不差的連續原句（10 到 60 字）"}',
@@ -6810,7 +6810,9 @@ footer{font-size:12.5px;color:#8a8273;border-top:1px solid var(--rule);padding-t
         let g;
         if (multi) {
           // 全案模式：多份文件一起送，產出「案情概要／程序進度／各爭點／攻防注意／開庭準備」
-          const docText = pages.map((p) => `【文件${p.file + 1}：${AIB_DOC.files[p.file].name}｜第${p.fn}頁】\n${p.text}`).join('\n\n');
+          // 檔名常含當事人姓名、案號：送 AI 的頁首只放「文件N（文件種類）」，不放檔名
+          const docLabel = (fi) => { const t = Deid.safeFileLabel ? Deid.safeFileLabel(AIB_DOC.files[fi].name) : ''; return `文件${fi + 1}${t ? '（' + t + '）' : ''}`; };
+          const docText = pages.map((p) => `【${docLabel(p.file)}｜第${p.fn}頁】\n${p.text}`).join('\n\n');
           g = await aibCallGeminiSafe(docText, caseType, aibCasePrompt('自動'));
           if (!g) { skeleton.classList.add('hidden'); return; } // 律師在預覽按了取消：什麼都沒送
           findings = [];

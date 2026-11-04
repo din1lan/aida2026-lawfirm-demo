@@ -33,6 +33,10 @@
   const SURNAMES_1 = '陳林黃張李王吳劉蔡楊許鄭謝洪郭邱曾廖賴徐周葉蘇莊呂江何蕭羅高潘簡朱鍾游彭詹胡施沈余盧梁趙顏柯翁魏孫戴范宋鄧杜傅侯曹薛丁卓阮馬董温溫唐藍蔣紀姚馮歐湯康姜汪鄒巫鐘黎涂龔嚴韓袁陸柳凃邵錢伍倪譚駱熊秦顧俞雷粘饒闕崔尹辜褚殷賈';
   // 名字的字不會是這些（多半是虛詞、動詞）
   const GIVEN_STOP = new Set('稱述報情於與及和等之為係已應則向對即亦均自在就以因所並仍曾未主不是有無的了也都將被把請要會可能得須需另再又才尚依據如若雖但而且或到從給至由否所訴代理律原告'.split(''));
+  // 寬鬆規則（不靠姓氏表）抓到的 2～4 字若含這些詞，就不是姓名（「上訴人主張，」「原告負擔。」…）
+  const LOOSE_STOP = /主張|聲明|抗辯|陳述|陳稱|請求|負擔|提起|起訴|上訴|否認|答辯|聲請|不服|則以|所述|所辯|部分|部份|全部|敗訴|勝訴|駁回|代理|律師|法院|本院|判決|裁定|同意|爭執|自認|到庭|簽名|蓋章|給付|繳納|支付|清償|等人|等語|雙方|兩造|本人|之前|之後|以上|以下|如下|如上|在案|在卷|部分|公司|負責|地址|住所|居所|電話|身分|統一|編號|未到|到場|在場|稱|即為|部門|名義|合意|簽訂|契約|借款|款項|當事|對造|本件|本案|原審|二審|一審|姓名|不詳|年籍/;
+  // 「XXX律師」前面若是這些詞，就不是律師姓名（「委任律師」「選任律師」…）
+  const LAWYER_STOP = /委任|選任|指定|本件|聘請|擔任|執業|承辦|主辦|公設|扶助|法扶|義務|專利|代理|辯護|另委|改委|陪同|諮詢|事務所|全體/;
   // 角色字：後面接的通常是人名
   const ROLE_WORDS = ['再抗告人', '被上訴人', '訴訟代理人', '法定代理人', '選任辯護人', '複代理人', '上訴人', '被聲請人', '聲請人', '相對人', '告訴人', '告發人', '被告人', '抗告人', '債權人', '債務人', '辯護人', '代理人', '具狀人', '撰狀人', '申請人', '關係人', '當事人', '證人', '原告', '被告', '房東', '房客', '出租人', '承租人', '配偶', '受僱人', '僱用人', '委任人', '受任人', '連帶保證人', '保證人', '對造'];
   const TITLES = ['先生', '小姐', '女士', '太太'];
@@ -90,6 +94,16 @@
   // 一般句子裡的空白（例如「李大華 否認」）不動
   function joinSpacedHan(text) {
     return String(text || '').replace(/(?<![\u4e00-\u9fff○〇])[\u4e00-\u9fff○〇](?:[ \t\u3000]+[\u4e00-\u9fff○〇](?![\u4e00-\u9fff○〇]))+/g, (m) => m.replace(/[ \t\u3000]+/g, ''));
+  }
+
+  // 送給 AI 的頁首不放檔名（檔名常含當事人姓名、案號），只留看得出文件種類的字
+  const DOC_TYPES = ['全案整理報告', '民事起訴狀', '刑事起訴書', '起訴狀', '起訴書', '答辯狀', '準備書狀', '準備書', '上訴理由狀', '上訴狀', '抗告狀', '聲請狀', '陳報狀', '陳述意見狀', '言詞辯論筆錄', '準備程序筆錄', '調解筆錄', '和解筆錄', '筆錄', '判決', '裁定', '開庭通知書', '通知書', '傳票', '支付命令', '存證信函', '契約', '協議書', '診斷證明書', '估價單', '收據', '證物', '證據', '鑑定報告', '附表', '委任狀'];
+  function safeFileLabel(name) {
+    const n = String(name || '');
+    const civil = /民事/.test(n) ? '民事' : /刑事/.test(n) ? '刑事' : /行政/.test(n) ? '行政' : '';
+    const hit = DOC_TYPES.find((d) => n.includes(d));
+    if (!hit) return '';
+    return /^(民事|刑事)/.test(hit) || hit === '全案整理報告' ? hit : civil + hit;
   }
 
   function deidentify(text, knownNames, options) {
@@ -183,6 +197,14 @@
       while ((m = lawRe.exec(t))) { const k = trimName(m[1]); if (k) found.push({ name: k, label: '律師' }); }
       const roleRe = new RegExp(`(?:${ROLE_WORDS.map(escRe).join('|')})\\s*[：:]?\\s*${nameCore}`, 'g');
       while ((m = roleRe.exec(t))) { const n = trimName(m[1]); if (n) found.push({ name: n, label: '人名' }); }
+      // 2026-11-04：罕見姓氏也要抓 —— 不靠姓氏表，改靠前後文：
+      //  (a) 角色字後面 2～4 個中文字，後面緊接「住／設／居／即／，、。；括號／律師／換行」
+      //  (b) 行頭或「、，：（」之後的 2～3 個中文字＋「律師」
+      const okLoose = (n) => n && !/○/.test(n) && !GIVEN_STOP.has(n[0]) && !LOOSE_STOP.test(n) && !ROLE_WORDS.includes(n);
+      const anchRe = new RegExp(`(?:${ROLE_WORDS.map(escRe).join('|')})[ \\t\\u3000]*[：:]?[ \\t\\u3000]*(${HAN}{2,4}?)(?=住|設|居|即|[，,、。；;（(）)]|律師|\\n|$)`, 'gm');
+      while ((m = anchRe.exec(t))) { if (okLoose(m[1])) found.push({ name: m[1], label: /^律師/.test(t.slice(m.index + m[0].length)) ? '律師' : '人名' }); }
+      const lawLineRe = new RegExp(`(?<=^|[\\s\\u3000、，,：:（(])(${HAN}{2,3})律師`, 'gm');
+      while ((m = lawLineRe.exec(t))) { if (okLoose(m[1]) && !LAWYER_STOP.test(m[1])) found.push({ name: m[1], label: '律師' }); }
       found.forEach(({ name, label }) => {
         if (keep.has(name) || byOriginal.has(name) || personToken.has(name)) return;
         if (!new RegExp(escRe(name)).test(t)) return;
@@ -273,5 +295,5 @@
     return [...new Set(String(text || '').match(re) || [])];
   }
 
-  return { deidentify, reidentify, reidentifyDeep, findLeftoverTokens, knownNamesFromCase, joinSpacedHan, _toHalf: toHalf };
+  return { deidentify, reidentify, reidentifyDeep, findLeftoverTokens, knownNamesFromCase, joinSpacedHan, safeFileLabel, _toHalf: toHalf };
 });
