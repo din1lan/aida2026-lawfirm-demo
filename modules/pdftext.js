@@ -21,7 +21,11 @@
     corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.1',
     langPath: 'https://cdn.jsdelivr.net/npm/@tesseract.js-data/chi_tra@1.0.0/4.0.0_best_int',
     lang: 'chi_tra',
-    maxWidth: 2200, // 渲染成圖片的最大寬度（像素）：太小辨識差，太大很慢
+    scale: 3,          // pdf.js 算圖倍率（A4 約 1786×2526 像素）
+    colorDrop: true,   // 灰階時取 RGB 最亮的值：紅色印章、彩色對話框會變淡，黑字不受影響
+    binarize: true,    // 用 Otsu 法自動決定門檻，轉成純黑白（去掉灰色雜點、底色）
+    despeckle: true,   // 去掉孤立的小黑點（掃描雜點）
+    psm: '',           // Tesseract 版面模式；空白＝預設
   };
   const OCR_NOTE = '可能有錯字，請核對原文';
 
@@ -97,6 +101,12 @@
     return list.length ? `第 ${list.join('、')} 頁為 OCR 辨識，${OCR_NOTE}` : '';
   }
 
+  // 「第 2 頁有 3 行、第 4 頁有 1 行無法辨識，已略過」
+  function skippedNote(pages) {
+    const list = (pages || []).filter((p) => p && p.skippedLines > 0);
+    return list.length ? list.map((p) => `第 ${p.n} 頁有 ${p.skippedLines} 行`).join('、') + '無法辨識，已略過' : '';
+  }
+
   let tessLoading = null;
   function loadTesseract() {
     if (root.Tesseract) return Promise.resolve(root.Tesseract);
@@ -112,13 +122,48 @@
     return tessLoading;
   }
 
+  // 辨識前處理（純函式，直接改 rgba）：灰階 →（可選）Otsu 二值化 →（可選）去孤立雜點。回傳使用的門檻
+  function preprocess(rgba, w, h, opt) {
+    opt = opt || {};
+    const n = w * h; const g = new Uint8Array(n); const hist = new Uint32Array(256);
+    for (let i = 0; i < n; i++) {
+      const r = rgba[i * 4], gg = rgba[i * 4 + 1], b = rgba[i * 4 + 2];
+      const v = opt.colorDrop ? Math.max(r, gg, b) : Math.round(0.299 * r + 0.587 * gg + 0.114 * b);
+      g[i] = v; hist[v]++;
+    }
+    let th = -1;
+    if (opt.binarize) {
+      let sum = 0; for (let t = 0; t < 256; t++) sum += t * hist[t];
+      let sumB = 0, wB = 0, best = -1;
+      for (let t = 0; t < 256; t++) {
+        wB += hist[t]; if (!wB) continue; const wF = n - wB; if (!wF) break;
+        sumB += t * hist[t]; const mB = sumB / wB, mF = (sum - sumB) / wF; const between = wB * wF * (mB - mF) * (mB - mF);
+        if (between > best) { best = between; th = t; }
+      }
+      for (let i = 0; i < n; i++) g[i] = g[i] <= th ? 0 : 255;
+      if (opt.despeckle) {
+        const src = g.slice();
+        for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
+          const i = y * w + x; if (src[i]) continue;
+          let dark = 0; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if ((dy || dx) && !src[i + dy * w + dx]) dark++;
+          if (dark <= 1) g[i] = 255;
+        }
+      }
+    }
+    for (let i = 0; i < n; i++) { rgba[i * 4] = rgba[i * 4 + 1] = rgba[i * 4 + 2] = g[i]; rgba[i * 4 + 3] = 255; }
+    return th;
+  }
+
   async function renderToCanvas(page) {
-    const vp0 = page.getViewport({ scale: 1 });
-    const scale = Math.min(3, Math.max(1, OCR.maxWidth / vp0.width));
-    const vp = page.getViewport({ scale });
+    const vp = page.getViewport({ scale: OCR.scale || 3 });
     const cv = document.createElement('canvas'); cv.width = Math.round(vp.width); cv.height = Math.round(vp.height);
     const ctx = cv.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, cv.width, cv.height);
     await page.render({ canvasContext: ctx, viewport: vp }).promise;
+    if (OCR.colorDrop || OCR.binarize) {
+      const im = ctx.getImageData(0, 0, cv.width, cv.height);
+      preprocess(im.data, cv.width, cv.height, OCR);
+      ctx.putImageData(im, 0, 0);
+    }
     return cv;
   }
 
@@ -158,6 +203,7 @@
         report(0);
         const T = await loadTesseract();
         worker = await T.createWorker(OCR.lang, 1, { workerPath: OCR.workerPath, corePath: OCR.corePath, langPath: OCR.langPath });
+        if (OCR.psm) await worker.setParameters({ tessedit_pageseg_mode: String(OCR.psm) });
         for (let k = 0; k < imagePages.length; k++) {
           report(k);
           const pg = pages[imagePages[k] - 1];
@@ -176,7 +222,7 @@
     return { pdf, numPages: pdf.numPages, pages, imagePages: stillImage, ocrPages, blankPages, chars, ocrError, ocrMs };
   }
 
-  const api = { OPTIONS, OCR, MIN_PAGE_CHARS, pageText, imagePagesNote, ocrPagesNote, cleanOcr, ocrLinesText, open, read };
+  const api = { OPTIONS, OCR, MIN_PAGE_CHARS, pageText, imagePagesNote, ocrPagesNote, cleanOcr, ocrLinesText, preprocess, skippedNote, open, read };
   if (typeof module === 'object' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') window.LF_PdfText = api;
 })(typeof window !== 'undefined' ? window : globalThis);

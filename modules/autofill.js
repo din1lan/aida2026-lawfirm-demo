@@ -481,7 +481,7 @@
         });
         const text = rd.pages.map((p) => p.text).join('\n');
         if (squash(text).length < 20) throw new Error('這份 PDF 讀不到文字（可能是掃描檔）' + (rd.ocrError ? '，文字辨識也沒有成功：' + rd.ocrError : '') + '。請改拍照上傳並用 Gemini，或手動輸入');
-        UI.doc = { name: file.name, image: false, text, numPages: rd.numPages, imagePages: rd.imagePages, ocrPages: rd.ocrPages };
+        UI.doc = { name: file.name, image: false, text, numPages: rd.numPages, imagePages: rd.imagePages, ocrPages: rd.ocrPages, skipNote: window.LF_PdfText.skippedNote ? window.LF_PdfText.skippedNote(rd.pages) : '' };
         setStatus(`✓ 已讀入：${esc(file.name)}（${rd.numPages} 頁，約 ${squash(text).length} 字）${pageNotes(UI.doc)}`);
       }
       $('af-run').disabled = false; paintConsent();
@@ -491,7 +491,7 @@
   // OCR 頁、讀不到的圖片頁：讀入後與 AI 讀完後都要顯示，不能被蓋掉
   function pageNotes(doc) {
     const P = window.LF_PdfText; if (!doc || !P) return '';
-    return (doc.ocrPages && doc.ocrPages.length ? `<br><b class="text-amber-700">⚠ ${P.ocrPagesNote(doc.ocrPages)}</b>，確認欄位時請對照原檔` : '')
+    return (doc.ocrPages && doc.ocrPages.length ? `<br><b class="text-amber-700">⚠ ${P.ocrPagesNote(doc.ocrPages)}</b>，確認欄位時請對照原檔${doc.skipNote ? `；${doc.skipNote}` : ''}` : '')
       + (doc.imagePages && doc.imagePages.length ? `<br><b class="text-red-600">⚠ ${P.imagePagesNote(doc.imagePages)}</b>，這幾頁的欄位請對照原檔自己填` : '');
   }
 
