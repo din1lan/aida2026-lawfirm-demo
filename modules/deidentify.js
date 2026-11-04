@@ -28,13 +28,19 @@
   const SEP = '[-\\u0020\\u3000]';   // 數字間的分隔（不跨行）
 
   // 常見姓氏（複姓放前面，比對時先試）
-  const SURNAMES_2 = ['歐陽', '司馬', '上官', '諸葛', '東方', '皇甫', '尉遲', '公孫', '慕容', '長孫', '令狐', '夏侯', '司徒', '張簡', '范姜', '張廖'];
+  const SURNAMES_2 = ['歐陽', '司馬', '上官', '諸葛', '東方', '皇甫', '尉遲', '公孫', '慕容', '長孫', '令狐', '夏侯', '司徒', '張簡', '范姜', '張廖', '亓官', '端木', '西門', '南宮', '第五', '呼延', '萬俟', '澹臺', '宇文', '鮮于', '左丘'];
   // 只放常見、且不容易跟一般詞混淆的姓（「連帶」「程序」「方面」「向原告」會誤判，所以不放 連程方向 等字；罕見姓請用已知名單）
   const SURNAMES_1 = '陳林黃張李王吳劉蔡楊許鄭謝洪郭邱曾廖賴徐周葉蘇莊呂江何蕭羅高潘簡朱鍾游彭詹胡施沈余盧梁趙顏柯翁魏孫戴范宋鄧杜傅侯曹薛丁卓阮馬董温溫唐藍蔣紀姚馮歐湯康姜汪鄒巫鐘黎涂龔嚴韓袁陸柳凃邵錢伍倪譚駱熊秦顧俞雷粘饒闕崔尹辜褚殷賈';
+  // 較少見但台灣常見於戶籍的姓（只用在「角色字＋姓名」的前後文規則）；刻意不放容易當一般詞開頭的字（平、表、進、前、好、處、陷、詐…）
+  const SURNAMES_EXT = '冷井卞亓麥甘包祝談繆艾牛喬花金石古田白毛方夏易寇岳邢裴韋童連傳翟聶申池利紀宗龍蒲樊左單習郝閻杭溫邱湛酈晏景童戚池華全向應米賀尤付柴萬龐費鄔房裘缪荊鞏隋關藺霍虞嵇桂章伏'.replace(/[平表進前好處陷詐]/g, '');
   // 名字的字不會是這些（多半是虛詞、動詞）
   const GIVEN_STOP = new Set('稱述報情於與及和等之為係已應則向對即亦均自在就以因所並仍曾未主不是有無的了也都將被把請要會可能得須需另再又才尚依據如若雖但而且或到從給至由否所訴代理律原告'.split(''));
   // 寬鬆規則（不靠姓氏表）抓到的 2～4 字若含這些詞，就不是姓名（「上訴人主張，」「原告負擔。」…）
   const LOOSE_STOP = /主張|聲明|抗辯|陳述|陳稱|請求|負擔|提起|起訴|上訴|否認|答辯|聲請|不服|則以|所述|所辯|部分|部份|全部|敗訴|勝訴|駁回|代理|律師|法院|本院|判決|裁定|同意|爭執|自認|到庭|簽名|蓋章|給付|繳納|支付|清償|等人|等語|雙方|兩造|本人|之前|之後|以上|以下|如下|如上|在案|在卷|部分|公司|負責|地址|住所|居所|電話|身分|統一|編號|未到|到場|在場|稱|即為|部門|名義|合意|簽訂|契約|借款|款項|當事|對造|本件|本案|原審|二審|一審|姓名|不詳|年籍/;
+  // 低信心候選（不是姓氏開頭）若含這些常見法律用語、動詞片語，就連「建議」都不列
+  const LEGAL_TERMS = /詐欺|詐騙|錯誤|陷於|表示|處理|進行|平安|事務|主張|請求|給付|同意|契約|服務|超渡|謝意|感謝|好喔|好的|好啊|謝謝|前開|前揭|上開|上述|同上|如前|所稱|所謂|所有|權利|義務|責任|損害|賠償|侵權|過失|故意|違約|解除|撤銷|無效|返還|交付|支付|清償|借款|借貸|買賣|租賃|承攬|委任|贈與|保證|擔保|抵押|質權|利息|違約金|訴訟|起訴|上訴|抗告|再審|調解|和解|判決|裁定|審理|辯論|開庭|到庭|證據|證明|證人|鑑定|事實|理由|爭點|主文|聲明|陳述|答辯|否認|自認|承認|爭執|抗辯|反駁|認定|判斷|斟酌|審酌|足認|可採|不採|駁回|准許|負擔|費用|金額|款項|新臺幣|帳戶|匯款|轉帳|收受|取得|占有|使用|收益|處分|移轉|登記|繼承|遺產|扶養|監護|離婚|婚姻|子女|財產|分配|協議|約定|通知|催告|寄送|送達|收到|告知|說明|回覆|聯絡|見面|討論|溝通|確認|核對|檢查|修繕|維修|施工|工程|交屋|驗收|付款|收款|報酬|工資|薪資|資遣|解僱|勞動|加班|休假|傷害|醫療|治療|住院|看診|恐嚇|竊盜|侵占|背信|偽造|毀損|妨害|公然|侮辱|誹謗|毆打|行為|情形|情事|部分|全部|一切|相關|有關|關於|對於|由於|因此|然而|但是|並且|而且|或者|以及|為了|因為|所以|如果|即使|雖然|已經|仍然|尚未|曾經|始終|一直|立即|隨即|嗣後|其後|之後|之前|當時|目前|現在|今日|昨日|明日|本件|本案|該案|其他|另外|此外|再者|又稱|即稱|稱為|名為|作為|成為|認為|以為|視為|屬於|位於|居住|工作|經營|營業|開設|設立|成立|負責|擔任|代表|代理|授權|委託|聘請|僱用|受僱|雇主|員工|職員|股東|董事|公司|商行|企業|店家|客戶|廠商|朋友|同事|鄰居|家屬|親屬|父親|母親|配偶|兒子|女兒|兄弟|姊妹|狐狸|貓狗|動物|宗教|法會|祭拜|祈福|消災|改運|算命|風水|命理/;
+  // 姓氏開頭但其實是一般詞（「方面」「金錢」「何時」…）
+  const SURNAME_WORDS = /^(方面|方式|方法|方才|金錢|金額|金融|石頭|白天|夏天|何時|何以|何況|何謂|周知|周遭|高度|高額|高興|全部|全額|全體|全數|向來|向其|應該|應予|應即|應付|應當|關於|關係|單獨|單方|易於|連帶|連續|田地|林地|花費|花錢|毛病|古董|章程|童年|華人|利息|利益|宗教|申請|申報|習慣|左右|萬元|費用|房屋|房租|景氣|江湖|洪水|黃金|余額|余款|葉子|程序|孫子|馬上|朱紅|游戲|游泳|施工|施行|施用|沈默|曾經|曾於|許可|許多|陳述|陳報|陳稱|楊柳|林木|簡單|簡易|簡訊|蘇醒|莊園|吳語|潘朵|鄭重|韓國|雷同|雷射|熊熊|秦朝|顧客|顧慮|蔣某|紀錄|姚某|湯匙|康復|汪洋|巫術|黎明|嚴重|嚴格|袁某|陸續|柳丁|錢財|伍佰|倪某|譚某|駱駝|俞某|饒恕|崔某|尹某|辜負|褚某|殷切|賈某|龔某|唐突|藍色|董事|馬路|白色|石油|古代|田野|毛巾|夏季|易手|寇讎|岳父|岳母|邢某|裴某|童話|翟某|申訴|池中|利用|宗旨|龍眼|蒲團|樊籠|左方|單位|單據|習俗|湛藍|景象|戚某|華麗|全然|向前|應允|米飯|賀禮|尤其|付款|付清|付出|柴火|萬一|龐大|費時|房間|關閉|關心|霍亂|虞某|桂圓|章節|伏筆|冷靜|冷氣|井然|包括|包含|包裝|祝福|談話|談判|艾草|牛肉|喬裝|花園|甘願|麥克)/;
   // 「XXX律師」前面若是這些詞，就不是律師姓名（「委任律師」「選任律師」…）
   const LAWYER_STOP = /委任|選任|指定|本件|聘請|擔任|執業|承辦|主辦|公設|扶助|法扶|義務|專利|代理|辯護|另委|改委|陪同|諮詢|事務所|全體/;
   // 角色字：後面接的通常是人名
@@ -181,6 +187,7 @@
     });
 
     // 3) 規則補抓
+    let suggestions = [];
     if (opt.useRules) {
       const found = []; // { name, label }
       const s2 = SURNAMES_2.map(escRe).join('|');
@@ -201,22 +208,36 @@
       //  (a) 角色字後面 2～4 個中文字，後面緊接「住／設／居／即／，、。；括號／律師／換行」
       //  (b) 行頭或「、，：（」之後的 2～3 個中文字＋「律師」
       const okLoose = (n) => n && !/○/.test(n) && !GIVEN_STOP.has(n[0]) && !LOOSE_STOP.test(n) && !ROLE_WORDS.includes(n);
+      // 信心分級：'high'＝姓氏開頭、長度合理 → 預設遮；'low'＝不是姓氏開頭 → 只列為「可能是人名」，預設不遮；null＝不是人名
+      const sugg = new Map();
+      const classify = (n) => {
+        if (!okLoose(n)) return null;
+        if (SURNAME_WORDS.test(n)) return null;
+        if (SURNAMES_2.some((x) => n.startsWith(x))) return n.length >= 3 && n.length <= 4 ? 'high' : null;
+        if ((SURNAMES_1.includes(n[0]) || SURNAMES_EXT.includes(n[0])) && n.length >= 2 && n.length <= 3) return 'high';
+        if (LEGAL_TERMS.test(n)) return null;
+        return 'low';
+      };
+      const take = (n, label) => { const c = classify(n); if (c === 'high') found.push({ name: n, label }); else if (c === 'low' && !sugg.has(n)) sugg.set(n, label); return c; };
       const anchRe = new RegExp(`(?:${ROLE_WORDS.map(escRe).join('|')})[ \\t\\u3000]*[：:]?[ \\t\\u3000]*(${HAN}{2,4}?)(?=[ \\t\\u3000]*(?:住|設|居|即|[，,、。；;（(）)]|律師|\\n|$))`, 'gm');
-      while ((m = anchRe.exec(t))) { if (okLoose(m[1])) found.push({ name: m[1], label: /^[ \t\u3000]*律師/.test(t.slice(m.index + m[0].length)) ? '律師' : '人名' }); }
+      while ((m = anchRe.exec(t))) take(m[1], /^[ \t\u3000]*律師/.test(t.slice(m.index + m[0].length)) ? '律師' : '人名');
       const lawLineRe = new RegExp(`(?<=^|[\\s\\u3000、，,：:（(])(${HAN}{2,3})[ \\t\\u3000]*律師`, 'gm');
-      while ((m = lawLineRe.exec(t))) { if (okLoose(m[1]) && !LAWYER_STOP.test(m[1])) found.push({ name: m[1], label: '律師' }); }
+      while ((m = lawLineRe.exec(t))) { if (!LAWYER_STOP.test(m[1])) take(m[1], '律師'); }
       //  (c) 名單接續：「證人【人名C】、冷大華及井小明、卞美美等人」—— 角色字後面用「、及與和暨」串起來的每一個都是姓名
       //      整串每一段都要像姓名（2～4 字或已換好的代號），才算數；「原告與被告間」這種不會動
       const listRe = new RegExp(`(?:${ROLE_WORDS.map(escRe).join('|')})[ \\t\\u3000]*[：:]?[ \\t\\u3000]*([^，,。；;\\n]{2,80}?)(?=等人|等|[，,。；;\\n]|$)`, 'gm');
       while ((m = listRe.exec(t))) {
         const parts = m[1].split(/[、及與和暨]/).map((x) => x.replace(/[ \t\u3000]+/g, ''));
         if (parts.length < 2) continue;
-        const looks = parts.every((x) => /^【[^】]+】$/.test(x) || (new RegExp(`^${HAN}{2,4}$`).test(x) && okLoose(x)));
+        const looks = parts.every((x) => /^【[^】]+】$/.test(x) || (new RegExp(`^${HAN}{2,4}$`).test(x) && classify(x)));
         if (!looks) continue;
-        parts.filter((x) => !/^【/.test(x)).forEach((x) => found.push({ name: x, label: '人名' }));
+        parts.filter((x) => !/^【/.test(x)).forEach((x) => take(x, '人名'));
       }
+      // 低信心候選：文件裡還在（沒被別的規則遮掉）的才列出，預設不遮
+      suggestions = [...sugg.entries()].filter(([n]) => !found.some((f) => f.name === n) && !byOriginal.has(n) && !keep.has(n) && t.includes(n)).map(([name, label]) => ({ name, label }));
       found.forEach(({ name, label }) => {
         if (keep.has(name) || byOriginal.has(name) || personToken.has(name)) return;
+        if (SURNAME_WORDS.test(name)) return; // 「何時」「方面」這類姓氏字開頭的一般詞
         if (!new RegExp(escRe(name)).test(t)) return;
         t = t.replace(nameRe(name), () => { bump(name); return tokenFor(name, label, 'name'); });
         personToken.set(name, byOriginal.get(name).token);
@@ -261,7 +282,7 @@
     const items = map.entries.filter((e) => e.kind !== 'title' && !(e.original.endsWith('某') && e.kind === 'name'))
       .map((e) => ({ original: e.original, token: e.token, label: e.label, kind: e.kind, count: counts.get(e.original) || 0 }));
     map.entries.filter((e) => e.kind === 'title').forEach((e) => items.push({ original: e.original, token: e.token, label: '稱謂', kind: 'title', count: counts.get(e.original) || 0 }));
-    return { text: t, map, items };
+    return { text: t, map, items, suggestions };
   }
 
   // 一個代號（如【當事人A】）在 AI 回傳中可能的各種寫法

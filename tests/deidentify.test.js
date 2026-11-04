@@ -289,6 +289,31 @@ test('58 名單規則不誤遮：「原告與被告間」「被告及其訴訟�
   const r = deidentify(t, []); assert.strictEqual(r.text, t, JSON.stringify(r.items));
 });
 
+// ── 不該被遮（2026-11-04 使用者回報遮太多）：角色字後面接動詞、法律用語、聊天用語，不是人名 ──
+const notMasked = (t) => { const r = deidentify(t, []); assert.strictEqual(r.text, t, '不應遮：' + JSON.stringify(r.items.map((x) => x.original))); return r; };
+test('59 不遮：「被告詐欺，」「原告詐欺。」（法律用語）', () => { notMasked('被告詐欺，原告詐欺。上訴人詐欺、被上訴人詐欺；'); });
+test('60 不遮：「被上訴人陷於錯誤，」', () => { notMasked('被上訴人陷於錯誤，告訴人陷於錯誤。'); });
+test('61 不遮：「上訴人進行超渡，」', () => { notMasked('上訴人進行超渡，'); });
+test('62 不遮：「被告表示謝意，」', () => { notMasked('被告表示謝意，'); });
+test('63 不遮：「上訴人處理事務，」', () => { notMasked('上訴人處理事務，'); });
+test('64 不遮：「原告平安，」「被告平安。」', () => { notMasked('原告平安，被告平安。'); });
+test('65 不遮：聊天用語「告訴人好喔。」', () => { notMasked('告訴人好喔。'); });
+test('66 不遮：「被告前開主，」「上訴人踢狐狸、」', () => { notMasked('被告前開主，上訴人踢狐狸、'); });
+test('67 不遮：姓氏字開頭的一般詞「被告方面，」「原告金錢，」「上訴人何時，」「證人花費、」', () => { notMasked('被告方面，原告金錢，上訴人何時，證人花費、'); });
+test('68 不遮：「相對人同意，」「聲請人請求，」「債務人給付，」「被告服務，」「被告詐欺及背信，」', () => { notMasked('相對人同意，聲請人請求，債務人給付，被告服務，被告詐欺及背信，'); });
+test('69 同一份裡真名照遮、用語不遮', () => {
+  const r = deidentify('上訴人冷若冰住臺北市中正區測試路1號\n被上訴人陷於錯誤，被告詐欺，證人李大華、林美玲等人到庭', []);
+  ['冷若冰', '李大華', '林美玲'].forEach((n) => no(r.text, n)); has(r.text, '陷於錯誤'); has(r.text, '被告詐欺');
+});
+test('70 低信心（不是姓氏開頭）：列為「可能是人名」建議、預設不遮', () => {
+  const r = deidentify('上訴人那英住臺北市中正區測試路1號', []);
+  has(r.text, '那英'); assert.ok((r.suggestions || []).some((x) => x.name === '那英'), JSON.stringify(r.suggestions));
+});
+test('71 律師勾選建議後（加入名單）就會遮', () => {
+  const r = deidentify('上訴人那英住臺北市中正區測試路1號', [{ name: '那英', role: 'person' }]);
+  no(r.text, '那英'); assert.ok(!(r.suggestions || []).some((x) => x.name === '那英'));
+});
+
 let pass = 0; const fails = [];
 for (const t of tests) {
   try { t.fn(); pass++; console.log('  ✓ ' + t.name); }

@@ -6368,7 +6368,14 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
             <input type="checkbox" class="mt-1 deid-chk" data-i="${i}" ${keep.has(it.original) ? '' : 'checked'} />
             <span class="flex-1"><span class="text-[11px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 mr-1">${esc(it.kind === 'name' ? it.label : (DEID_LABEL[it.kind] || it.label))}</span><b class="text-slate-800">${esc(it.original)}</b>
             <span class="text-slate-400">→</span> <span class="text-emerald-700">${esc(it.token)}</span> <span class="text-[11px] text-slate-400">×${it.count}</span></span></label>`).join('')
-          : '<p class="text-xs text-slate-500 p-2">沒有偵測到個資。若文件裡有人名，請在下方手動加入。</p>');
+          : '<p class="text-xs text-slate-500 p-2">沒有偵測到個資。若文件裡有人名，請在下方手動加入。</p>')
+          // 低信心候選：可能是人名但不確定（不是常見姓氏開頭）→ 預設不遮，律師勾了才遮
+          + ((full.suggestions || []).length ? '<p class="text-[11px] text-amber-700 px-2 pt-2">以下可能是人名，請確認（預設不遮，勾選才遮）</p>' + full.suggestions.map((sg, i) => `<label class="flex items-start gap-2 px-2 py-1.5 rounded hover:bg-amber-50">
+            <input type="checkbox" class="mt-1 deid-sug" data-i="${i}" />
+            <span class="flex-1"><span class="text-[11px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 mr-1">可能是人名，請確認</span><b class="text-slate-800">${esc(sg.name)}</b></span></label>`).join('') : '');
+        [...document.querySelectorAll('#deid-list .deid-sug')].forEach((cb) => cb.addEventListener('change', () => {
+          const sg = full.suggestions[Number(cb.dataset.i)]; if (cb.checked && sg) { keep.delete(sg.name); extra.push({ name: sg.name, role: sg.label === '律師' ? 'lawyer' : 'person' }); render(); }
+        }));
         [...document.querySelectorAll('#deid-list .deid-chk')].forEach((cb) => cb.addEventListener('change', () => {
           const o = rows[Number(cb.dataset.i)].original; if (cb.checked) keep.delete(o); else keep.add(o); render();
         }));
