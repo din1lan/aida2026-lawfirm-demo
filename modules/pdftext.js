@@ -26,7 +26,7 @@
     binarize: true,    // 用 Otsu 法自動決定門檻，轉成純黑白（去掉灰色雜點、底色）
     despeckle: true,   // 去掉孤立的小黑點（掃描雜點）
     psm: '',           // Tesseract 版面模式；空白＝預設（實測改 6 沒有差別）
-    lowConf: 60,       // 單字信心低於這個分數，在標示版文字後面加〔?〕
+    lowConf: 70,       // 單字信心低於這個分數，在標示版文字後面加〔?〕
     dropConf: 20,      // 整行信心低於這個分數（且中文比例不高或字很少）就當亂碼丟掉
   };
   const OCR_NOTE = '可能有錯字，請核對原文';
@@ -84,14 +84,23 @@
   const HEAD_RE = /^(（[一二三四五六七八九十百]+）|\([一二三四五六七八九十0-9]+\)|[一二三四五六七八九十百]+、|[0-9０-９]+[、.．]|主文|理由|事實及理由|事實|據上論結|據上論斷|中華民國|審判長|法官|書記官|附表|附件|以上正本)/;
   const ROLE_RE = /^(被上訴人|上訴人|原告|被告|聲請人|相對人|抗告人|再抗告人|參加人|法定代理人|訴訟代理人|複代理人|選任辯護人|辯護人)/;
   const isHan = (c) => /[一-鿿○]/.test(c);
+  // 行頭的雜點（“ ” - . 。 等）、行尾黏在中文後面的 1～3 個英文字母或單一數字（「如下1」「虛構）ee」）、行尾多出的半形點拿掉
+  function trimEdges(s) {
+    return String(s || '')
+      .replace(/^[“”"'‘’\-–—_.。,，·•:：;；\s]+(?=\S)/, '')
+      .replace(/(?<=[\u4E00-\u9FFF）」。：；！？])[A-Za-z]{1,3}$/, '')
+      .replace(/(?<=[\u4E00-\u9FFF）」：；！？])(?<![第條項款號年月日])[0-9]$/, '')
+      .replace(/(?<=[\u4E00-\u9FFF。）])[.]+$/, '')
+      .trim();
+  }
   function ocrLines(data, opt) {
     opt = opt || {}; const low = opt.lowConf == null ? 60 : opt.lowConf;
     const out = [];
     ((data && data.blocks) || []).forEach((bl) => (bl.paragraphs || []).forEach((pa) => (pa.lines || []).forEach((ln) => {
       const ws = (ln.words || []).filter((w) => w && w.text);
       if (!ws.length) return;
-      const plain = cleanOcr(ws.map((w) => w.text).join(' '));
-      const marked = cleanOcr(ws.map((w) => (w.symbols && w.symbols.length ? w.symbols.map((s) => s.text + (s.confidence < low && /[一-鿿0-9]/.test(s.text) ? '〔?〕' : '')).join('') : w.text)).join(' '));
+      const plain = trimEdges(cleanOcr(ws.map((w) => w.text).join(' ')));
+      const marked = trimEdges(cleanOcr(ws.map((w) => (w.symbols && w.symbols.length ? w.symbols.map((s) => s.text + (s.confidence < low && /[一-鿿0-9]/.test(s.text) ? '〔?〕' : '')).join('') : w.text)).join(' ')));
       const nz = squash(plain); if (!nz) return;
       const han = [...nz].filter(isHan).length;
       out.push({ plain, marked, conf: typeof ln.confidence === 'number' ? ln.confidence : 100, hanRatio: han / [...nz].length, len: [...nz].length });

@@ -68,6 +68,10 @@ ok('OCR 後處理：低信心的字在標示版加〔?〕，送 AI 的版本不�
   const r = T.ocrPageText(DATA(L(80, { text: '汞認', symbols: [{ text: '汞', confidence: 30 }, { text: '認', confidence: 95 }] }, W('被上訴人', 95))));
   assert.strictEqual(r.text, '汞認被上訴人'); assert.strictEqual(r.marked, '汞〔?〕認被上訴人');
 });
+ok('OCR 後處理：行頭雜點、行尾黏著的英文字母／單一數字拿掉，案號數字不動', () => {
+  const r = T.ocrPageText(DATA(L(90, W('“上列當事人間請求返還價金事件，本院判決如下1', 90)), L(90, W('被上訴人癸○○（虛構）ee', 90)), L(90, W('一一三年度上字第六六六號', 90)), L(90, W('第2', 90))));
+  assert.strictEqual(r.text, '上列當事人間請求返還價金事件，本院判決如下\n被上訴人癸○○（虛構）\n一一三年度上字第六六六號\n第2');
+});
 ok('OCR 後處理：沒有逐行資料時退回整頁文字', () => {
   assert.strictEqual(T.ocrPageText({ text: '被 告 應 給 付' }).text, '被告應給付');
 });

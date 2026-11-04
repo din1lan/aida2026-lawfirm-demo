@@ -1,6 +1,7 @@
 // 中文 PDF 轉錄回歸測試：先在專案根目錄 python3 -m http.server 8765，再 node tests/pdf-cjk.e2e.js
 // 上傳 tests/fixtures/pdf-cjk/ 的虛構 PDF 到「AI 智慧閱卷」與「AI 自動填」，比對網站抓到的字與原文。
-//   有文字層的頁：要一字不差；掃描（圖片）頁：OCR 依序對上原文要 ≥ 85%，畫面要有「OCR 辨識，可能有錯字」提醒
+//   有文字層的頁：要一字不差；掃描（圖片）頁：OCR 依序對上原文要 ≥ 85%，畫面要有「OCR 辨識，可能有錯字」提醒，
+//   中文字之間不能有空白；含圖片區塊的那份要提示「有 N 行無法辨識，已略過」
 //   OFFLINE_OCR=1：模擬連不到 OCR 元件 → 圖片頁要明確寫「第 N 頁是圖片、讀不到文字」或「可能是掃描檔」
 // 說明見 docs/PDF轉錄修正.md
 'use strict';
@@ -78,6 +79,10 @@ const strip = (html) => html.replace(/<br>/g, ' / ').replace(/<[^>]+>/g, '');
         if (!OFFLINE) {
           if (ocrHit / ocrAll < OCR_MIN) fails.push(`${f}｜${key}：OCR 正確率 ${(ocrHit / ocrAll * 100).toFixed(1)}% 低於 ${OCR_MIN * 100}%`);
           if (!/OCR 辨識，可能有錯字/.test(st)) fails.push(`${f}｜${key}：沒有「OCR 辨識，可能有錯字」提醒`);
+          const ocrText = pages.filter((x) => x.ocr).map((x) => x.text).join('\n');
+          const gaps = (ocrText.match(/[\u4e00-\u9fff○][ \u3000]+(?=[\u4e00-\u9fff○])/g) || []).length;
+          if (gaps) fails.push(`${f}｜${key}：OCR 文字的中文字之間還有 ${gaps} 處空白`);
+          if (/寬字距含圖片/.test(f) && !/無法辨識，已略過/.test(st)) fails.push(`${f}｜${key}：圖片區塊的亂碼行沒有被略過並提示`);
         } else if (!(textAll ? st.includes(`第 ${imgNums.join('、')} 頁是圖片、讀不到文字`) : /掃描檔/.test(st))) fails.push(`${f}｜${key}：離線時沒有明確說哪幾頁讀不到`);
       }
     }
