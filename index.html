@@ -7,6 +7,8 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<!-- 去識別化模組（送 AI 前遮個資；規格見 docs/去識別化-規格.md） -->
+<script src="deidentify.js"></script>
 <script>
   tailwind.config = {
     theme: {
@@ -1156,6 +1158,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
               <select id="aib-engine" class="w-full text-sm border rounded px-3 py-2">
                 <option value="gemini">AI 閱卷助理（Google Gemini）</option>
                 <option value="local">示意版（免金鑰，供評審快速體驗）</option>
+                <option value="gemini-mock">去識別化測試（Gemini 假回應，不連網）</option>
               </select>
             </label>
             <div id="aib-gemini-box" class="text-xs text-slate-500 space-y-1">
@@ -6315,6 +6318,100 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
     return JSON.parse(m[0]);
   }
 
+  // ===== 去識別化：送 Gemini 前先遮個資、律師預覽確認，回來後在瀏覽器內還原（規格：docs/去識別化-規格.md）=====
+  // 對照表（真名 ↔ 代號）只存在這個函式執行期間的記憶體，不寫入任何儲存、不印 console
+  const DEID_TOKEN_RE = /【(?:當事人|對造|關係人|律師|人名|公司|遮蔽|電話|身分證|Email|地址|帳號|統編)(?:[A-Z]+|\d+)】/g;
+  const DEID_LABEL = { email: 'Email', id: '身分證', account: '帳號', taxid: '統編', phone: '電話', address: '地址', name: '人名', company: '公司', title: '稱謂', other: '手動' };
+  function aibDeidPreview(docText, known) {
+    return new Promise((resolve) => {
+      const keep = new Set(); const extra = [];
+      const ov = document.createElement('div');
+      ov.id = 'deid-preview';
+      ov.className = 'fixed inset-0 z-[95] bg-black/50 flex items-center justify-center p-4';
+      ov.innerHTML = `<div class="bg-white rounded-xl shadow-xl w-full max-w-6xl max-h-[92vh] flex flex-col">
+        <div class="px-5 py-3 border-b"><p class="font-semibold text-slate-800">🛡️ 將送出的版本（已去識別化）</p>
+          <p class="text-xs text-slate-500 mt-0.5">個資已換成代號，AI 只會看到右邊這份。請掃一眼有沒有漏遮的名字；取消勾選＝不遮，也可以在左下補遮。確認後才會送出，結果回來會自動換回真名。</p></div>
+        <div class="flex-1 overflow-hidden grid grid-cols-1 md:grid-cols-[22rem_1fr] min-h-0">
+          <div class="border-r flex flex-col min-h-0">
+            <div id="deid-list" class="flex-1 overflow-auto p-3 space-y-1 text-sm"></div>
+            <div class="border-t p-3 space-y-1"><label class="text-xs text-slate-500 block">再遮一段文字（例如漏抓的名字、店名）</label>
+              <div class="flex gap-2"><input id="deid-add-in" class="flex-1 text-sm border rounded px-2 py-1.5" placeholder="輸入要遮的文字" /><button type="button" id="deid-add" class="text-sm px-3 py-1.5 rounded border border-slate-300 hover:bg-slate-50">加入</button></div></div>
+          </div>
+          <div class="overflow-auto p-4 bg-slate-50 min-h-0"><div id="deid-text" class="bg-white rounded border p-4 text-sm leading-7 whitespace-pre-wrap"></div></div>
+        </div>
+        <div class="px-5 py-3 border-t flex items-center justify-between gap-3 flex-wrap">
+          <p class="text-[11px] text-slate-500">提醒：規則會漏抓「前面沒有原告、被告等角色字的陌生人名」、只寫名不寫姓、綽號、店名。送出前請律師過目。</p>
+          <div class="flex gap-2"><button type="button" id="deid-cancel" class="text-sm px-4 py-2 rounded border border-slate-300 hover:bg-slate-50">取消，不送出</button>
+          <button type="button" id="deid-ok" class="text-sm px-4 py-2 rounded bg-emerald-600 text-white hover:bg-emerald-700">確認送出</button></div>
+        </div></div>`;
+      document.body.appendChild(ov);
+      let cur = null;
+      const all = () => known.concat(extra);
+      const render = () => {
+        const full = Deid.deidentify(docText, all());           // 全部候選（不含律師取消的），左邊清單用
+        cur = Deid.deidentify(docText, all(), { keep: [...keep] }); // 真正要送的版本
+        const rows = full.items.filter((it) => it.kind !== 'title');
+        document.getElementById('deid-list').innerHTML = (rows.length ? rows.map((it, i) => `<label class="flex items-start gap-2 px-2 py-1.5 rounded hover:bg-slate-50 ${keep.has(it.original) ? 'opacity-60' : ''}">
+            <input type="checkbox" class="mt-1 deid-chk" data-i="${i}" ${keep.has(it.original) ? '' : 'checked'} />
+            <span class="flex-1"><span class="text-[11px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 mr-1">${esc(it.kind === 'name' ? it.label : (DEID_LABEL[it.kind] || it.label))}</span><b class="text-slate-800">${esc(it.original)}</b>
+            <span class="text-slate-400">→</span> <span class="text-emerald-700">${esc(it.token)}</span> <span class="text-[11px] text-slate-400">×${it.count}</span></span></label>`).join('')
+          : '<p class="text-xs text-slate-500 p-2">沒有偵測到個資。若文件裡有人名，請在下方手動加入。</p>');
+        [...document.querySelectorAll('#deid-list .deid-chk')].forEach((cb) => cb.addEventListener('change', () => {
+          const o = rows[Number(cb.dataset.i)].original; if (cb.checked) keep.delete(o); else keep.add(o); render();
+        }));
+        document.getElementById('deid-text').innerHTML = esc(cur.text).replace(DEID_TOKEN_RE, (m) => `<mark class="bg-emerald-100 text-emerald-800 rounded px-0.5">${m}</mark>`);
+        document.getElementById('deid-ok').textContent = `確認送出（已遮 ${cur.items.filter((x) => x.kind !== 'title').length} 項）`;
+      };
+      const close = (val) => { ov.remove(); cur = null; resolve(val); };
+      document.getElementById('deid-add').addEventListener('click', () => {
+        const inp = document.getElementById('deid-add-in'); const v = inp.value.trim();
+        if (v.length < 2) { alert('請輸入至少 2 個字'); return; }
+        if (!docText.includes(v)) { alert('文件裡找不到「' + v + '」，請確認字有沒有打錯'); return; }
+        keep.delete(v); extra.push({ name: v, role: 'other' }); inp.value = ''; render();
+      });
+      document.getElementById('deid-cancel').addEventListener('click', () => close(null));
+      document.getElementById('deid-ok').addEventListener('click', () => close({ text: cur.text, map: cur.map, count: cur.items.filter((x) => x.kind !== 'title').length }));
+      render();
+    });
+  }
+  // 測試用：固定的假 Gemini 回應（不連網、不需金鑰）。故意混入 AI 改寫代號的寫法（「當事人 A」），用來驗證還原
+  async function aibMockGemini(sentText, multi) {
+    await new Promise((r) => setTimeout(r, 400));
+    const lines = sentText.split('\n').map((x) => x.trim()).filter((x) => x && !/^【(文件|第|示範)/.test(x));
+    const pick = (re) => (lines.find((x) => re.test(x)) || '').slice(0, 60);
+    const has = (tk) => sentText.includes(tk);
+    const A = has('【當事人A】') ? '當事人 A' : '原告', B = has('【對造A】') ? '[對造A]' : '被告';
+    const items = [
+      { text: `${A} 主張借款予 ${B}，請求返還。（假回應）`, role: '原告', tier: '原文', quote: pick(/【當事人A】|原告/) },
+      { text: `${B} 抗辯該筆款項為合夥出資並主張時效。（假回應）`, role: '被告', tier: '原文', quote: pick(/【對造A】|被告/) },
+      { text: '雙方爭執款項性質，應補強借貸合意之證據。（假回應）', role: '評估', tier: '推論', quote: '' },
+    ];
+    if (has('【人名A】')) items.push({ text: '可聲請傳喚【人名A】到庭作證。（假回應）', role: '評估', tier: '推論', quote: pick(/【人名A】/) });
+    if (has('【律師A】')) items.push({ text: '本所【律師A】律師應於期日前提出書狀。（假回應）', role: '其他', tier: '推論', quote: '' });
+    if (!multi) return { summary: `${A}與${B}之借款爭議（假回應）`, findings: items.map((f) => ({ category: f.tier === '原文' ? '當事人' : '爭點', text: f.text, tier: f.tier, page: 1, quote: f.quote })) };
+    return { caseType: '民事', summary: `【當事人A】訴請【對造A】返還借款，對造 A 抗辯合夥出資及時效。（去識別化測試用假回應，非 AI 分析）`,
+      sections: [{ title: '案情概要', kind: 'summary', items: items.slice(0, 2) }, { title: '爭點一：款項性質', kind: 'issue', items: items.slice(2, 3) }, { title: '攻防注意事項', kind: 'strategy', items: items.slice(3) }] };
+  }
+  // 送 Gemini 的唯一入口：遮蔽 → 律師預覽確認 → 送出（或假回應）→ 還原。取消時回傳 null
+  async function aibCallGeminiSafe(docText, caseType, promptText) {
+    if (!window.Deid) throw new Error('去識別化模組（deidentify.js）沒有載入，為了保護個資，這次不送出');
+    const csel = document.getElementById('aib-case-select');
+    const c = cases.find((x) => csel && x.id === csel.value);
+    const known = Deid.knownNamesFromCase(c).concat(ATTORNEYS.map((a) => ({ name: a.fullName.replace(/律師$/, ''), role: 'lawyer' })));
+    let sent = await aibDeidPreview(docText, known);
+    if (!sent) return null;
+    // 角色指令裡的「本事務所律師為：…」也換成同一套代號，避免真名從指令外流
+    const lawyerTok = ATTORNEYS.map((a) => { const e = sent.map.entries.find((x) => x.original === a.fullName.replace(/律師$/, '')); return e ? e.token + '律師' : ''; }).filter(Boolean);
+    const prompt = String(promptText || aibGeminiPrompt(caseType)).replace(/本事務所律師為：[^。\n]*。/, `本事務所律師為：${lawyerTok.join('、') || '（本次文件未出現本所律師）'}。`)
+      + '\n# 去識別化\n- 文件中「【當事人A】【對造A】【電話1】」這類括號代號是為保護個資而替換的，請在輸出中原樣保留（含【】括號），不要改寫、不要猜測真實身分。';
+    try {
+      const raw = aibEngSel.value === 'gemini-mock' ? await aibMockGemini(sent.text, !!promptText) : await aibCallGemini(sent.text, caseType, prompt);
+      const g = Deid.reidentifyDeep(raw, sent.map);
+      g.__deid = { count: sent.count, leftovers: Deid.findLeftoverTokens(JSON.stringify(g), sent.map) };
+      return g;
+    } finally { sent = null; } // 用完即丟
+  }
+
   function aibSentenceOf(text, needle) {
     const i = text.indexOf(needle);
     if (i < 0) return needle;
@@ -6692,6 +6789,7 @@ footer{font-size:12.5px;color:#8a8273;border-top:1px solid var(--rule);padding-t
       if (confirm('還沒有貼上 Gemini 金鑰或選擇模型。\n要先用「示意版」看一次流程嗎？（不需金鑰，不會傳送任何資料；正式使用為 Gemini）')) { aibEngSel.value = 'local'; aibEngSel.dispatchEvent(new Event('change')); }
       else return;
     }
+    const aibUseGem = aibEngSel.value === 'gemini' || aibEngSel.value === 'gemini-mock';
     if (aibEngSel.value === 'gemini' && !document.getElementById('aib-gemini-consent').checked) { alert('使用 Gemini 前，請先勾選同意卷宗文字傳送給 Google 分析；也可改用示意版體驗流程'); return; }
     const skeleton = document.getElementById('aib-skeleton'), result = document.getElementById('aib-result'), trace = document.getElementById('aib-trace');
     btn.disabled = true; btn.classList.add('opacity-60'); btn.textContent = '分析中…';
@@ -6703,12 +6801,13 @@ footer{font-size:12.5px;color:#8a8273;border-top:1px solid var(--rule);padding-t
       const multi = AIB_DOC.files.length > 0;
       const meta = { docLabel: multi ? `${AIB_DOC.files.length} 份文件、共 ${pages.length} 頁` : '貼入的文字', summary: '', caseLabel: csel && csel.selectedOptions[0] ? csel.selectedOptions[0].textContent : '', caseId: csel ? csel.value : '' }; AIB_STATE.archivedId = null;
       let findings;
-      if (aibEngSel.value === 'gemini') {
+      if (aibUseGem) {
         let g;
         if (multi) {
           // 全案模式：多份文件一起送，產出「案情概要／程序進度／各爭點／攻防注意／開庭準備」
           const docText = pages.map((p) => `【文件${p.file + 1}：${AIB_DOC.files[p.file].name}｜第${p.fn}頁】\n${p.text}`).join('\n\n');
-          g = await aibCallGemini(docText, caseType, aibCasePrompt('自動'));
+          g = await aibCallGeminiSafe(docText, caseType, aibCasePrompt('自動'));
+          if (!g) { skeleton.classList.add('hidden'); return; } // 律師在預覽按了取消：什麼都沒送
           findings = [];
           (Array.isArray(g.sections) ? g.sections : []).forEach((sec) => (Array.isArray(sec.items) ? sec.items : []).filter((f) => f && f.text).forEach((f) => findings.push({
             category: String(sec.title || '其他'), text: String(f.text).replace(/[（(]\s*待核\s*[）)]|，\s*待核(?=[）)])/g, ''), quote: String(f.quote || ''),
@@ -6717,14 +6816,17 @@ footer{font-size:12.5px;color:#8a8273;border-top:1px solid var(--rule);padding-t
           })));
           meta.ordered = true; meta.caseType = String(g.caseType || '').slice(0, 6);
         } else {
-          g = await aibCallGemini(pages.map((p) => `【第${p.n}頁】\n${p.text}`).join('\n\n'), caseType);
+          g = await aibCallGeminiSafe(pages.map((p) => `【第${p.n}頁】\n${p.text}`).join('\n\n'), caseType);
+          if (!g) { skeleton.classList.add('hidden'); return; }
           findings = (Array.isArray(g.findings) ? g.findings : []).filter((f) => f && f.text).map((f) => ({
             category: String(f.category || '其他'), text: String(f.text), quote: String(f.quote || ''),
             tier: ['原文', '推論', '待核'].includes(f.tier) ? f.tier : '推論', page: Number(f.page) || null,
           }));
         }
         if (g.scores) Object.keys(local.scores).forEach((k) => { const v = Number(g.scores[k]); if (Number.isFinite(v)) local.scores[k] = Math.max(0, Math.min(100, Math.round(v))); });
-        meta.engineLabel = `AI 閱卷助理・Google Gemini（${aibModelSel.value}）`; meta.summary = String(g.summary || '');
+        meta.engineLabel = (aibEngSel.value === 'gemini-mock' ? '去識別化測試（Gemini 假回應，非 AI 分析）' : `AI 閱卷助理・Google Gemini（${aibModelSel.value}）`)
+          + (g.__deid ? `｜🛡️ 已去識別化 ${g.__deid.count} 項後送出${g.__deid.leftovers.length ? `｜⚠ 有 ${g.__deid.leftovers.length} 個代號無法還原：${g.__deid.leftovers.join('、')}` : ''}` : '');
+        meta.summary = String(g.summary || '');
       } else {
         await new Promise((r) => setTimeout(r, 600));
         if (AIB_DOC.files.length) {
@@ -6743,7 +6845,7 @@ footer{font-size:12.5px;color:#8a8273;border-top:1px solid var(--rule);padding-t
       AIB_STATE.findings = aibVerify(findings); AIB_STATE.meta = meta;
       skeleton.classList.add('hidden');
       aibRenderTrace();
-      if (aibEngSel.value === 'gemini') { result.classList.add('hidden'); result.innerHTML = ''; } else renderAibResult(local);
+      if (aibUseGem) { result.classList.add('hidden'); result.innerHTML = ''; } else renderAibResult(local);
       try { trace.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) { /* ignore */ }
     } catch (err) {
       skeleton.classList.add('hidden');
