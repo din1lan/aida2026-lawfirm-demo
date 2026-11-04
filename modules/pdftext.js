@@ -137,7 +137,7 @@
 
   // 讀整份 PDF：回傳 { pdf, numPages, pages:[{ n, text, chars, image, ocr }], imagePages, ocrPages, blankPages, chars, ocrError, ocrMs }
   //   imagePages＝最後仍讀不到字的圖片頁；ocrPages＝靠 OCR 讀到字的頁
-  //   opts.ocr（預設 true）：圖片頁要不要做 OCR；opts.onProgress({ done, total, page })：辨識進度
+  //   opts.ocr（預設 true）：圖片頁要不要做 OCR；opts.remoteOcr（可選）：先送 Gemini，見 modules/gemini-ocr.js；opts.onProgress({ done, total, page })：辨識進度
   async function read(data, opts) {
     opts = opts || {};
     const pdf = await open(data);
@@ -150,17 +150,24 @@
       if (n < MIN_PAGE_CHARS) { image = await hasImage(page); (image ? imagePages : blankPages).push(i); }
       pages.push({ n: i, text, chars: n, image, ocr: false });
     }
+    // 可選：使用者勾選「掃描頁用 Gemini 辨識」時，先送 Gemini（modules/gemini-ocr.js）；沒成功的頁才走下面的本機 OCR
+    let remote = { pages: [], error: '' };
+    if (imagePages.length && opts.remoteOcr) {
+      try { remote = (await opts.remoteOcr({ pdf, pages, imagePages: imagePages.slice(), renderToCanvas })) || remote; } catch (e) { remote = { pages: [], error: (e && e.message) || String(e) }; }
+      remote.pages.forEach((n) => { chars += pages[n - 1].chars; });
+    }
+    const ocrTodo = imagePages.filter((n) => !remote.pages.includes(n));
     const ocrPages = []; let ocrError = ''; let ocrMs = 0;
-    if (imagePages.length && opts.ocr !== false) {
+    if (ocrTodo.length && opts.ocr !== false) {
       const t0 = Date.now(); let worker = null;
       try {
-        const report = (done) => { if (opts.onProgress) { try { opts.onProgress({ done, total: imagePages.length, page: imagePages[done] || null }); } catch (e) { /* ignore */ } } };
+        const report = (done) => { if (opts.onProgress) { try { opts.onProgress({ done, total: ocrTodo.length, page: ocrTodo[done] || null }); } catch (e) { /* ignore */ } } };
         report(0);
         const T = await loadTesseract();
         worker = await T.createWorker(OCR.lang, 1, { workerPath: OCR.workerPath, corePath: OCR.corePath, langPath: OCR.langPath });
-        for (let k = 0; k < imagePages.length; k++) {
+        for (let k = 0; k < ocrTodo.length; k++) {
           report(k);
-          const pg = pages[imagePages[k] - 1];
+          const pg = pages[ocrTodo[k] - 1];
           const cv = await renderToCanvas(await pdf.getPage(pg.n));
           const r = await worker.recognize(cv, {}, { text: true, blocks: true });
           const text = cleanOcr(ocrLinesText(r && r.data));
@@ -168,12 +175,12 @@
           if (n >= MIN_PAGE_CHARS) { pg.text = text; pg.chars = n; pg.image = false; pg.ocr = true; chars += n; ocrPages.push(pg.n); }
           cv.width = cv.height = 0;
         }
-        report(imagePages.length);
+        report(ocrTodo.length);
       } catch (e) { ocrError = (e && e.message) || String(e); }
       finally { if (worker) { try { await worker.terminate(); } catch (e) { /* ignore */ } } ocrMs = Date.now() - t0; }
     }
-    const stillImage = imagePages.filter((n) => !ocrPages.includes(n));
-    return { pdf, numPages: pdf.numPages, pages, imagePages: stillImage, ocrPages, blankPages, chars, ocrError, ocrMs };
+    const stillImage = ocrTodo.filter((n) => !ocrPages.includes(n));
+    return { pdf, numPages: pdf.numPages, pages, imagePages: stillImage, ocrPages, blankPages, chars, ocrError, ocrMs, geminiPages: remote.pages, geminiError: remote.error || '' };
   }
 
   const api = { OPTIONS, OCR, MIN_PAGE_CHARS, pageText, imagePagesNote, ocrPagesNote, cleanOcr, ocrLinesText, open, read };

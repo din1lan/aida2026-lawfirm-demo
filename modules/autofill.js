@@ -428,6 +428,7 @@
           <button type="button" id="af-sample-notice-pdf" class="px-3 py-1.5 rounded border border-slate-300 hover:bg-slate-50">範例：開庭通知書 PDF</button>
           <button type="button" id="af-sample-notice-img" class="px-3 py-1.5 rounded border border-slate-300 hover:bg-slate-50">範例：開庭通知書照片</button>
         </div>
+        ${window.LF_GeminiOcr ? window.LF_GeminiOcr.checkboxHtml('af-gemini-ocr') : ''}
         <div id="af-deid-banner" class="text-xs rounded px-3 py-2 ${hasDeid ? 'bg-emerald-50 border border-emerald-200 text-emerald-800' : 'bg-red-50 border border-red-300 text-red-700 font-semibold'}">
           ${hasDeid ? '🛡️ 已載入去識別化模組：送 AI 前會先把姓名、地址、電話等換成代號，結果回來再換回真名。' : '⚠ 尚未遮蔽個資：這個版本還沒有去識別化模組，文件文字會原樣送出（示意版不連網，不會送出）。'}
         </div>
@@ -477,11 +478,12 @@
         if (typeof pdfjsLib === 'undefined' || !window.LF_PdfText) throw new Error('PDF 讀取元件沒有載入');
         // 共用讀取（modules/pdftext.js）：帶中文字型對照表，並標出「是圖片、讀不到文字」的頁
         const rd = await window.LF_PdfText.read(await file.arrayBuffer(), {
+          remoteOcr: window.LF_GeminiOcr && window.LF_GeminiOcr.hookFor('af-gemini-ocr', (t) => setStatus(esc(t))),
           onProgress: (x) => setStatus(x.done < x.total ? `文字辨識中（OCR）：掃描頁 ${x.done + 1}／${x.total}（第 ${x.page} 頁）｜在你的瀏覽器裡辨識，圖片不會上傳${x.done === 0 ? '；第一次使用需下載辨識元件約 3MB' : ''}` : '文字辨識完成'),
         });
         const text = rd.pages.map((p) => p.text).join('\n');
         if (squash(text).length < 20) throw new Error('這份 PDF 讀不到文字（可能是掃描檔）' + (rd.ocrError ? '，文字辨識也沒有成功：' + rd.ocrError : '') + '。請改拍照上傳並用 Gemini，或手動輸入');
-        UI.doc = { name: file.name, image: false, text, numPages: rd.numPages, imagePages: rd.imagePages, ocrPages: rd.ocrPages };
+        UI.doc = { name: file.name, image: false, text, numPages: rd.numPages, imagePages: rd.imagePages, ocrPages: rd.ocrPages, geminiPages: rd.geminiPages, geminiError: rd.geminiError };
         setStatus(`✓ 已讀入：${esc(file.name)}（${rd.numPages} 頁，約 ${squash(text).length} 字）${pageNotes(UI.doc)}`);
       }
       $('af-run').disabled = false; paintConsent();
@@ -491,7 +493,10 @@
   // OCR 頁、讀不到的圖片頁：讀入後與 AI 讀完後都要顯示，不能被蓋掉
   function pageNotes(doc) {
     const P = window.LF_PdfText; if (!doc || !P) return '';
-    return (doc.ocrPages && doc.ocrPages.length ? `<br><b class="text-amber-700">⚠ ${P.ocrPagesNote(doc.ocrPages)}</b>，確認欄位時請對照原檔` : '')
+    const G = window.LF_GeminiOcr;
+    return (G && doc.geminiPages && doc.geminiPages.length ? `<br><b class="text-indigo-700">ⓘ ${G.pagesNote(doc.geminiPages)}</b>` : '')
+      + (G && doc.geminiError ? `<br><b class="text-amber-700">⚠ ${esc(G.fallbackNote(doc.geminiError))}</b>` : '')
+      + (doc.ocrPages && doc.ocrPages.length ? `<br><b class="text-amber-700">⚠ ${P.ocrPagesNote(doc.ocrPages)}</b>，確認欄位時請對照原檔` : '')
       + (doc.imagePages && doc.imagePages.length ? `<br><b class="text-red-600">⚠ ${P.imagePagesNote(doc.imagePages)}</b>，這幾頁的欄位請對照原檔自己填` : '');
   }
 
