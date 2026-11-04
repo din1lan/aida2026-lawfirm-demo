@@ -165,7 +165,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
           </label>
           <div id="login-error" class="hidden text-xs text-red-600"></div>
           <button class="w-full text-sm px-4 py-2.5 rounded bg-navy-900 text-white hover:bg-navy-800 font-medium">進入系統</button>
-          <p id="login-demo-hint" class="text-[11px] text-slate-400 pt-1">比賽示範版：所有資料皆為虛構，選一個身分直接進入即可。資料只存在你自己的瀏覽器。<br>正式版需以事務所指定的 Google 帳號登入，並以個人密碼確認身分。</p>
+          <p id="login-demo-hint" class="text-[11px] text-slate-400 pt-1">比賽示範版：所有資料皆為虛構，選一個身分直接進入即可。示範資料只存在你自己的瀏覽器；選用 Gemini 分析時，文件文字會傳送給 Google。<br>正式版需以事務所指定的 Google 帳號登入，並以個人密碼確認身分。</p>
         </form>
         <div id="signup-panel" class="hidden text-sm text-slate-600 space-y-3">
           <p>新帳號請洽主持律師或系統管理者於程式碼 <span class="font-mono text-xs bg-slate-100 px-1 py-0.5 rounded">USERS</span> 清單中新增，本預覽尚未開放線上自助註冊。</p>
@@ -280,7 +280,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
     <div class="md:hidden sticky top-0 z-20 bg-navy-900 text-white flex items-center gap-3 px-4 py-3 shadow">
       <button id="btn-sidebar-toggle" type="button" class="text-2xl leading-none" aria-label="開啟選單">☰</button>
       <span class="text-sm font-semibold">法律事務所</span>
-      <button id="btn-mobile-refresh" type="button" class="ml-auto text-xl leading-none" aria-label="重新整理" title="重新整理（拉取雲端最新資料）">↻</button>
+      <button id="btn-mobile-refresh" type="button" class="ml-auto text-xl leading-none" aria-label="重新整理" title="重新整理畫面（示範版：資料只在這台電腦）">↻</button>
     </div>
     <div id="mobile-refresh-hint" class="md:hidden hidden text-center text-[11px] text-slate-500 py-1">已重新整理</div>
 
@@ -300,15 +300,15 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
         <!-- 2026-08-19 會議 1b：利益衝突快查移到首頁總覽最上方 -->
         <div class="bg-white rounded-lg border-2 border-navy-800 p-5">
           <h3 class="font-semibold text-slate-800 mb-1 flex items-center gap-2">利益衝突 (Conflict Check) 快速查詢</h3>
-          <p class="text-xs text-slate-400 mb-3">輸入姓名（至少 2 字）即時比對：① 示範管制表（虛構資料，正式版約八千筆）② 本系統客戶／現有案件當事人與對造／已結案紀錄。管制表最新異動請以下方線上版為準</p>
+          <p class="text-xs text-slate-400 mb-3">輸入姓名（至少 2 字）即時比對：① 示範管制表（虛構資料）② 本系統客戶／現有案件當事人與對造／已結案紀錄。</p>
           <div class="flex gap-2 flex-wrap items-center">
             <input id="conflict-check-input" placeholder="輸入當事人或對造姓名" class="flex-1 min-w-[220px] text-sm border border-slate-300 rounded-md px-3 py-2" />
             <span class="text-xs text-slate-400 self-center">示範版：管制表為虛構資料</span>
           </div>
-          <p class="text-[11px] text-slate-400 mt-1.5">正式版連結事務所的線上管制表並可一鍵同步；示範版只使用內建的虛構資料。</p>
+          <p class="text-[11px] text-slate-400 mt-1.5">比賽示範版只使用內建的虛構資料，不連線上管制表。</p>
           <!-- 2026-08-20：從線上 Google 試算表同步管制表（限主持律師／財務；需本人有該表存取權） -->
           <div id="conflict-sync-box" class="hidden mt-2 pt-2 border-t border-slate-100">
-            <button type="button" id="btn-conflict-sync" class="text-xs px-3 py-1.5 rounded border border-navy-300 text-navy-900 bg-slate-50 hover:bg-slate-100">🔄 從線上管制表同步最新資料</button>
+            <button type="button" id="btn-conflict-sync" class="text-xs px-3 py-1.5 rounded border border-navy-300 text-navy-900 bg-slate-50 hover:bg-slate-100">（示範版不提供同步）</button>
             <span class="text-[11px] text-slate-400 ml-2">目前 <span id="conflict-registry-count">—</span> 筆</span>
             <div id="conflict-sync-status" class="text-[11px] mt-1.5 text-slate-500"></div>
           </div>
@@ -383,7 +383,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
           <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm" id="line-inbox-steps">
             <div class="inbox-step"><b>① 預約進件</b><span>LINE AI 接待問清案情與聯絡方式</span></div>
             <div class="inbox-step"><b>② 利益衝突審核</b><span>律師輸入對造，比對管制表、現有案件與結案紀錄</span></div>
-            <div class="inbox-step"><b>③ 諮詢</b><span>律師依案情卡片準備，15 分鐘用在評估</span></div>
+            <div class="inbox-step"><b>③ 諮詢</b><span>律師諮詢前先看案情卡片</span></div>
             <div class="inbox-step"><b>④ 轉為接案</b><span>確定委任才建立客戶與案件</span></div>
           </div>
         </div>
@@ -395,7 +395,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
         </div>
         <div class="flex flex-wrap gap-2" id="line-inbox-filters"></div>
         <div id="line-inbox-list" class="space-y-4"></div>
-        <p class="text-[11px] text-slate-400">正式版：預約資料由 LINE 接待系統寫入事務所自有的 Google 試算表，本頁讀取後顯示；AI 只負責收集資訊與排時段，利益衝突與是否委任一律由事務所人工判斷。</p>
+        <p class="text-[11px] text-slate-400">設計上：預約資料可由 LINE 接待系統寫入事務所自有的 Google 試算表，本頁讀取後顯示；AI 只負責收集資訊與排時段，利益衝突與是否委任一律由事務所人工判斷。</p>
       </section>
 
       <section id="page-new-intake" class="page space-y-6">
@@ -1106,7 +1106,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
           <p class="text-slate-500 text-sm mt-1">上傳同一案件的全部文件（書狀、筆錄、證據），AI 閱卷助理整理案情概要、爭點、攻防注意與下次開庭準備；也可以直接貼入文字</p>
         </div>
         <div class="text-xs bg-amber-50 border border-amber-200 text-amber-800 rounded-lg px-4 py-2.5">
-          由 <b>AI 閱卷助理</b>（Google Gemini，依事務所設定的角色與規矩工作）讀文件、整理爭點；結果一律經過「回文件逐字比對」的防幻覺檢查，並標示原文／推論／重點。沒有金鑰時可切換<b>示意版</b>體驗流程。</div>
+          由 <b>AI 閱卷助理</b>（Google Gemini，依事務所設定的角色與規矩工作）讀文件、整理爭點，並標示原文／推論／重點。標為「原文」的句子可以一鍵跳回文件原句對照；「推論」是綜合判斷、對不到單一句子，由律師自行確認。沒有金鑰時可切換<b>示意版</b>體驗流程。</div>
 
         <div class="bg-white rounded-lg border-2 border-indigo-300 p-5">
           <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -1176,12 +1176,12 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
             <ul class="mt-2 space-y-1 list-disc pl-5">
               <li><b>角色</b>：受聘於本事務所、熟悉台灣訴訟實務的資深訴訟律師助理</li>
               <li><b>任務</b>：讀完文件，整理當事人、時間軸、證據、請求權基礎、爭點與攻防建議</li>
-              <li><b>規矩</b>：每一項都要附頁碼與文件原句；法條、判決字號、金額一律列為「重點」；文件沒寫的不准編</li>
+              <li><b>規矩</b>：標為原文的項目要附頁碼與文件原句；推論盡量附上依據的原句，沒有就留空；法條、判決字號、金額列為「重點」；文件沒寫的不准編</li>
               <li><b>把關</b>：助理說是原文的句子，系統會再回文件逐字比對，比對不到自動改列為重點</li>
             </ul>
             <pre id="aib-role-prompt" class="mt-3 max-h-72 overflow-auto whitespace-pre-wrap bg-white border border-slate-200 rounded p-3 text-[11px] leading-relaxed text-slate-600"></pre>
           </details>
-          <p class="text-[11px] text-slate-400 leading-relaxed">防幻覺機制：AI 標為「原文」的每一句，系統會回到文件逐字比對；比對不到就自動改列為「重點」。法條、判決字號、金額一律列為「重點」，必須點開人工核對。</p>
+          <p class="text-[11px] text-slate-400 leading-relaxed">防幻覺機制：AI 標為「原文」的句子，系統會到文件裡找相同的句子，找到的可以一鍵跳回文件原句對照；找不到就改列為「重點」，提醒律師自己看原文。「推論」是綜合判斷、對不到單一句子，由律師自行確認。</p>
         </div>
 
         <!-- 溯源分析結果 -->
@@ -1241,7 +1241,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
       <!-- ============ 垃圾桶（2026-08-04）============ -->
       <section id="page-trash" class="page space-y-4">
         <h1 class="text-2xl font-bold text-slate-900">垃圾桶</h1>
-        <p class="text-slate-500 text-sm -mt-2">刪除的資料（案件、任務、員工、零用金、請假…）會先放這裡，可「復原」放回原處，或「永久刪除」。跨裝置同步：任何人刪除或復原，其他人畫面會一起更新。</p>
+        <p class="text-slate-500 text-sm -mt-2">刪除的資料（案件、任務、員工、零用金、請假…）會先放這裡，可「復原」放回原處，或「永久刪除」。比賽示範版沒有雲端：資料只在這台電腦的瀏覽器。</p>
         <div class="bg-white rounded-lg border border-slate-200 overflow-hidden">
           <div class="px-5 pt-4 pb-2 text-sm font-semibold text-slate-700">垃圾桶（<span id="trash-count">0</span> 筆）</div>
           <div class="overflow-x-auto">
@@ -2887,7 +2887,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
       box.classList.remove('hidden');
       const total = hitRegistry.length + hitOpponents.length + hitParties.length + hitClients.length + hitClosed.length;
       if (!total) {
-        box.innerHTML = `${registryHint}<div class="text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-3 py-2 text-xs">✓ 「${esc(q)}」在全所管制表（共 ${conflictRecords.length.toLocaleString()} 筆）與本系統客戶／案件／結案紀錄中均查無相符資料${closedCasesImported ? '' : '（⚠️ 歷史結案資料尚未匯入本站，該部分比對不完整）'}。管制表為 2026-07 匯入快照，之後新增的案件請再查線上版。</div>`;
+        box.innerHTML = `${registryHint}<div class="text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-3 py-2 text-xs">✓ 「${esc(q)}」在全所管制表（共 ${conflictRecords.length.toLocaleString()} 筆）與本系統客戶／案件／結案紀錄中均查無相符資料${closedCasesImported ? '' : '（⚠️ 歷史結案資料尚未匯入本站，該部分比對不完整）'}。示範管制表為虛構資料。</div>`;
         return;
       }
       const hiRe = new RegExp(q.replace(/[.*+?^$/{}()|[\]\\]/g, '\\$&'), 'g');
@@ -2899,7 +2899,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
         ${hitClients.length ? `<div class="border border-slate-200 rounded px-3 py-2"><div class="text-xs font-bold text-slate-600 mb-1">客戶資料（${hitClients.length} 筆）</div>${hitClients.map((cl) => `<div class="text-xs text-slate-600">${hi(cl.name)}${cl.note ? '：' + esc(cl.note) : ''}</div>`).join('')}</div>` : ''}
         ${hitClosed.length ? `<div class="border border-slate-200 rounded px-3 py-2"><div class="text-xs font-bold text-slate-600 mb-1">已結案紀錄（${hitClosed.length} 筆）</div>${hitClosed.slice(0, 10).map((cc) => `<div class="text-xs text-slate-600">${esc(cc.closedDateISO || cc.closedDateRaw || '—')}：${hi(cc.person)} ${esc(cc.cause) || ''}（${esc((cc.caseNumbers || []).join('、') || cc.caseNumberRaw || '—')}）</div>`).join('')}${hitClosed.length > 10 ? `<div class="text-[11px] text-slate-400">…僅顯示前 10 筆，共 ${hitClosed.length} 筆</div>` : ''}</div>` : ''}
         ${registryHint}
-        <div class="text-[11px] text-slate-400">管制表為 2026-07 匯入之快照（${conflictRecords.length.toLocaleString()} 筆），之後的新增異動請以線上管制表為準；利益衝突認定仍需律師人工判斷。${closedCasesImported ? '' : '（⚠️ 歷史結案資料尚未匯入本站，該部分比對不完整）'}</div>`;
+        <div class="text-[11px] text-slate-400">示範管制表為虛構資料（${conflictRecords.length.toLocaleString()} 筆）；利益衝突認定仍需律師人工判斷。${closedCasesImported ? '' : '（⚠️ 歷史結案資料尚未匯入本站，該部分比對不完整）'}</div>`;
     });
   })();
 
@@ -5949,13 +5949,31 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
     const year = Number(y) > 1911 ? Number(y) : Number(y) + 1911;
     return `${year}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
   }
+  // 取出 [s, e) 所在的那一小句：往前、往後找到「，。！？；」為止；
+  // PDF 自動換行會接起來，但下一行若是新段落（「一、」「日期：」「中華民國」這類開頭）就停
+  function aibClauseAround(text, s, e) {
+    const delim = /[，。！？；]/;
+    const newItem = (i) => /^[ \t　]*(?:[一二三四五六七八九十]+、|[（(][一二三四五六七八九十]+[）)]|中華民國|【|[^\s，。：:]{1,10}[：:])/.test(text.slice(i, i + 16));
+    let a = s;
+    while (a > 0 && s - a < 40 && !delim.test(text[a - 1])) { if (text[a - 1] === '\n' && newItem(a)) break; a--; }
+    let b = e;
+    while (b < text.length && b - e < 60 && !delim.test(text[b])) { if (text[b] === '\n' && newItem(b + 1)) break; b++; }
+    return text.slice(a, b).replace(/^[ \t　]*(?:[一二三四五六七八九十]+、)/, '').replace(/[ \t\u3000]*\n[ \t\u3000]*/g, '').replace(/\s+/g, ' ').trim();
+  }
   function analyzeBriefLocally(text, caseType) {
     const clean = String(text || '');
     // 當事人：每種訴訟地位取第一個出現的名稱
     const parties = {};
+    // 2026-11-06 修正：訴訟地位和名字中間必須有「：」「即」或空白（例：「原告：王小明」），
+    // 否則「原告之訴駁回」「被告親筆簽名之借據」會被誤當成人名；並排除明顯不是名字的字眼
+    const notName = /^[於應之及與對向就為所已並亦仍則即其等訴]|訴|駁回|簽名|負擔|主張|代理|聲明|請求|抗辯|陳稱|給付|答辯/;
     AIB_ROLES.forEach((role) => {
-      const m = clean.match(new RegExp(role + '[：:即]?\\s*([\\u4e00-\\u9fa5A-Za-z0-9○()（）]{2,14}?)(?=[，。、；：\\s之於向對主張抗辯並則另]|$)'));
-      if (m && !Object.values(parties).includes(m[1])) parties[role] = m[1];
+      const re = new RegExp('(?<![被])' + role + '(?:\\s*[：:]\\s*|即|[ \\t\\u3000]+)([\\u4e00-\\u9fa5A-Za-z0-9○()（）]{2,14}?)(?=[，。、；：\\s之於向對主張抗辯並則另]|$)', 'g');
+      let m;
+      while ((m = re.exec(clean)) !== null) {
+        if (notName.test(m[1]) || Object.values(parties).includes(m[1])) continue;
+        parties[role] = m[1]; break;
+      }
     });
     // 法條
     const statutes = [];
@@ -5981,8 +5999,9 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
     let dm; AIB_DATE_RE.lastIndex = 0;
     while ((dm = AIB_DATE_RE.exec(clean)) !== null) {
       const iso = dm[1] ? aibNormalizeDate(dm[1], dm[2], dm[3]) : aibNormalizeDate(dm[4], dm[5], dm[6]);
-      const start = Math.max(0, dm.index - 25);
-      const context = clean.slice(start, dm.index + dm[0].length + 65).replace(/\s+/g, ' ').trim();
+      // 2026-11-06 修正：時間軸只取「日期所在的那一句」（到逗號、句號為止），
+      // 不再固定往前 25 字、往後 65 字，避免把上一句的尾巴（例：「訟費用由被告負擔。」）接到別的日期上
+      const context = aibClauseAround(clean, dm.index, dm.index + dm[0].length);
       const key = iso + '|' + context.slice(0, 30);
       if (seenTl.has(key)) continue; seenTl.add(key);
       const ctxExhibits = (context.match(AIB_EXHIBIT_RE) || []).map((s) => s.replace(/\s|號/g, ''));
@@ -6598,7 +6617,7 @@ footer{font-size:12.5px;color:#8a8273;border-top:1px solid var(--rule);padding-t
       + '<div class="stats"><span>原文 ' + cnt('原文') + '</span><span>推論 ' + cnt('推論') + '</span><span>重點 ' + pending + '</span>' + ((cnt('已確認') + cnt('已核')) ? '<span>已確認 ' + (cnt('已確認') + cnt('已核')) + '</span>' : '') + '</div></div></header>'
       + '<div class="wrap">' + ''
       + (d.summary ? '<div class="sum">' + e(d.summary) + '</div>' : '') + sorted.map(block).join('')
-      + '<footer>本報告由 AI 閱卷助理整理、經律師核對。「原文」為文件逐字摘錄，「推論」為 AI 判斷，「重點」為法條、金額等關鍵項目，每項都附文件出處，「已確認」為律師對照過原文的項目。僅供事務所內部參考，不構成法律意見。</footer></div>'
+      + '<footer>本報告由 AI 整理，使用前須經律師核對；標為原文的項目附文件出處。「原文」為文件逐字摘錄，「推論」為 AI 綜合判斷、不一定有出處，「重點」為法條、金額等關鍵項目，「已確認」為律師對照過原文的項目。僅供事務所內部參考，不構成法律意見。</footer></div>'
       + '<script type="application/json" id="lexflow-report">' + json + '</scr' + 'ipt></body></html>';
   }
   function aibReportHTML() { return aibBriefPage(aibReportData()); }
@@ -6610,7 +6629,7 @@ footer{font-size:12.5px;color:#8a8273;border-top:1px solid var(--rule);padding-t
   }
   function aibConfirmPending() {
     const pending = AIB_STATE.findings.filter(aibIsPending).length;
-    return pending >= 0; // 比賽版：重點不需逐項確認，報告裡每項都附文件出處
+    return pending >= 0; // 比賽版：重點不需逐項確認；標為原文的項目附文件出處
   }
   async function aibExportHTML() {
     if (!AIB_STATE.findings.length || !aibConfirmPending()) return;
@@ -6783,7 +6802,7 @@ footer{font-size:12.5px;color:#8a8273;border-top:1px solid var(--rule);padding-t
     if (!AIB_DOC.files.length) { AIB_DOC.source = 'text'; AIB_DOC.pages = [{ n: 1, text: document.getElementById('aib-text').value }]; }
     const pages = AIB_DOC.pages;
     const text = pages.map((p) => p.text).join('\n');
-    if (aibNorm(text).length < 30) { alert('請先貼入至少 30 字的書狀或判決書內容、上傳 PDF，或點「填入示範書狀」測試'); return; }
+    if (aibNorm(text).length < 30) { alert('請先貼入至少 30 字的書狀或判決書內容、上傳 PDF，或點「貼入示範文字（測試用）」測試'); return; }
     const caseType = aibDetectCaseType(text);
     if (aibEngSel.value === 'gemini' && (!aibKeyIn.value.trim() || !aibModelSel.value)) {
       if (confirm('還沒有貼上 Gemini 金鑰或選擇模型。\n要先用「示意版」看一次流程嗎？（不需金鑰，不會傳送任何資料；正式使用為 Gemini）')) { aibEngSel.value = 'local'; aibEngSel.dispatchEvent(new Event('change')); }
