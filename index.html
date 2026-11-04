@@ -8,6 +8,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="modules/pdftext.js"></script>
+<script src="modules/gemini-ocr.js"></script>
 <!-- 去識別化模組（送 AI 前遮個資；規格見 docs/去識別化-規格.md） -->
 <script src="modules/deidentify.js"></script>
 <script>
@@ -1135,6 +1136,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
                 <input id="aib-pdf" type="file" multiple accept=".pdf,.html,.htm,.txt,application/pdf,text/html,text/plain" class="w-full text-xs border rounded px-2 py-1.5 bg-white" />
                 <span id="aib-pdf-status" class="block text-[11px] text-slate-400">未選擇檔案時，使用上方貼入的文字</span>
               </label>
+              <div id="aib-gemini-ocr-wrap"></div>
               <button id="aib-load-case" type="button" class="w-full text-xs px-3 py-2 rounded border border-slate-300 text-slate-600 hover:bg-slate-50">載入示範案件（4 份虛構文件）</button>
             </div>
             <label class="text-xs text-slate-500 space-y-1 block">
@@ -6188,25 +6190,28 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
         }
         // 共用讀取（modules/pdftext.js）：帶中文字型對照表，並標出「是圖片、讀不到文字」的頁
         const rd = await window.LF_PdfText.read(await f.arrayBuffer(), {
+          remoteOcr: window.LF_GeminiOcr && window.LF_GeminiOcr.hookFor('aib-gemini-ocr', (t) => { st.textContent = f.name + '：' + t; }),
           onProgress: (x) => { st.textContent = x.done < x.total ? `文字辨識中（OCR）：${f.name}　掃描頁 ${x.done + 1}／${x.total}（第 ${x.page} 頁）｜在你的瀏覽器裡辨識，圖片不會上傳${x.done === 0 ? '；第一次使用需下載辨識元件約 3MB' : ''}` : `文字辨識完成：${f.name}`; },
         });
         const pdf = rd.pdf;
         for (const pg of rd.pages) {
           const text = aibFixChars(pg.text);
           chars += aibNorm(text).length;
-          pages.push({ n: pages.length + 1, file: fi, fn: pg.n, text, image: pg.image, ocr: pg.ocr, marked: pg.ocr ? aibFixChars(pg.marked || pg.text) : '', skipped: pg.skippedLines || 0 });
+          pages.push({ n: pages.length + 1, file: fi, fn: pg.n, text, image: pg.image, ocr: pg.ocr, marked: pg.ocr ? aibFixChars(pg.marked || pg.text) : '', skipped: pg.skippedLines || 0, gemini: pg.gemini });
         }
         // 前次報告若存成 PDF（列印匯出），靠標題認出來，一樣只當背景參考
         const isRep = /全案整理報告/.test(f.name) || /^\s*全案整理報告/.test((pages.find((x) => x.file === fi) || {}).text || '');
         files.push({ name: f.name.replace(/\.pdf$/i, ''), pdf, numPages: pdf.numPages, report: isRep });
+        const G = window.LF_GeminiOcr;
         const skipNote = window.LF_PdfText.skippedNote(rd.pages);
-        const imgNote = (rd.ocrPages.length ? `；<b class="text-amber-700">${window.LF_PdfText.ocrPagesNote(rd.ocrPages)}${skipNote ? '；' + skipNote : ''}</b>` : '')
+        const imgNote = (G && rd.geminiPages && rd.geminiPages.length ? `；<b class="text-indigo-700">${G.pagesNote(rd.geminiPages)}</b>` : '') + (G && rd.geminiError ? `；<b class="text-amber-700">${esc(G.fallbackNote(rd.geminiError))}</b>` : '')
+          + (rd.ocrPages.length ? `；<b class="text-amber-700">${window.LF_PdfText.ocrPagesNote(rd.ocrPages)}${skipNote ? '；' + skipNote : ''}</b>` : '')
           + (chars >= 30 && rd.imagePages.length ? `；<b class="text-red-600">${window.LF_PdfText.imagePagesNote(rd.imagePages)}</b>，這幾頁的內容不會送去分析${rd.ocrError ? `（${esc(rd.ocrError)}）` : ''}` : '');
         notes.push(`文件${fi + 1}：${esc(f.name)}（${pdf.numPages} 頁${chars < 30 ? `，讀不到文字，可能是掃描檔${rd.ocrError ? `；文字辨識沒有成功：${esc(rd.ocrError)}` : ''}` : ''}）${imgNote}`);
       }
       AIB_DOC.files = files; AIB_DOC.pages = pages; AIB_DOC.source = 'pdf'; AIB_DOC.pdf = (files.find((x) => x.pdf) || {}).pdf || null; AIB_DOC.name = files.map((x) => x.name).join('、');
       st.innerHTML = '✓ ' + notes.join('<br>') + (notes.some((x) => x.includes('掃描檔')) ? '<br><span class="text-red-600">掃描檔要靠文字辨識（OCR）才讀得到：請確認網路連線後重新選擇檔案，或改用貼入文字</span>' : '');
-      document.getElementById('aib-text').value = pages.map((p) => `【文件${p.file + 1}：${files[p.file].name}｜第${p.fn}頁】\n${p.image ? '（這一頁是圖片，讀不到文字）' : (p.ocr ? `（此頁為 OCR 辨識，可能有錯字，請核對原文；標〔?〕的字辨識信心較低${p.skipped ? `；有 ${p.skipped} 行無法辨識，已略過` : ''}）\n` + (p.marked || p.text) : p.text)}`).join('\n\n');
+      document.getElementById('aib-text').value = pages.map((p) => `【文件${p.file + 1}：${files[p.file].name}｜第${p.fn}頁】\n${p.image ? '（這一頁是圖片，讀不到文字）' : p.gemini ? window.LF_GeminiOcr.PAGE_MARK + '\n' + p.text : (p.ocr ? `（此頁為 OCR 辨識，可能有錯字，請核對原文；標〔?〕的字辨識信心較低${p.skipped ? `；有 ${p.skipped} 行無法辨識，已略過` : ''}）\n` + (p.marked || p.text) : p.text)}`).join('\n\n');
     } catch (err) { AIB_DOC.files = []; AIB_DOC.pages = []; AIB_DOC.pdf = null; st.textContent = '讀取失敗：' + err.message; }
     finally { AIB_DOC.loading = false; }
   }
@@ -6236,6 +6241,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
   const aibPageLabel = (n) => { const p = aibPageOf(n); return p && p.file !== undefined && AIB_DOC.files.length > 1 ? `文件${p.file + 1} p.${p.fn}` : (p && p.fn ? `p.${p.fn}` : `p.${n}`); };
 
   const aibEngSel = document.getElementById('aib-engine');
+  if (window.LF_GeminiOcr) document.getElementById('aib-gemini-ocr-wrap').innerHTML = window.LF_GeminiOcr.checkboxHtml('aib-gemini-ocr');
   const aibKeyIn = document.getElementById('aib-gemini-key');
   const aibModelSel = document.getElementById('aib-gemini-model');
   try { aibKeyIn.value = sessionStorage.getItem('aib_gemini_key') || ''; } catch (e) { /* ignore */ }
@@ -6741,7 +6747,7 @@ footer{font-size:12.5px;color:#8a8273;border-top:1px solid var(--rule);padding-t
         });
         if (firstY !== null) body.scrollTop = Math.max(0, firstY - 120);
       } else {
-        body.insertAdjacentHTML('afterbegin', pg && pg.ocr ? '<p class="text-xs text-amber-700 mb-2">這一頁是掃描檔，文字由 OCR 辨識（可能有錯字），沒辦法在圖上標出位置，請對照下方原圖人工核對。</p>' : '<p class="text-xs text-red-600 mb-2">這一頁找不到完全相同的句子（可能是 PDF 斷行），請人工比對。</p>');
+        body.insertAdjacentHTML('afterbegin', pg && (pg.ocr || pg.gemini) ? '<p class="text-xs text-amber-700 mb-2">這一頁是掃描檔，文字由 ' + (pg.gemini ? 'Gemini' : 'OCR') + ' 辨識（可能有錯字），沒辦法在圖上標出位置，請對照下方原圖人工核對。</p>' : '<p class="text-xs text-red-600 mb-2">這一頁找不到完全相同的句子（可能是 PDF 斷行），請人工比對。</p>');
       }
     } else {
       const text = pf && !pf.pdf ? pg.text : document.getElementById('aib-text').value;
