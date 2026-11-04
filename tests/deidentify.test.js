@@ -1,7 +1,7 @@
 // 去識別化模組測試：node tests/deidentify.test.js
 // 測試資料全部是明顯虛構的人名（王小明、李大華、測試甲…），電話、證號都是假的
 const assert = require('assert');
-const { deidentify, reidentify, reidentifyDeep, findLeftoverTokens, knownNamesFromCase } = require('../deidentify.js');
+const { deidentify, reidentify, reidentifyDeep, findLeftoverTokens, knownNamesFromCase } = require('../modules/deidentify.js');
 
 const tests = [];
 const test = (name, fn) => tests.push({ name, fn });

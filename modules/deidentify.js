@@ -11,7 +11,7 @@
  *
  * 鐵則：這個模組不寫任何儲存（localStorage 等）、不連網、不印 console。
  *       對照表（map）只是一般物件，由呼叫端用完即丟。
- * 瀏覽器：<script src="deidentify.js"> 之後用 window.Deid.xxx；Node：require('./deidentify.js')
+ * 瀏覽器：<script src="modules/deidentify.js"> 之後用 window.Deid.xxx；Node：require('./modules/deidentify.js')
  * ========================================================================== */
 (function (root, factory) {
   const api = factory();
