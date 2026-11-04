@@ -201,10 +201,20 @@
       //  (a) 角色字後面 2～4 個中文字，後面緊接「住／設／居／即／，、。；括號／律師／換行」
       //  (b) 行頭或「、，：（」之後的 2～3 個中文字＋「律師」
       const okLoose = (n) => n && !/○/.test(n) && !GIVEN_STOP.has(n[0]) && !LOOSE_STOP.test(n) && !ROLE_WORDS.includes(n);
-      const anchRe = new RegExp(`(?:${ROLE_WORDS.map(escRe).join('|')})[ \\t\\u3000]*[：:]?[ \\t\\u3000]*(${HAN}{2,4}?)(?=住|設|居|即|[，,、。；;（(）)]|律師|\\n|$)`, 'gm');
-      while ((m = anchRe.exec(t))) { if (okLoose(m[1])) found.push({ name: m[1], label: /^律師/.test(t.slice(m.index + m[0].length)) ? '律師' : '人名' }); }
-      const lawLineRe = new RegExp(`(?<=^|[\\s\\u3000、，,：:（(])(${HAN}{2,3})律師`, 'gm');
+      const anchRe = new RegExp(`(?:${ROLE_WORDS.map(escRe).join('|')})[ \\t\\u3000]*[：:]?[ \\t\\u3000]*(${HAN}{2,4}?)(?=[ \\t\\u3000]*(?:住|設|居|即|[，,、。；;（(）)]|律師|\\n|$))`, 'gm');
+      while ((m = anchRe.exec(t))) { if (okLoose(m[1])) found.push({ name: m[1], label: /^[ \t\u3000]*律師/.test(t.slice(m.index + m[0].length)) ? '律師' : '人名' }); }
+      const lawLineRe = new RegExp(`(?<=^|[\\s\\u3000、，,：:（(])(${HAN}{2,3})[ \\t\\u3000]*律師`, 'gm');
       while ((m = lawLineRe.exec(t))) { if (okLoose(m[1]) && !LAWYER_STOP.test(m[1])) found.push({ name: m[1], label: '律師' }); }
+      //  (c) 名單接續：「證人【人名C】、冷大華及井小明、卞美美等人」—— 角色字後面用「、及與和暨」串起來的每一個都是姓名
+      //      整串每一段都要像姓名（2～4 字或已換好的代號），才算數；「原告與被告間」這種不會動
+      const listRe = new RegExp(`(?:${ROLE_WORDS.map(escRe).join('|')})[ \\t\\u3000]*[：:]?[ \\t\\u3000]*([^，,。；;\\n]{2,80}?)(?=等人|等|[，,。；;\\n]|$)`, 'gm');
+      while ((m = listRe.exec(t))) {
+        const parts = m[1].split(/[、及與和暨]/).map((x) => x.replace(/[ \t\u3000]+/g, ''));
+        if (parts.length < 2) continue;
+        const looks = parts.every((x) => /^【[^】]+】$/.test(x) || (new RegExp(`^${HAN}{2,4}$`).test(x) && okLoose(x)));
+        if (!looks) continue;
+        parts.filter((x) => !/^【/.test(x)).forEach((x) => found.push({ name: x, label: '人名' }));
+      }
       found.forEach(({ name, label }) => {
         if (keep.has(name) || byOriginal.has(name) || personToken.has(name)) return;
         if (!new RegExp(escRe(name)).test(t)) return;

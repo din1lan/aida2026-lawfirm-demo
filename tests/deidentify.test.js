@@ -272,6 +272,23 @@ test('54 檔名不送 AI：只留文件種類，姓名與案號都拿掉', () =>
   assert.strictEqual(safeFileLabel('冷若冰的資料'), '');
 });
 
+test('55 Gemini 轉錄的多個空白：「上訴人　　姓名　　住【地址】」也遮', () => {
+  const r = deidentify('上訴人　　冷若冰　　住臺北市中正區測試路1號\n被上訴人  井上雲  住新北市板橋區範例街2號', []);
+  no(r.text, '冷若冰'); no(r.text, '井上雲');
+});
+test('56 訴訟代理人下一行縮排的「　　　　XXX律師」、姓名與律師之間有空白也遮', () => {
+  const r = deidentify('訴訟代理人　陳大文律師\n　　　　冷小華律師\n　　　　井大明　律師', []);
+  ['陳大文', '冷小華', '井大明'].forEach((n) => no(r.text, n));
+});
+test('57 證人名單「、及與」接續的姓名一起遮（含已遮成代號的第一位）', () => {
+  const r = deidentify('證人王小明、冷大華及井小明、卞美美等人到庭結證。', [{ name: '王小明', role: 'person' }]);
+  ['王小明', '冷大華', '井小明', '卞美美'].forEach((n) => no(r.text, n)); has(r.text, '等人到庭');
+});
+test('58 名單規則不誤遮：「原告與被告間」「被告及其訴訟代理人」「上訴人及被上訴人」', () => {
+  const t = '原告與被告間請求返還借款事件，被告及其訴訟代理人到庭，上訴人及被上訴人均不爭執。';
+  const r = deidentify(t, []); assert.strictEqual(r.text, t, JSON.stringify(r.items));
+});
+
 let pass = 0; const fails = [];
 for (const t of tests) {
   try { t.fn(); pass++; console.log('  ✓ ' + t.name); }

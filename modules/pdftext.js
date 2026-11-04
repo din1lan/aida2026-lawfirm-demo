@@ -136,6 +136,33 @@
     return { text: j.text, marked: j.marked, skipped: all.length - keep.length };
   }
 
+  // ---- 紙本印的東西（不是正文）：左右邊界行號 01～31、頁底文件序號（16～20 碼英數）、單獨頁碼 ----
+  // 只刪「整行就是這些」或「句尾空白後的 2 位數行號」；正文裡的金額、日期、條號、卷頁不動
+  const NUM_UNIT = '[年月日時分秒元萬億千百條項款目頁號卷冊歲人件次個位筆張份週天成%％]';
+  function stripPrintMarks(text) {
+    let removed = 0;
+    const lines = String(text || '').split('\n');
+    const out = [];
+    for (let line of lines) {
+      const t = line.trim();
+      if (t && (
+        /^\d{1,2}$/.test(t) ||                                                         // 行號 01、2
+        /^[-－—–~～]?\s*\d{1,3}\s*[-－—–~～]?$/.test(t) ||                           // 頁碼 - 3 -、12
+        /^第\s*\d{1,4}\s*頁(\s*[，,／/、]?\s*共\s*\d{1,4}\s*頁)?$/.test(t) ||       // 第 3 頁，共 12 頁
+        /^\d{1,4}\s*[\/／]\s*\d{1,4}$/.test(t) ||                                     // 3/12
+        /^(?=[0-9A-Za-z]*[A-Za-z])(?=[0-9A-Za-z]*\d)[0-9A-Za-z]{12,24}$/.test(t)       // 0000PCD416DAA173A3AA
+      )) { removed++; continue; }
+      const before = line;
+      // 句尾「空白＋2 位數行號」：前面是中文或標點，而且不是「新臺幣 50」「第 12」這種
+      line = line.replace(new RegExp(`(?<=[\\u4e00-\\u9fff，。、；：）」』！？])(?<![幣第共約計逾達為至及約前後])[ \\t\\u3000]+\\d{2}[ \\t\\u3000]*$`), '');
+      // 行頭「2 位數行號＋空白」：後面不是單位（「12 月」「50 萬元」不動）
+      line = line.replace(new RegExp(`^[ \\t\\u3000]*\\d{2}[ \\t\\u3000]+(?=[\\u4e00-\\u9fff（「])(?!${NUM_UNIT})`), '');
+      if (line !== before) removed++;
+      out.push(line);
+    }
+    return { text: out.join('\n').replace(/\n{3,}/g, '\n\n').trim(), removed };
+  }
+
   // 「第 2、5 頁為 OCR 辨識，可能有錯字，請核對原文」
   function ocrPagesNote(nums) {
     const list = (nums || []).filter((n) => Number.isFinite(n));
@@ -266,11 +293,18 @@
       } catch (e) { ocrError = (e && e.message) || String(e); }
       finally { if (worker) { try { await worker.terminate(); } catch (e) { /* ignore */ } } ocrMs = Date.now() - t0; }
     }
+    // 辨識出來的頁（Gemini 與本機 OCR 共用）：拿掉紙本上印的行號、頁碼、文件序號
+    let printMarks = 0;
+    pages.filter((pg) => pg.ocr || pg.gemini).forEach((pg) => {
+      const a = stripPrintMarks(pg.text); printMarks += a.removed; pg.text = a.text;
+      if (pg.marked) pg.marked = stripPrintMarks(pg.marked).text;
+      const n = squash(pg.text).length; chars += n - pg.chars; pg.chars = n;
+    });
     const stillImage = ocrTodo.filter((n) => !ocrPages.includes(n));
-    return { pdf, numPages: pdf.numPages, pages, imagePages: stillImage, ocrPages, blankPages, chars, ocrError, ocrMs, geminiPages: remote.pages, geminiError: remote.error || '' };
+    return { printMarks, pdf, numPages: pdf.numPages, pages, imagePages: stillImage, ocrPages, blankPages, chars, ocrError, ocrMs, geminiPages: remote.pages, geminiError: remote.error || '' };
   }
 
-  const api = { OPTIONS, OCR, MIN_PAGE_CHARS, pageText, imagePagesNote, ocrPagesNote, cleanOcr, ocrPageText, isJunkLine, joinLines, preprocess, skippedNote, open, read };
+  const api = { OPTIONS, OCR, MIN_PAGE_CHARS, pageText, imagePagesNote, ocrPagesNote, cleanOcr, ocrPageText, isJunkLine, joinLines, preprocess, skippedNote, stripPrintMarks, open, read };
   if (typeof module === 'object' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') window.LF_PdfText = api;
 })(typeof window !== 'undefined' ? window : globalThis);

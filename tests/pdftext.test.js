@@ -75,6 +75,23 @@ ok('OCR 後處理：行頭雜點、行尾黏著的英文字母／單一數字拿
 ok('OCR 後處理：沒有逐行資料時退回整頁文字', () => {
   assert.strictEqual(T.ocrPageText({ text: '被 告 應 給 付' }).text, '被告應給付');
 });
+ok('紙本印記：獨立行號 01～31、頁碼、文件序號整行拿掉', () => {
+  const r = T.stripPrintMarks('臺灣虛構高等法院民事判決\n01\n02\n31\n- 3 -\n第 3 頁，共 12 頁\n3/12\n12\n0000PCD416DAA173A3AA\n上訴駁回。');
+  assert.strictEqual(r.text, '臺灣虛構高等法院民事判決\n上訴駁回。'); assert.strictEqual(r.removed, 8);
+});
+ok('紙本印記：句尾「空白＋2 位數行號」與行頭行號拿掉', () => {
+  assert.strictEqual(T.stripPrintMarks('且上訴人不否認上開 02').text, '且上訴人不否認上開');
+  assert.strictEqual(T.stripPrintMarks('03 被上訴人則以：').text, '被上訴人則以：');
+  assert.strictEqual(T.stripPrintMarks('等語置辯。　15').text, '等語置辯。');
+});
+ok('紙本印記：正文數字不動（金額、日期、條號、卷頁、案號、單位前的數字）', () => {
+  const keep = ['被告應給付新臺幣 50\n萬元', '見本院卷第111至125頁。', '依民法第184條第1項', '113年度上字第666號', '12 月 3 日到庭', '新臺幣186,000元', '民國113年10月1日', '原告於第 12'];
+  keep.forEach((x) => assert.strictEqual(T.stripPrintMarks(x).text, x, x));
+});
+ok('紙本印記：英數序號要同時有字母和數字、12～24 碼才算；純英文字、短代碼不動', () => {
+  assert.strictEqual(T.stripPrintMarks('LINE\nABC123\nREPUBLICOFCHINA').text, 'LINE\nABC123\nREPUBLICOFCHINA');
+  assert.strictEqual(T.stripPrintMarks('A1B2C3D4E5F6G7H8').removed, 1);
+});
 ok('OCR 元件版本全部釘死（不會自動跳新版）', () => {
   for (const k of ['script', 'workerPath', 'corePath', 'langPath']) assert(/@\d+\.\d+\.\d+/.test(T.OCR[k]), k);
 });
