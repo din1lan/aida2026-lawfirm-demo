@@ -1,0 +1,70 @@
+{
+ "steps": [
+  {
+   "n": "01-loaded-online",
+   "s": "3.2"
+  },
+  {
+   "n": "02-offline-load-case",
+   "s": "7.9"
+  },
+  {
+   "n": "after-load-case",
+   "st": {
+    "tailwind": true,
+    "pdfjs": true,
+    "badges": 0,
+    "viewer": false
+   }
+  },
+  {
+   "n": "03-offline-analyze",
+   "s": "11.1"
+  },
+  {
+   "n": "after-analyze",
+   "st": {
+    "tailwind": true,
+    "pdfjs": true,
+    "badges": 0,
+    "viewer": false
+   }
+  },
+  {
+   "n": "reload",
+   "err": "page.reload: net::ERR_INTERNET_DISCONNECTED\nCall log:\n\u001b[2m  - waiting for naviga"
+  },
+  {
+   "n": "04-offline-reload",
+   "s": "12.6"
+  }
+ ],
+ "log": {
+  "console": [
+   {
+    "type": "error",
+    "text": "Failed to load resource: net::ERR_INTERNET_DISCONNECTED",
+    "url": "http://localhost:8767/?demo=ding#page-ai-brief"
+   },
+   {
+    "type": "dialog",
+    "text": "示範案件載入失敗：Failed to fetch"
+   },
+   {
+    "type": "dialog",
+    "text": "請先貼入至少 30 字的書狀或判決書內容、上傳 PDF，或點「填入示範書狀」測試"
+   }
+  ],
+  "pageerrors": [],
+  "failed": [
+   {
+    "url": "http://localhost:8767/01_%E6%B0%91%E4%BA%8B%E8%B5%B7%E8%A8%B4%E7%8B%80.pdf",
+    "err": "net::ERR_INTERNET_DISCONNECTED"
+   },
+   {
+    "url": "http://localhost:8767/?demo=ding",
+    "err": "net::ERR_INTERNET_DISCONNECTED"
+   }
+  ]
+ }
+}

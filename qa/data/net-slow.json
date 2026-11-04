@@ -1,0 +1,266 @@
+{
+ "steps": [
+  {
+   "n": "t+5",
+   "st": {
+    "tailwind": false,
+    "pdfjs": false,
+    "badges": 0,
+    "viewer": false
+   }
+  },
+  {
+   "n": "t000",
+   "s": "22.0"
+  },
+  {
+   "n": "t+27",
+   "st": {
+    "tailwind": true,
+    "pdfjs": true,
+    "badges": 0,
+    "viewer": false
+   }
+  },
+  {
+   "n": "t+32",
+   "st": {
+    "tailwind": true,
+    "pdfjs": true,
+    "badges": 0,
+    "viewer": false
+   }
+  },
+  {
+   "n": "t+37",
+   "st": {
+    "tailwind": true,
+    "pdfjs": true,
+    "badges": 0,
+    "viewer": false
+   }
+  },
+  {
+   "n": "t015",
+   "s": "37.9"
+  },
+  {
+   "n": "t+43",
+   "st": {
+    "tailwind": true,
+    "pdfjs": true,
+    "badges": 0,
+    "viewer": false
+   }
+  },
+  {
+   "n": "t+48",
+   "st": {
+    "tailwind": true,
+    "pdfjs": true,
+    "badges": 0,
+    "viewer": false
+   }
+  },
+  {
+   "n": "t+53",
+   "st": {
+    "tailwind": true,
+    "pdfjs": true,
+    "badges": 0,
+    "viewer": false
+   }
+  },
+  {
+   "n": "t030",
+   "s": "60.4"
+  },
+  {
+   "n": "t+65",
+   "st": {
+    "tailwind": true,
+    "pdfjs": true,
+    "badges": 0,
+    "viewer": false
+   }
+  },
+  {
+   "n": "t+70",
+   "st": {
+    "tailwind": true,
+    "pdfjs": true,
+    "badges": 0,
+    "viewer": false
+   }
+  },
+  {
+   "n": "t+75",
+   "st": {
+    "tailwind": true,
+    "pdfjs": true,
+    "badges": 0,
+    "viewer": false
+   }
+  },
+  {
+   "n": "t045",
+   "s": "75.5"
+  },
+  {
+   "n": "t+80",
+   "st": {
+    "tailwind": true,
+    "pdfjs": true,
+    "badges": 0,
+    "viewer": false
+   }
+  },
+  {
+   "n": "t+85",
+   "st": {
+    "tailwind": true,
+    "pdfjs": true,
+    "badges": 0,
+    "viewer": false
+   }
+  },
+  {
+   "n": "t+90",
+   "st": {
+    "tailwind": true,
+    "pdfjs": true,
+    "badges": 0,
+    "viewer": false
+   }
+  },
+  {
+   "n": "t060",
+   "s": "90.6"
+  },
+  {
+   "n": "t+96",
+   "st": {
+    "tailwind": true,
+    "pdfjs": true,
+    "badges": 0,
+    "viewer": false
+   }
+  },
+  {
+   "n": "t+101",
+   "st": {
+    "tailwind": true,
+    "pdfjs": true,
+    "badges": 0,
+    "viewer": false
+   }
+  },
+  {
+   "n": "t+106",
+   "st": {
+    "tailwind": true,
+    "pdfjs": true,
+    "badges": 0,
+    "viewer": false
+   }
+  },
+  {
+   "n": "t075",
+   "s": "105.7"
+  },
+  {
+   "n": "t+111",
+   "st": {
+    "tailwind": true,
+    "pdfjs": true,
+    "badges": 0,
+    "viewer": false
+   }
+  },
+  {
+   "n": "t+116",
+   "st": {
+    "tailwind": true,
+    "pdfjs": true,
+    "badges": 0,
+    "viewer": false
+   }
+  },
+  {
+   "n": "t+121",
+   "st": {
+    "tailwind": true,
+    "pdfjs": true,
+    "badges": 0,
+    "viewer": false
+   }
+  },
+  {
+   "n": "t090",
+   "s": "120.8"
+  },
+  {
+   "n": "t+126",
+   "st": {
+    "tailwind": true,
+    "pdfjs": true,
+    "badges": 0,
+    "viewer": false
+   }
+  },
+  {
+   "n": "t+131",
+   "st": {
+    "tailwind": true,
+    "pdfjs": true,
+    "badges": 0,
+    "viewer": false
+   }
+  },
+  {
+   "n": "t+136",
+   "st": {
+    "tailwind": true,
+    "pdfjs": true,
+    "badges": 0,
+    "viewer": false
+   }
+  },
+  {
+   "n": "t105",
+   "s": "135.9"
+  },
+  {
+   "n": "t+141",
+   "st": {
+    "tailwind": true,
+    "pdfjs": true,
+    "badges": 0,
+    "viewer": false
+   }
+  },
+  {
+   "n": "t+146",
+   "st": {
+    "tailwind": true,
+    "pdfjs": true,
+    "badges": 0,
+    "viewer": false
+   }
+  },
+  {
+   "n": "final",
+   "s": "147.5"
+  }
+ ],
+ "log": {
+  "console": [
+   {
+    "type": "dialog",
+    "text": "請先貼入至少 30 字的書狀或判決書內容、上傳 PDF，或點「填入示範書狀」測試"
+   }
+  ],
+  "pageerrors": [],
+  "failed": []
+ }
+}

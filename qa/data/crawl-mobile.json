@@ -1,0 +1,636 @@
+{
+ "pages": [
+  {
+   "id": "page-dashboard",
+   "nav": "首頁總覽",
+   "how": "選單",
+   "ms": 3466,
+   "active": "page-dashboard",
+   "scrollW": 390,
+   "W": 390,
+   "overflow": [],
+   "small": {
+    ">=16": 5,
+    "14-15": 7,
+    "12-13": 10
+   },
+   "smallEx": [],
+   "blocked": [],
+   "tiny": 2,
+   "nButtons": 2,
+   "clicked": 2,
+   "issues": [],
+   "modalShots": [],
+   "errors": 0
+  },
+  {
+   "id": "page-line-inbox",
+   "nav": "LINE 預約收件匣3",
+   "how": "選單",
+   "ms": 10644,
+   "active": "page-line-inbox",
+   "scrollW": 390,
+   "W": 390,
+   "overflow": [],
+   "small": {
+    ">=16": 6,
+    "14-15": 24,
+    "12-13": 38
+   },
+   "smallEx": [],
+   "blocked": [],
+   "tiny": 2,
+   "nButtons": 15,
+   "clicked": 9,
+   "issues": [],
+   "modalShots": [],
+   "errors": 0
+  },
+  {
+   "id": "page-new-intake",
+   "nav": "新增接案",
+   "how": "選單",
+   "ms": 2402,
+   "active": "page-new-intake",
+   "scrollW": 390,
+   "W": 390,
+   "overflow": [],
+   "small": {
+    ">=16": 2,
+    "14-15": 6,
+    "12-13": 26
+   },
+   "smallEx": [],
+   "blocked": [],
+   "tiny": 0,
+   "nButtons": 1,
+   "clicked": 1,
+   "issues": [],
+   "modalShots": [],
+   "errors": 0
+  },
+  {
+   "id": "page-cases",
+   "nav": "案件與時效",
+   "how": "選單",
+   "ms": 66970,
+   "active": "page-cases",
+   "scrollW": 390,
+   "W": 390,
+   "overflow": [],
+   "small": {
+    "14-15": 60,
+    ">=16": 8,
+    "12-13": 149
+   },
+   "smallEx": [],
+   "blocked": [
+    {
+     "btn": "新增接案",
+     "by": "DIV.md:hidden sticky top-0 z-20 bg-navy-900 "
+    }
+   ],
+   "tiny": 2,
+   "nButtons": 28,
+   "clicked": 28,
+   "issues": [],
+   "modalShots": [
+    {
+     "t": "113訴101",
+     "fn": "m-page-cases-modal1.png",
+     "ov": [
+      "case-detail-modal"
+     ]
+    },
+    {
+     "t": "🔎 詳情",
+     "fn": "m-page-cases-modal2.png",
+     "ov": [
+      "case-detail-modal"
+     ]
+    }
+   ],
+   "errors": 0
+  },
+  {
+   "id": "page-closed-cases",
+   "nav": "結案案件表",
+   "how": "選單",
+   "ms": 40481,
+   "active": "page-closed-cases",
+   "scrollW": 390,
+   "W": 390,
+   "overflow": [],
+   "small": {
+    ">=16": 1,
+    "14-15": 32,
+    "12-13": 35
+   },
+   "smallEx": [],
+   "blocked": [],
+   "tiny": 0,
+   "nButtons": 15,
+   "clicked": 15,
+   "issues": [],
+   "modalShots": [
+    {
+     "t": "刪除",
+     "fn": "m-page-closed-cases-modal1.png",
+     "ov": [
+      "fixed inset-0 z-[60] flex item"
+     ]
+    },
+    {
+     "t": "刪除",
+     "fn": "m-page-closed-cases-modal2.png",
+     "ov": [
+      "fixed inset-0 z-[60] flex item"
+     ]
+    }
+   ],
+   "errors": 0
+  },
+  {
+   "id": "page-crm",
+   "nav": "客戶資料 (CRM)",
+   "how": "選單",
+   "ms": 13705,
+   "active": "page-crm",
+   "scrollW": 390,
+   "W": 390,
+   "overflow": [],
+   "small": {
+    ">=16": 1,
+    "14-15": 14,
+    "12-13": 19
+   },
+   "smallEx": [],
+   "blocked": [],
+   "tiny": 0,
+   "nButtons": 10,
+   "clicked": 9,
+   "issues": [],
+   "modalShots": [
+    {
+     "t": "刪除",
+     "fn": "m-page-crm-modal1.png",
+     "ov": [
+      "fixed inset-0 z-[60] flex item"
+     ]
+    }
+   ],
+   "errors": 0
+  },
+  {
+   "id": "page-billing",
+   "nav": "財務與代墊款",
+   "how": "選單",
+   "ms": 16681,
+   "active": "page-billing",
+   "scrollW": 390,
+   "W": 390,
+   "overflow": [],
+   "small": {
+    ">=16": 1,
+    "14-15": 15,
+    "12-13": 26
+   },
+   "smallEx": [],
+   "blocked": [],
+   "tiny": 0,
+   "nButtons": 9,
+   "clicked": 9,
+   "issues": [],
+   "modalShots": [
+    {
+     "t": "NT$ 90,000",
+     "fn": "m-page-billing-modal1.png",
+     "ov": [
+      "received-amount-modal"
+     ]
+    },
+    {
+     "t": "NT$ 90,000",
+     "fn": "m-page-billing-modal2.png",
+     "ov": [
+      "received-amount-modal"
+     ]
+    }
+   ],
+   "errors": 0
+  },
+  {
+   "id": "page-retainer",
+   "nav": "法顧契約管理",
+   "how": "選單",
+   "ms": 22050,
+   "active": "page-retainer",
+   "scrollW": 390,
+   "W": 390,
+   "overflow": [],
+   "small": {
+    ">=16": 1,
+    "14-15": 15,
+    "12-13": 39
+   },
+   "smallEx": [],
+   "blocked": [],
+   "tiny": 0,
+   "nButtons": 9,
+   "clicked": 9,
+   "issues": [],
+   "modalShots": [
+    {
+     "t": "刪除",
+     "fn": "m-page-retainer-modal1.png",
+     "ov": [
+      "fixed inset-0 z-[60] flex item"
+     ]
+    },
+    {
+     "t": "刪除",
+     "fn": "m-page-retainer-modal2.png",
+     "ov": [
+      "fixed inset-0 z-[60] flex item"
+     ]
+    }
+   ],
+   "errors": 0
+  },
+  {
+   "id": "page-petty-cash",
+   "nav": "零用金管理",
+   "how": "選單",
+   "ms": 12283,
+   "active": "page-petty-cash",
+   "scrollW": 390,
+   "W": 390,
+   "overflow": [],
+   "small": {
+    ">=16": 1,
+    "14-15": 14,
+    "12-13": 31
+   },
+   "smallEx": [],
+   "blocked": [],
+   "tiny": 0,
+   "nButtons": 5,
+   "clicked": 5,
+   "issues": [],
+   "modalShots": [
+    {
+     "t": "刪除",
+     "fn": "m-page-petty-cash-modal1.png",
+     "ov": [
+      "fixed inset-0 z-[60] flex item"
+     ]
+    },
+    {
+     "t": "刪除",
+     "fn": "m-page-petty-cash-modal2.png",
+     "ov": [
+      "fixed inset-0 z-[60] flex item"
+     ]
+    }
+   ],
+   "errors": 0
+  },
+  {
+   "id": "page-client-billing",
+   "nav": "客戶請款",
+   "how": "選單",
+   "ms": 3390,
+   "active": "page-client-billing",
+   "scrollW": 390,
+   "W": 390,
+   "overflow": [],
+   "small": {
+    ">=16": 1,
+    "14-15": 14,
+    "12-13": 9
+   },
+   "smallEx": [],
+   "blocked": [],
+   "tiny": 0,
+   "nButtons": 2,
+   "clicked": 2,
+   "issues": [],
+   "modalShots": [],
+   "errors": 0
+  },
+  {
+   "id": "page-letters",
+   "nav": "(不在選單)",
+   "how": "不在選單",
+   "ms": 885,
+   "active": "page-client-billing",
+   "scrollW": 390,
+   "W": 390,
+   "overflow": [],
+   "small": {
+    ">=16": 1,
+    "14-15": 14,
+    "12-13": 9
+   },
+   "smallEx": [],
+   "blocked": [],
+   "tiny": 0,
+   "nButtons": 0,
+   "clicked": 0,
+   "issues": [],
+   "modalShots": [],
+   "errors": 0
+  },
+  {
+   "id": "page-templates",
+   "nav": "(不在選單)",
+   "how": "不在選單",
+   "ms": 890,
+   "active": "page-client-billing",
+   "scrollW": 390,
+   "W": 390,
+   "overflow": [],
+   "small": {
+    ">=16": 1,
+    "14-15": 14,
+    "12-13": 9
+   },
+   "smallEx": [],
+   "blocked": [],
+   "tiny": 0,
+   "nButtons": 0,
+   "clicked": 0,
+   "issues": [],
+   "modalShots": [],
+   "errors": 0
+  },
+  {
+   "id": "page-tasks",
+   "nav": "待辦任務指派",
+   "how": "選單",
+   "ms": 18367,
+   "active": "page-tasks",
+   "scrollW": 390,
+   "W": 390,
+   "overflow": [],
+   "small": {
+    ">=16": 1,
+    "14-15": 6,
+    "12-13": 24
+   },
+   "smallEx": [],
+   "blocked": [],
+   "tiny": 0,
+   "nButtons": 5,
+   "clicked": 5,
+   "issues": [],
+   "modalShots": [
+    {
+     "t": "詳情",
+     "fn": "m-page-tasks-modal1.png",
+     "ov": [
+      "fixed inset-0 z-[60] flex item"
+     ]
+    },
+    {
+     "t": "刪除",
+     "fn": "m-page-tasks-modal2.png",
+     "ov": [
+      "fixed inset-0 z-[60] flex item"
+     ]
+    }
+   ],
+   "errors": 0
+  },
+  {
+   "id": "page-hr",
+   "nav": "人事管理",
+   "how": "選單",
+   "ms": 35318,
+   "active": "page-hr",
+   "scrollW": 390,
+   "W": 390,
+   "overflow": [],
+   "small": {
+    ">=16": 1,
+    "14-15": 25,
+    "12-13": 59
+   },
+   "smallEx": [],
+   "blocked": [],
+   "tiny": 0,
+   "nButtons": 15,
+   "clicked": 15,
+   "issues": [
+    {
+     "t": "",
+     "err": "無法點擊: elementHandle.click: Timeout 1500ms exceeded."
+    }
+   ],
+   "modalShots": [
+    {
+     "t": "編輯",
+     "fn": "m-page-hr-modal1.png",
+     "ov": [
+      "fixed inset-0 z-[60] flex item"
+     ]
+    },
+    {
+     "t": "刪除",
+     "fn": "m-page-hr-modal2.png",
+     "ov": [
+      "fixed inset-0 z-[60] flex item"
+     ]
+    }
+   ],
+   "errors": 0
+  },
+  {
+   "id": "page-leave",
+   "nav": "請假管理",
+   "how": "選單",
+   "ms": 8459,
+   "active": "page-leave",
+   "scrollW": 390,
+   "W": 390,
+   "overflow": [],
+   "small": {
+    ">=16": 1,
+    "14-15": 6,
+    "12-13": 64
+   },
+   "smallEx": [],
+   "blocked": [],
+   "tiny": 0,
+   "nButtons": 4,
+   "clicked": 4,
+   "issues": [],
+   "modalShots": [
+    {
+     "t": "刪除",
+     "fn": "m-page-leave-modal1.png",
+     "ov": [
+      "fixed inset-0 z-[60] flex item"
+     ]
+    }
+   ],
+   "errors": 0
+  },
+  {
+   "id": "page-ai-review",
+   "nav": "(不在選單)",
+   "how": "不在選單",
+   "ms": 894,
+   "active": "page-leave",
+   "scrollW": 390,
+   "W": 390,
+   "overflow": [],
+   "small": {
+    ">=16": 1,
+    "14-15": 6,
+    "12-13": 64
+   },
+   "smallEx": [],
+   "blocked": [],
+   "tiny": 2,
+   "nButtons": 0,
+   "clicked": 0,
+   "issues": [],
+   "modalShots": [],
+   "errors": 0
+  },
+  {
+   "id": "page-ai-brief",
+   "nav": "AI 智慧閱卷可溯源",
+   "how": "選單",
+   "ms": 5430,
+   "active": "page-ai-brief",
+   "scrollW": 390,
+   "W": 390,
+   "overflow": [],
+   "small": {
+    ">=16": 1,
+    "14-15": 3,
+    "12-13": 28
+   },
+   "smallEx": [],
+   "blocked": [],
+   "tiny": 0,
+   "nButtons": 4,
+   "clicked": 4,
+   "issues": [],
+   "modalShots": [],
+   "errors": 0
+  },
+  {
+   "id": "page-audit",
+   "nav": "異動紀錄",
+   "how": "選單",
+   "ms": 2396,
+   "active": "page-audit",
+   "scrollW": 390,
+   "W": 390,
+   "overflow": [],
+   "small": {
+    ">=16": 1,
+    "14-15": 3,
+    "12-13": 16
+   },
+   "smallEx": [],
+   "blocked": [],
+   "tiny": 0,
+   "nButtons": 1,
+   "clicked": 1,
+   "issues": [],
+   "modalShots": [],
+   "errors": 0
+  },
+  {
+   "id": "page-trash",
+   "nav": "垃圾桶",
+   "how": "選單",
+   "ms": 1355,
+   "active": "page-trash",
+   "scrollW": 390,
+   "W": 390,
+   "overflow": [],
+   "small": {
+    ">=16": 1,
+    "14-15": 3,
+    "12-13": 5
+   },
+   "smallEx": [],
+   "blocked": [],
+   "tiny": 0,
+   "nButtons": 0,
+   "clicked": 0,
+   "issues": [],
+   "modalShots": [],
+   "errors": 0
+  }
+ ],
+ "dialogs": [
+  "把這台電腦上的示範資料全部回到初始狀態？\n排練時新增的預約、案件、客戶、AI 閱卷歸檔都會清掉（LINE 讀取網址會保留）。",
+  "貼上 Make「比賽示範_收件匣讀取」的網址（只存在這台電腦的瀏覽器）。清空後按確定可移除。",
+  "確定刪除開庭通知「09:30 王大明律師-臺北民庭-林小華-損害賠償-113訴101」？",
+  "確定刪除開庭通知「14:00 林淑芬律師-桃園民庭-黃志豪-分割共有物-113訴305」？",
+  "確定刪除「7/24林小華補繳裁判費末日-113訴101」？",
+  "確定刪除「林小華補繳裁判費末日-113訴101」？（連動的提前提醒也會一併刪除）",
+  "確定刪除「陳美惠收到民事判決期限-115婚20」？",
+  "摘要：",
+  "摘要：",
+  "請先貼入至少 30 字的書狀或判決書內容、上傳 PDF，或點「填入示範書狀」測試",
+  "請先貼上 Gemini API 金鑰"
+ ],
+ "loginAnalyze": {
+  "scrollW": 390,
+  "W": 390
+ },
+ "links": [
+  {
+   "h": "https://www.bli.gov.tw/",
+   "t": "前往勞保局查最新投保薪資分級表 →"
+  },
+  {
+   "h": "#",
+   "t": "新增接案"
+  },
+  {
+   "h": "#",
+   "t": "結案案件表"
+  },
+  {
+   "h": "#",
+   "t": "首頁"
+  },
+  {
+   "h": "https://calendar.google.com/calendar/render?action=TEMPLATE&text=09%3A30+%E7%8E%8B%E5%A4%A7%E6%98%8E%E5%BE%8B%E5%B8%AB-%E8%87%BA%E5%8C%97%E6%B0%91%E5%BA%AD-%E6%9E%97%E5%B0%8F%E8%8F%AF-%E6%90%8D%E5%AE%B3%E8%B3%A0%E5%84%9F-113%E8%A8%B4101&dates=20261110T093000%2F20261110T103000&details=%E7%95%B6%E4%BA%8B%E4%BA%BA%EF%BC%9A%E6%9E%97%E5%B0%8F%E8%8F%AF%EF%BC%8F%E5%B0%8D%E9%80%A0%EF%BC%9A%E7%94%B2%E7%87%9F%E9%80%A0%EF%BC%8F%E6%A1%88%E7%94%B1%EF%BC%9A%E6%90%8D%E5%AE%B3%E8%B3%A0%E5%84%9F%EF%BC%8F%E6%A1%88%E8%99%9F%EF%BC%9A113%E8%A8%B4101&location=%E8%87%BA%E7%81%A3%E8%87%BA%E5%8C%97%E5%9C%B0%E6%96%B9%E6%B3%95%E9%99%A2%E6%B0%91%E4%BA%8B%E5%BA%AD&ctz=Asia%2FTaipei",
+   "t": "+ 加入 Google 日曆"
+  },
+  {
+   "h": "https://calendar.google.com/calendar/render?action=TEMPLATE&text=14%3A00+%E6%9E%97%E6%B7%91%E8%8A%AC%E5%BE%8B%E5%B8%AB-%E6%A1%83%E5%9C%92%E6%B0%91%E5%BA%AD-%E9%BB%83%E5%BF%97%E8%B1%AA-%E5%88%86%E5%89%B2%E5%85%B1%E6%9C%89%E7%89%A9-113%E8%A8%B4305&dates=20261118T140000%2F20261118T150000&details=%E7%95%B6%E4%BA%8B%E4%BA%BA%EF%BC%9A%E9%BB%83%E5%BF%97%E8%B1%AA%EF%BC%8F%E5%B0%8D%E9%80%A0%EF%BC%9A%E5%B0%8D%E9%80%A0%E5%9C%B0%E4%B8%BB%E4%B8%99%EF%BC%8F%E6%A1%88%E7%94%B1%EF%BC%9A%E5%88%86%E5%89%B2%E5%85%B1%E6%9C%89%E7%89%A9%EF%BC%8F%E6%A1%88%E8%99%9F%EF%BC%9A113%E8%A8%B4305&location=%E8%87%BA%E7%81%A3%E6%A1%83%E5%9C%92%E5%9C%B0%E6%96%B9%E6%B3%95%E9%99%A2%E6%B0%91%E4%BA%8B%E5%BA%AD&ctz=Asia%2FTaipei",
+   "t": "+ 加入 Google 日曆"
+  },
+  {
+   "h": "https://calendar.google.com/calendar/render?action=TEMPLATE&text=09%3A30+%E7%8E%8B%E5%A4%A7%E6%98%8E%E5%BE%8B%E5%B8%AB-%E8%87%BA%E5%8C%97%E6%B0%91%E5%BA%AD-%E6%9E%97%E5%B0%8F%E8%8F%AF-%E6%90%8D%E5%AE%B3%E8%B3%A0%E5%84%9F-113%E8%A8%B4101&dates=20261110T093000%2F20261110T103000&details=%E7%95%B6%E4%BA%8B%E4%BA%BA%EF%BC%9A%E6%9E%97%E5%B0%8F%E8%8F%AF%EF%BC%8F%E5%B0%8D%E9%80%A0%EF%BC%9A%E7%94%B2%E7%87%9F%E9%80%A0%EF%BC%8F%E6%A1%88%E7%94%B1%EF%BC%9A%E6%90%8D%E5%AE%B3%E8%B3%A0%E5%84%9F%EF%BC%8F%E6%A1%88%E8%99%9F%EF%BC%9A113%E8%A8%B4101&location=%E8%87%BA%E7%81%A3%E8%87%BA%E5%8C%97%E5%9C%B0%E6%96%B9%E6%B3%95%E9%99%A2%E6%B0%91%E4%BA%8B%E5%BA%AD&ctz=Asia%2FTaipei",
+   "t": "+ 加入 Google 日曆"
+  },
+  {
+   "h": "https://calendar.google.com/calendar/render?action=TEMPLATE&text=14%3A00+%E6%9E%97%E6%B7%91%E8%8A%AC%E5%BE%8B%E5%B8%AB-%E6%A1%83%E5%9C%92%E6%B0%91%E5%BA%AD-%E9%BB%83%E5%BF%97%E8%B1%AA-%E5%88%86%E5%89%B2%E5%85%B1%E6%9C%89%E7%89%A9-113%E8%A8%B4305&dates=20261118T140000%2F20261118T150000&details=%E7%95%B6%E4%BA%8B%E4%BA%BA%EF%BC%9A%E9%BB%83%E5%BF%97%E8%B1%AA%EF%BC%8F%E5%B0%8D%E9%80%A0%EF%BC%9A%E5%B0%8D%E9%80%A0%E5%9C%B0%E4%B8%BB%E4%B8%99%EF%BC%8F%E6%A1%88%E7%94%B1%EF%BC%9A%E5%88%86%E5%89%B2%E5%85%B1%E6%9C%89%E7%89%A9%EF%BC%8F%E6%A1%88%E8%99%9F%EF%BC%9A113%E8%A8%B4305&location=%E8%87%BA%E7%81%A3%E6%A1%83%E5%9C%92%E5%9C%B0%E6%96%B9%E6%B3%95%E9%99%A2%E6%B0%91%E4%BA%8B%E5%BA%AD&ctz=Asia%2FTaipei",
+   "t": "+ 加入 Google 日曆"
+  },
+  {
+   "h": "#",
+   "t": "前往案件與時效 →"
+  },
+  {
+   "h": "#",
+   "t": "新增接案"
+  }
+ ],
+ "log": {
+  "console": [],
+  "pageerrors": [],
+  "failed": []
+ }
+}

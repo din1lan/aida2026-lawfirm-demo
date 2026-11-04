@@ -1,0 +1,305 @@
+{
+ "steps": [
+  {
+   "n": "t+5",
+   "st": {
+    "tailwind": false,
+    "pdfjs": false,
+    "badges": 0,
+    "viewer": false
+   }
+  },
+  {
+   "n": "t000",
+   "s": "5.1"
+  },
+  {
+   "n": "t+10",
+   "st": {
+    "tailwind": false,
+    "pdfjs": false,
+    "badges": 0,
+    "viewer": false
+   }
+  },
+  {
+   "n": "t+15",
+   "st": {
+    "tailwind": false,
+    "pdfjs": false,
+    "badges": 0,
+    "viewer": false
+   }
+  },
+  {
+   "n": "t+20",
+   "st": {
+    "tailwind": false,
+    "pdfjs": false,
+    "badges": 0,
+    "viewer": false
+   }
+  },
+  {
+   "n": "t015",
+   "s": "20.2"
+  },
+  {
+   "n": "t+25",
+   "st": {
+    "tailwind": false,
+    "pdfjs": false,
+    "badges": 0,
+    "viewer": false
+   }
+  },
+  {
+   "n": "t+30",
+   "st": {
+    "tailwind": false,
+    "pdfjs": false,
+    "badges": 0,
+    "viewer": false
+   }
+  },
+  {
+   "n": "t+35",
+   "st": {
+    "tailwind": false,
+    "pdfjs": false,
+    "badges": 0,
+    "viewer": false
+   }
+  },
+  {
+   "n": "t030",
+   "s": "35.3"
+  },
+  {
+   "n": "t+40",
+   "st": {
+    "tailwind": false,
+    "pdfjs": false,
+    "badges": 0,
+    "viewer": false
+   }
+  },
+  {
+   "n": "t+45",
+   "st": {
+    "tailwind": false,
+    "pdfjs": false,
+    "badges": 0,
+    "viewer": false
+   }
+  },
+  {
+   "n": "t+50",
+   "st": {
+    "tailwind": false,
+    "pdfjs": false,
+    "badges": 0,
+    "viewer": false
+   }
+  },
+  {
+   "n": "t045",
+   "s": "50.4"
+  },
+  {
+   "n": "t+55",
+   "st": {
+    "tailwind": false,
+    "pdfjs": false,
+    "badges": 0,
+    "viewer": false
+   }
+  },
+  {
+   "n": "t+60",
+   "st": {
+    "tailwind": false,
+    "pdfjs": false,
+    "badges": 0,
+    "viewer": false
+   }
+  },
+  {
+   "n": "t+65",
+   "st": {
+    "tailwind": false,
+    "pdfjs": false,
+    "badges": 0,
+    "viewer": false
+   }
+  },
+  {
+   "n": "t060",
+   "s": "65.5"
+  },
+  {
+   "n": "t+71",
+   "st": {
+    "tailwind": false,
+    "pdfjs": false,
+    "badges": 0,
+    "viewer": false
+   }
+  },
+  {
+   "n": "t+76",
+   "st": {
+    "tailwind": false,
+    "pdfjs": false,
+    "badges": 0,
+    "viewer": false
+   }
+  },
+  {
+   "n": "t+81",
+   "st": {
+    "tailwind": false,
+    "pdfjs": false,
+    "badges": 0,
+    "viewer": false
+   }
+  },
+  {
+   "n": "t075",
+   "s": "80.6"
+  },
+  {
+   "n": "t+86",
+   "st": {
+    "tailwind": false,
+    "pdfjs": false,
+    "badges": 0,
+    "viewer": false
+   }
+  },
+  {
+   "n": "t+91",
+   "st": {
+    "tailwind": false,
+    "pdfjs": false,
+    "badges": 0,
+    "viewer": false
+   }
+  },
+  {
+   "n": "t+96",
+   "st": {
+    "tailwind": false,
+    "pdfjs": false,
+    "badges": 0,
+    "viewer": false
+   }
+  },
+  {
+   "n": "t090",
+   "s": "95.7"
+  },
+  {
+   "n": "t+101",
+   "st": {
+    "tailwind": false,
+    "pdfjs": false,
+    "badges": 0,
+    "viewer": false
+   }
+  },
+  {
+   "n": "t+106",
+   "st": {
+    "tailwind": false,
+    "pdfjs": false,
+    "badges": 0,
+    "viewer": false
+   }
+  },
+  {
+   "n": "t+111",
+   "st": {
+    "tailwind": false,
+    "pdfjs": false,
+    "badges": 0,
+    "viewer": false
+   }
+  },
+  {
+   "n": "t105",
+   "s": "110.8"
+  },
+  {
+   "n": "t+116",
+   "st": {
+    "tailwind": false,
+    "pdfjs": false,
+    "badges": 0,
+    "viewer": false
+   }
+  },
+  {
+   "n": "t+121",
+   "st": {
+    "tailwind": false,
+    "pdfjs": false,
+    "badges": 0,
+    "viewer": false
+   }
+  },
+  {
+   "n": "final",
+   "s": "122.4"
+  }
+ ],
+ "log": {
+  "console": [
+   {
+    "type": "error",
+    "text": "Failed to load resource: net::ERR_INTERNET_DISCONNECTED",
+    "url": "http://localhost:8767/?demo=ding&autorun=pdf-view"
+   },
+   {
+    "type": "error",
+    "text": "Failed to load resource: net::ERR_INTERNET_DISCONNECTED",
+    "url": "http://localhost:8767/?demo=ding&autorun=pdf-view"
+   },
+   {
+    "type": "error",
+    "text": "Failed to load resource: net::ERR_INTERNET_DISCONNECTED",
+    "url": "http://localhost:8767/?demo=ding&autorun=pdf-view"
+   },
+   {
+    "type": "error",
+    "text": "Failed to load resource: net::ERR_INTERNET_DISCONNECTED",
+    "url": "http://localhost:8767/?demo=ding&autorun=pdf-view"
+   },
+   {
+    "type": "dialog",
+    "text": "請先貼入至少 30 字的書狀或判決書內容、上傳 PDF，或點「填入示範書狀」測試"
+   }
+  ],
+  "pageerrors": [
+   "ReferenceError: tailwind is not defined"
+  ],
+  "failed": [
+   {
+    "url": "https://cdn.tailwindcss.com/",
+    "err": "net::ERR_INTERNET_DISCONNECTED"
+   },
+   {
+    "url": "https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap",
+    "err": "net::ERR_INTERNET_DISCONNECTED"
+   },
+   {
+    "url": "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js",
+    "err": "net::ERR_INTERNET_DISCONNECTED"
+   },
+   {
+    "url": "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js",
+    "err": "net::ERR_INTERNET_DISCONNECTED"
+   }
+  ]
+ }
+}
