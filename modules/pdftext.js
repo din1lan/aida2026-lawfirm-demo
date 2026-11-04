@@ -25,7 +25,9 @@
     colorDrop: true,   // 灰階時取 RGB 最亮的值：紅色印章、彩色對話框會變淡，黑字不受影響
     binarize: true,    // 用 Otsu 法自動決定門檻，轉成純黑白（去掉灰色雜點、底色）
     despeckle: true,   // 去掉孤立的小黑點（掃描雜點）
-    psm: '',           // Tesseract 版面模式；空白＝預設
+    psm: '',           // Tesseract 版面模式；空白＝預設（實測改 6 沒有差別）
+    lowConf: 60,       // 單字信心低於這個分數，在標示版文字後面加〔?〕
+    dropConf: 20,      // 整行信心低於這個分數（且中文比例不高或字很少）就當亂碼丟掉
   };
   const OCR_NOTE = '可能有錯字，請核對原文';
 
@@ -78,21 +80,51 @@
     return t.replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
   }
 
-  // 用辨識結果的字詞位置組回每一行：字距明顯比字高的 6 成還寬，才當作原文的間隔（例如「原告　甲○○」）
-  function ocrLinesText(data) {
-    const lines = [];
-    ((data && data.blocks) || []).forEach((bl) => (bl.paragraphs || []).forEach((pa, pi) => {
-      if (pi > 0 || lines.length) lines.push('');
-      (pa.lines || []).forEach((ln) => {
-        const ws = (ln.words || []).filter((w) => w && w.text && w.bbox);
-        if (!ws.length) return;
-        const hs = ws.map((w) => w.bbox.y1 - w.bbox.y0).sort((a, b) => a - b); const h = hs[Math.floor(hs.length / 2)] || 1;
-        let out = ws[0].text;
-        for (let i = 1; i < ws.length; i++) { const gap = ws[i].bbox.x0 - ws[i - 1].bbox.x1; out += gap > h * 0.6 ? '\u3000' : ' '; out += ws[i].text; }
-        lines.push(out);
-      });
-    }));
-    return lines.length ? lines.join('\n') : String((data && data.text) || '');
+  // ---- OCR 後處理：逐行整理 → 丟掉亂碼行 → 被切斷的行接回同一段；低信心的字在「標示版」後面加〔?〕 ----
+  const HEAD_RE = /^(（[一二三四五六七八九十百]+）|\([一二三四五六七八九十0-9]+\)|[一二三四五六七八九十百]+、|[0-9０-９]+[、.．]|主文|理由|事實及理由|事實|據上論結|據上論斷|中華民國|審判長|法官|書記官|附表|附件|以上正本)/;
+  const ROLE_RE = /^(被上訴人|上訴人|原告|被告|聲請人|相對人|抗告人|再抗告人|參加人|法定代理人|訴訟代理人|複代理人|選任辯護人|辯護人)/;
+  const isHan = (c) => /[一-鿿○]/.test(c);
+  function ocrLines(data, opt) {
+    opt = opt || {}; const low = opt.lowConf == null ? 60 : opt.lowConf;
+    const out = [];
+    ((data && data.blocks) || []).forEach((bl) => (bl.paragraphs || []).forEach((pa) => (pa.lines || []).forEach((ln) => {
+      const ws = (ln.words || []).filter((w) => w && w.text);
+      if (!ws.length) return;
+      const plain = cleanOcr(ws.map((w) => w.text).join(' '));
+      const marked = cleanOcr(ws.map((w) => (w.symbols && w.symbols.length ? w.symbols.map((s) => s.text + (s.confidence < low && /[一-鿿0-9]/.test(s.text) ? '〔?〕' : '')).join('') : w.text)).join(' '));
+      const nz = squash(plain); if (!nz) return;
+      const han = [...nz].filter(isHan).length;
+      out.push({ plain, marked, conf: typeof ln.confidence === 'number' ? ln.confidence : 100, hanRatio: han / [...nz].length, len: [...nz].length });
+    })));
+    return out;
+  }
+  // 亂碼行：信心很低，或中文比例低又信心不高，或只剩一兩個字又信心不高
+  function isJunkLine(l, opt) {
+    opt = opt || {};
+    const hard = opt.dropConf == null ? 20 : opt.dropConf;
+    if (l.conf < hard && (l.hanRatio < 0.85 || l.len <= 6)) return true;
+    if (l.hanRatio < 0.5 && l.conf < 60) return true;
+    if (l.len <= 2 && l.conf < 50) return true;
+    return false;
+  }
+  // 被切斷的行接回同一段：遇到段落開頭（一、（一）主文 理由…）、短的當事人行，或上一行明顯比較短（段落最後一行）才換段
+  function joinLines(lines) {
+    const maxLen = Math.max(1, ...lines.map((l) => l.len));
+    const paras = [];
+    lines.forEach((l, i) => {
+      const prev = lines[i - 1];
+      const brk = !prev || HEAD_RE.test(squash(l.plain)) || (ROLE_RE.test(squash(l.plain)) && l.len < maxLen * 0.6) || prev.len < maxLen * 0.7 || /[：:]$/.test(prev.plain);
+      if (brk) paras.push({ plain: l.plain, marked: l.marked });
+      else { const p = paras[paras.length - 1]; p.plain += l.plain; p.marked += l.marked; }
+    });
+    return { text: paras.map((p) => p.plain).join('\n'), marked: paras.map((p) => p.marked).join('\n') };
+  }
+  function ocrPageText(data, opt) {
+    const all = ocrLines(data, opt);
+    const keep = all.filter((l) => !isJunkLine(l, opt));
+    if (!all.length) { const t = cleanOcr((data && data.text) || ''); return { text: t, marked: t, skipped: 0 }; }
+    const j = joinLines(keep);
+    return { text: j.text, marked: j.marked, skipped: all.length - keep.length };
   }
 
   // 「第 2、5 頁為 OCR 辨識，可能有錯字，請核對原文」
@@ -209,9 +241,9 @@
           const pg = pages[imagePages[k] - 1];
           const cv = await renderToCanvas(await pdf.getPage(pg.n));
           const r = await worker.recognize(cv, {}, { text: true, blocks: true });
-          const text = cleanOcr(ocrLinesText(r && r.data));
-          const n = squash(text).length;
-          if (n >= MIN_PAGE_CHARS) { pg.text = text; pg.chars = n; pg.image = false; pg.ocr = true; chars += n; ocrPages.push(pg.n); }
+          const res = ocrPageText(r && r.data, OCR);
+          const n = squash(res.text).length;
+          if (n >= MIN_PAGE_CHARS) { pg.text = res.text; pg.marked = res.marked; pg.skippedLines = res.skipped; pg.chars = n; pg.image = false; pg.ocr = true; chars += n; ocrPages.push(pg.n); }
           cv.width = cv.height = 0;
         }
         report(imagePages.length);
@@ -222,7 +254,7 @@
     return { pdf, numPages: pdf.numPages, pages, imagePages: stillImage, ocrPages, blankPages, chars, ocrError, ocrMs };
   }
 
-  const api = { OPTIONS, OCR, MIN_PAGE_CHARS, pageText, imagePagesNote, ocrPagesNote, cleanOcr, ocrLinesText, preprocess, skippedNote, open, read };
+  const api = { OPTIONS, OCR, MIN_PAGE_CHARS, pageText, imagePagesNote, ocrPagesNote, cleanOcr, ocrPageText, isJunkLine, joinLines, preprocess, skippedNote, open, read };
   if (typeof module === 'object' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') window.LF_PdfText = api;
 })(typeof window !== 'undefined' ? window : globalThis);
