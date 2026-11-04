@@ -660,8 +660,10 @@
       else p.hearing = { date: hd, time: fieldVal('hearingTime') || fieldVal('hearingDate__time'), courtroom: fieldVal('courtroom') };
     }
     if (p.hearing) {
-      p.hearing.court = fieldVal('court') || (c && c.court) || '';
       p.hearing.division = fieldVal('division') || (c && c.division) || '';
+      p.hearing.court = courtWithChamber(fieldVal('court') || (c && c.court) || '', {
+        priorCourts: c ? (h.getHearings() || []).filter((x) => x.caseId === c.id).map((x) => x.courtNameRaw) : [],
+        division: p.hearing.division, text: (UI.doc && UI.doc.text) || '', caseNumber: fieldVal('caseNumber') || (c && c.caseNumber) || '' });
       const ats = c ? h.caseAttorneys(c) : [];
       const chosen = [...document.querySelectorAll('input[data-af-att]:checked')].map((x) => x.value);
       p.hearing.attorneys = chosen.length ? chosen : ats;
@@ -697,6 +699,32 @@
     $('af-confirm').classList.toggle('opacity-40', p.problems.length > 0);
   }
 
+  // ------------------------------------------------------------------ 法院補庭別（2026-11-06）
+  /**
+   * 既有開庭資料的法院寫「臺灣臺北地方法院民事庭」（簡稱「臺北民庭」）。AI 只抄到「臺灣臺北地方法院」時，
+   * 依序用這些線索補上庭別；都沒有線索就照原樣，不猜：
+   *   ① 已經有「…庭」→ 不動　② 同一件案件既有開庭紀錄的法院寫法　③ 股別開頭（民玄股→民事庭）
+   *   ④ 文件文字裡的「民事／刑事／家事」　⑤ 家事案號字別（婚、家、親…）
+   */
+  const CHAMBER_BY_PREFIX = { 民: '民事庭', 刑: '刑事庭', 家: '家事庭', 少: '少年庭', 行: '行政庭' };
+  const FAMILY_WORDS = /^(婚|家|親|家親聲|家調|家護|監宣|輔宣|司家|家繼|家財|家非調)/;
+  function courtWithChamber(court, opt) {
+    const o = opt || {}; const raw = squash(court);
+    if (!raw) return '';
+    if (/庭$/.test(raw)) return raw;
+    if (!/(地方法院|高等法院(.+分院)?)$/.test(raw)) return raw;
+    const prior = (o.priorCourts || []).map(squash).find((x) => x.startsWith(raw) && /庭$/.test(x) && x.length > raw.length);
+    if (prior) return prior;
+    const div = squash(o.division).replace(/^—$/, '');
+    if (div.length >= 2 && CHAMBER_BY_PREFIX[div[0]]) return raw + CHAMBER_BY_PREFIX[div[0]];
+    const t = squash(o.text);
+    const hit = ['民事', '刑事', '家事'].map((k) => ({ k, i: t.indexOf(k) })).filter((x) => x.i >= 0).sort((a, b) => a.i - b.i)[0];
+    if (hit) return raw + hit.k + '庭';
+    const pc = parseCaseNumber(o.caseNumber || '');
+    if (pc && FAMILY_WORDS.test(pc.word)) return raw + '家事庭';
+    return raw;
+  }
+
   // ------------------------------------------------------------------ 寫入（跟原本手動表單產生一模一樣的資料）
   const blankDash = (v) => (v && String(v).trim() !== '—' ? String(v).trim() : '');
   /** 開庭＋開庭後一週「筆錄調閱確認」（照抄原本「新增開庭通知」表單的做法） */
@@ -704,7 +732,7 @@
     const c = a.caseRef || null; const stamp = a.stamp || Date.now();
     const person = c ? h.caseParty(c) : (a.person || ''); const cause = c ? h.caseCause(c) : '';
     const division = blankDash(a.division) || blankDash(c && c.division);
-    const caseNumberDisplay = h.combineCaseNumberDivision((c && c.caseNumber) || a.caseNumber || '', division);
+    const caseNumberDisplay = h.combineCaseNumberDivision((c && c.caseNumber) || a.caseNumber || '', ''); // 股別放 division 欄，不接在案號後（同既有資料）
     const courtAbbrev = h.abbreviateCourtName(a.courtNameRaw || '');
     const label = (a.attorneys || []).map((x) => h.calendarLabelFor(x)).join('/');
     const body = [label, courtAbbrev, person, cause, caseNumberDisplay].filter(Boolean).join('-');
@@ -729,7 +757,7 @@
     const c = a.caseRef || null; const stamp = a.stamp || Date.now();
     const person = c ? h.caseParty(c) : (a.person || '');
     const division = blankDash(c && c.division);
-    const caseNumberDisplay = h.combineCaseNumberDivision((c && c.caseNumber) || '', division);
+    const caseNumberDisplay = h.combineCaseNumberDivision((c && c.caseNumber) || '', ''); // 股別放 division 欄，不接在案號後（同既有資料）
     const { naiveDeadline, finalDeadline, rolledForward } = h.computeActionDeadline(a.triggerDate, a.periodDays);
     const mainTitle = h.buildDeadlineTitle({ person, action: a.action, caseNumberDisplay });
     const attorney = (c && h.caseAttorneys(c)[0]) || '';
@@ -805,7 +833,7 @@
     // 純函式（測試用）
     toHalf, cnNum, parseCaseNumber, allCaseKeys, matchCases, parseTime, parseDateTime, allDates,
     normalizeDocType, computeDeadlineFor, extractJSON, checkResponse, buildPrompt, mockExtract,
-    buildHearingRecords, buildDeadlineRecords, buildNewCase, partyNamesFromText,
+    buildHearingRecords, buildDeadlineRecords, buildNewCase, partyNamesFromText, courtWithChamber,
     FIELDS, DOC_TYPE_RULE, MOCK_IMAGE_FIXTURES, _boot,
   };
 });

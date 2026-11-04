@@ -165,7 +165,8 @@ t('23 文件裡夾帶「指令」→ 只當資料：不會被當成欄位值，�
 t('24 寫入的開庭／期限資料跟原本手動表單長得一樣（標題格式、筆錄調閱、提前提醒）', () => {
   const c = { id: 'c1', caseNumber: '113訴101', person: '林小華', cause: '損害賠償', attorneys: ['王大明律師'], division: '—', opponentName: '甲營造股份有限公司' };
   const h = A.buildHearingRecords(HOST, { caseRef: c, stamp: 1, date: '2026-11-20', time: '09:30', courtNameRaw: '臺灣臺北地方法院', division: '玄股', courtroom: '第5法庭', attorneys: ['王大明律師'] });
-  assert.strictEqual(h.hearing.title, '09:30 王大明律師-臺北-林小華-損害賠償-113訴101玄');
+  assert.strictEqual(h.hearing.title, '09:30 王大明律師-臺北-林小華-損害賠償-113訴101');
+  assert.strictEqual(h.hearing.caseNumberDisplay, '113訴101'); assert.strictEqual(h.hearing.division, '玄股');
   assert.strictEqual(h.transcript.computedDeadline, '2026-11-27'); assert.strictEqual(h.transcript.linkedHearingId, h.hearing.id);
   const d = A.buildDeadlineRecords(HOST, { caseRef: c, stamp: 5, triggerDate: '2026-10-19', periodDays: 20, action: '收到民事判決' });
   assert.strictEqual(d[0].computedDeadline, '2026-11-06'); assert.strictEqual(d[0].displayTitle, '林小華收到民事判決末日-113訴101');
@@ -181,6 +182,29 @@ t('25 PDF 標題字距被拆開（臺 灣 臺 北 地 方 法 院 民 事 判 �
 t('26 送 AI 前在本機找出文件裡的當事人名字交給去識別化（姓氏表沒有的名字也遮得到）', () => {
   const names = A.partyNamesFromText('原告 虛擬明\n訴訟代理人 王大明律師\n被告 範例建設股份有限公司\n法定代理人 假想華\n');
   assert.deepStrictEqual(names, [{ name: '虛擬明', role: 'client' }, { name: '範例建設股份有限公司', role: 'company' }, { name: '假想華', role: 'related' }]);
+});
+
+t('27 股別不黏在案號後：開庭、筆錄調閱、期限、提前提醒的案號都跟既有資料一樣只寫「115訴8888」，股別放自己的欄位', () => {
+  const c = { id: 'c9', caseNumber: '115訴8888', person: '虛擬明', cause: '', attorneys: ['王大明律師'], division: '玄股', opponentName: '範例建設' };
+  const h = A.buildHearingRecords(HOST, { caseRef: c, stamp: 1, date: '2026-11-20', time: '09:30', courtNameRaw: '臺灣臺北地方法院民事庭', division: '玄股', courtroom: '第5法庭', attorneys: ['王大明律師'] });
+  const d = A.buildDeadlineRecords(HOST, { caseRef: c, stamp: 5, triggerDate: '2026-10-19', periodDays: 20, action: '收到民事判決' });
+  [h.hearing, h.transcript, ...d].forEach((r) => { assert.strictEqual(r.caseNumberDisplay, '115訴8888'); assert.strictEqual(r.division, '玄股'); });
+  assert.ok(!/玄/.test(h.hearing.title + h.transcript.displayTitle + d.map((x) => x.displayTitle).join('')), '標題裡不該出現股別');
+  assert.strictEqual(d[0].displayTitle, '虛擬明收到民事判決末日-115訴8888');
+  assert.strictEqual(h.hearing.courtAbbrev, '臺北民庭');
+});
+t('28 法院補庭別，跟既有資料「臺北民庭」對齊；沒有線索就不猜', () => {
+  const W = A.courtWithChamber;
+  assert.strictEqual(W('臺灣臺北地方法院', { priorCourts: ['臺灣臺北地方法院民事庭'] }), '臺灣臺北地方法院民事庭'); // 同案既有開庭
+  assert.strictEqual(W('臺灣臺北地方法院', { division: '民玄股' }), '臺灣臺北地方法院民事庭');
+  assert.strictEqual(W('臺灣臺北地方法院', { division: '刑忠股' }), '臺灣臺北地方法院刑事庭');
+  assert.strictEqual(W('臺灣臺北地方法院', { text: '臺 灣 臺 北 地 方 法 院 民 事 判 決' }), '臺灣臺北地方法院民事庭');
+  assert.strictEqual(W('臺灣新北地方法院', { caseNumber: '115年度婚字第20號' }), '臺灣新北地方法院家事庭');
+  assert.strictEqual(W('臺灣臺北地方法院民事庭', { division: '刑忠股' }), '臺灣臺北地方法院民事庭'); // 已有庭別不動
+  assert.strictEqual(W('臺灣臺北地方法院', { division: '玄股', text: '開庭通知書', caseNumber: '113訴101' }), '臺灣臺北地方法院'); // 沒線索不猜
+  assert.strictEqual(W('最高法院', { text: '民事' }), '最高法院');
+  assert.strictEqual(W('', {}), '');
+  assert.strictEqual(HOST.abbreviateCourtName(W('臺灣臺北地方法院', { priorCourts: ['臺灣臺北地方法院民事庭'] })), '臺北民庭');
 });
 
 console.log(`\n結果：${pass} 通過，${fail} 失敗（共 ${pass + fail} 個案例）`);
