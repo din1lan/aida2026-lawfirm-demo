@@ -543,7 +543,7 @@
       UI.result = checkResponse(obj || raw, UI.kind, doc.image ? null : doc.text);
       const sw = $('af-sent-wrap'); if (sw) { sw.classList.remove('hidden'); $('af-sent').textContent = doc.image ? '（照片，原圖送出，未遮蔽個資）' : sent; }
       const notMasked = doc.image || !hasDeid;
-      setStatus(`${UI.result.ok ? '✓ 讀完了，請逐欄確認' : '⚠ ' + esc(UI.result.error)}　${notMasked ? '<span class="text-red-600 font-semibold">｜尚未遮蔽個資</span>' : `<span class="text-emerald-700">｜已遮蔽 ${masked} 項個資</span>`}　<span class="text-slate-400">｜${engine === 'gemini' ? 'Gemini' : '示意版'}</span>`, UI.result.ok ? 'text-slate-600' : 'text-amber-700');
+      setStatus(`${UI.result.ok ? '✓ 讀完了，請逐欄確認' : '⚠ ' + esc(UI.result.error)}　${notMasked ? '<span class="text-red-600 font-semibold">｜' + (doc.image ? '照片無法先遮個資' : '尚未遮蔽個資') + '</span>' : `<span class="text-emerald-700">｜已遮蔽 ${masked} 項個資</span>`}　<span class="text-slate-400">｜${engine === 'gemini' ? 'Gemini' : '示意版'}</span>`, UI.result.ok ? 'text-slate-600' : 'text-amber-700');
       renderReview();
     } finally { $('af-run').disabled = false; }
   }
