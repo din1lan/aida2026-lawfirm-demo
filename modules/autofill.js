@@ -341,7 +341,8 @@
   }
   /** 送 AI 前先在本機用規則找出文件裡的當事人名字，交給去識別化模組一起遮（不連網、不存檔） */
   function partyNamesFromText(text) {
-    const t = String(text || ''); const out = [];
+    // 寬字距／OCR 文字「上　訴　人　王　小　明」：先拿掉中文字之間的空白
+    const t = String(text || '').replace(/(?<![\u4e00-\u9fff○〇])[\u4e00-\u9fff○〇](?:[ \t\u3000]+[\u4e00-\u9fff○〇](?![\u4e00-\u9fff○〇]))+/g, (m) => m.replace(/[ \t\u3000]+/g, '')); const out = [];
     const add = (re, role) => {
       let m; while ((m = re.exec(t))) {
         const n = m[1].replace(/律師$/, '').trim();

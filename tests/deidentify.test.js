@@ -185,6 +185,39 @@ test('33 不換行跨行：電話後面換行的數字不會被黏進帳號', ()
   has(r.text, '\n114年3月1日');
 });
 
+// ── 寬字距／掃描檔 OCR 文字（2026-11-04）：「上　訴　人　王　小　明」這種字被拉開的寫法也要遮得到 ──
+const spacedNo = (r, ...names) => names.forEach((n) => { no(r.text, n); no(r.text.replace(/[\s\u3000]+/g, ''), n); });
+test('34 寬字距：上　訴　人／被上訴人後面的姓名遮得到（沒有已知名單、只靠規則）', () => {
+  const r = deidentify('上　訴　人　王　小　明\n被上訴人　李　大　華\n上列當事人間請求返還價金事件', []);
+  spacedNo(r, '王小明', '李大華'); has(r.text, '上訴人'); has(r.text, '被上訴人');
+});
+test('35 寬字距：訴訟代理人、複代理人的律師姓名遮得到', () => {
+  const r = deidentify('訴訟代理人　陳　大　文　律師\n複　代　理　人　林　小　華　律師', []);
+  spacedNo(r, '陳大文', '林小華'); has(r.text, '律師');
+});
+test('36 寬字距：已知名單的姓名被拉開寫也遮得到，整份同一個代號', () => {
+  const r = deidentify('上　訴　人　王　小　明\n上訴人王小明主張兩造於民國一一二年簽約。', K);
+  spacedNo(r, '王小明'); assert.strictEqual((r.text.match(/【當事人A】/g) || []).length, 2, r.text);
+});
+test('37 寬字距：原　　告／被　　告（兩個字拉很開）也遮得到，還原得回真名', () => {
+  const r = deidentify('原　　告　王小明\n被　　告　李大華', K);
+  spacedNo(r, '王小明', '李大華');
+  const back = reidentify(r.text, r.map); has(back, '王小明'); has(back, '李大華');
+});
+test('38 OCR 結果（字之間沒有空白、角色緊貼姓名）也遮得到', () => {
+  const r = deidentify('上訴人張志明\n被上訴人黃美玲\n上訴人張志明主張：被上訴人黃美玲未交付標的物。', []);
+  spacedNo(r, '張志明', '黃美玲');
+});
+test('39 已經匿名的「○○○」不被當成人名，也不出錯', () => {
+  const t = '上　訴　人　○○○\n被上訴人　○○○';
+  const r = deidentify(t, []);
+  assert.strictEqual(r.items.length, 0, JSON.stringify(r.items)); has(r.text, '○○○');
+});
+test('40 一般句子裡的空白不動（只合併被拉開的單字）', () => {
+  const r = deidentify('被告：李大華 否認王小明的主張', K);
+  has(r.text, '【對造A】 否認');
+});
+
 let pass = 0; const fails = [];
 for (const t of tests) {
   try { t.fn(); pass++; console.log('  ✓ ' + t.name); }
