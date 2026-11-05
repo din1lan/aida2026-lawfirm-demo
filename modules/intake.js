@@ -130,7 +130,8 @@
    * 找不到回 null。
    */
   function parseCaseFromDocNo(raw) {
-    const s = squash(raw);
+    // 掃描／拍照辨識常把「○」認成「0」：「○家○115年度」→「0家0115年度」，年度前多出的 0 拿掉
+    const s = squash(raw).replace(/(^|[^\d])0+(?=\d{2,3}(?:年度|年|[一-鿿]))/g, '$1');
     const m = s.match(/(?<!\d)(\d{2,3})(?:年度|年)?([一-鿿]{1,8}?)(\d{1,6})字第/);
     if (!m) return null;
     const word = m[2];

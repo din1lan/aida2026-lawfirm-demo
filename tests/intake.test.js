@@ -66,6 +66,10 @@ t('22 「北院英民玄113訴101字第1130012345號」（沒有「年度」）�
   assert.strictEqual(I.parseCaseFromDocNo('北院英民玄113訴101字第1130012345號').key, '113訴101');
   assert.strictEqual(I.parseCaseFromDocNo('北院英民玄１１３訴１０１字第１１３００１２３４５號').key, '113訴101');
 });
+t('22b 掃描／照片辨識把「○」認成「0」（「00院0家0115年度重家繼訴8字第…」）也解析得出 115重家繼訴8', () => {
+  assert.strictEqual(I.parseCaseFromDocNo('00院0家0115年度重家繼訴8字第1150099999號').key, '115重家繼訴8');
+  assert.strictEqual(I.anyCaseKey('OO院O家O115年度重家繼訴8字第1150099999號').key, '115重家繼訴8');
+});
 t('23 發文字號裡沒有案號（「北院字第1150012345號」）→ 不亂猜', () => {
   assert.strictEqual(I.parseCaseFromDocNo('北院字第1150012345號'), null);
   assert.strictEqual(I.parseCaseFromDocNo(''), null);

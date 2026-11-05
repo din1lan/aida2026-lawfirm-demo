@@ -69,7 +69,7 @@ async function route(ctx, gem) {
     await p.fill('#aib-gemini-key', FAKE_KEY); await p.dispatchEvent('#aib-gemini-key', 'change');
     const isAib = feature === 'aib';
     const box = isAib ? '#aib-gemini-ocr' : '#af-gemini-ocr'; const input = isAib ? '#aib-pdf' : '#af-file'; const status = isAib ? 'aib-pdf-status' : 'af-status';
-    if (!isAib) await p.evaluate(() => window.LF_AutofillHost.showPage('page-autofill'));
+    if (!isAib) await p.evaluate(() => { window.LF_AutofillHost.showPage('page-autofill'); const t = document.querySelector('[data-af-kind="case"]'); if (t) t.click(); }); // 收文登記上線後預設分頁改成「收文登記」，這裡切回原本的「書狀」分頁
     await p.waitForSelector(box, { state: 'attached' });
     check(!(await p.isChecked(box)), '勾選框預設沒打勾');
     if (checked) await p.check(box);
