@@ -17,6 +17,15 @@
 
   function getKey() { return get(KEY); }
   function getModel() { return get(MODEL) || DEFAULT_MODEL; }
+  // 2026-11-05：掃描辨識（逐字轉錄）用同系列較快的 flash-lite；本來就是 lite 照用
+  //   gemini-2.5-flash → gemini-2.5-flash-lite；gemini-2.5-pro → gemini-2.5-flash-lite；認不出系列就照原模型
+  function ocrModelFor(m) {
+    const s = String(m || '').trim() || DEFAULT_MODEL;
+    if (/flash-lite/i.test(s)) return s;
+    const v = s.match(/^(?:models\/)?gemini-(\d+(?:\.\d+)?)-(?:flash|pro)\b/i);
+    return v ? `gemini-${v[1]}-flash-lite` : s;
+  }
+  function getOcrModel() { return ocrModelFor(getModel()); }
   function hasKey() { return !!getKey(); }
   // 畫面上只顯示末 4 碼
   function masked() { const k = getKey(); return k ? '••••••' + k.slice(-4) : ''; }
@@ -31,7 +40,7 @@
   function setDeid(on) { const s = store(); if (!s) return; if (on) s.setItem(DEID, '1'); else s.removeItem(DEID); notify(); }
   function clear() { const s = store(); if (s) { s.removeItem(KEY); s.removeItem(MODEL); } notify(); }
 
-  const api = { getKey, getModel, hasKey, masked, save, clear, deidOn, setDeid, DEFAULT_MODEL, STORAGE_KEYS: [KEY, MODEL, DEID] };
+  const api = { getKey, getModel, getOcrModel, ocrModelFor, hasKey, masked, save, clear, deidOn, setDeid, DEFAULT_MODEL, STORAGE_KEYS: [KEY, MODEL, DEID] };
   if (typeof module === 'object' && module.exports) module.exports = api;
   root.LF_AI = api;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -150,12 +150,54 @@ test('14 中途超過額度：已成功的頁保留，其餘不再送、退回�
   fakeDom(true, FAKE_KEY); fakePdf(['', '', '']);
   const f = fakeFetch([ok('第一頁掃描內容（虛構）'), err(429, 'quota', 'RESOURCE_EXHAUSTED')]);
   try {
-    const rd = await T.read(new Uint8Array(1), { remoteOcr: G.hookFor('my-box', null, { fetch: f }) });
+    // parallel:1 ＝一次一頁，才看得出「後面的頁不再送」（平行時已經送出的頁會照常回來）
+    const rd = await T.read(new Uint8Array(1), { remoteOcr: G.hookFor('my-box', null, { fetch: f, parallel: 1 }) });
     assert.strictEqual(f.calls.length, 2, '第 3 頁不再送');
     assert.deepStrictEqual(rd.geminiPages, [1]);
     assert.ok(rd.geminiError.includes('第 2 頁') && rd.geminiError.includes('額度'));
     assert.deepStrictEqual(rd.imagePages, [2, 3], '剩下的頁交給本機 OCR（node 裡會失敗，所以仍是圖片頁）');
   } finally { cleanup(); }
+});
+test('14b 12 頁掃描檔：同時送 3 頁、每完成一頁進度條就前進、辨識用 flash-lite', async () => {
+  const { ocrModelFor } = require('../modules/ai-config.js'); // 注意：載入時會蓋掉 global.LF_AI，所以先載再 fakeDom
+  fakeDom(true, FAKE_KEY); fakePdf(Array(12).fill(''));
+  global.LF_AI.getModel = () => 'gemini-2.5-flash'; global.LF_AI.ocrModelFor = ocrModelFor;
+  let inFlight = 0; let peak = 0; const urls = [];
+  const f = async (url, init) => {
+    urls.push(url); inFlight++; peak = Math.max(peak, inFlight);
+    const n = +(JSON.parse(init.body).contents[0].parts[0].text.match(/第 (\d+) 頁/) || [])[1];
+    await new Promise((r) => setTimeout(r, 20 + (n % 4) * 15)); inFlight--;
+    return { status: 200, json: async () => ({ candidates: [{ content: { parts: [{ text: `第${n}頁掃描內容（虛構）` }] }, finishReason: 'STOP' }] }) };
+  };
+  const seen = [];
+  try {
+    const rd = await T.read(new Uint8Array(1), { remoteOcr: G.hookFor('my-box', null, { fetch: f, onProgress: (x) => seen.push(x) }) });
+    assert.strictEqual(urls.length, 12); assert.strictEqual(peak, 3, '同時最多 3 頁');
+    assert.ok(urls.every((u) => u.includes('gemini-2.5-flash-lite:')), '辨識用 flash-lite');
+    assert.deepStrictEqual(rd.geminiPages, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+    const done = seen.filter(Boolean).map((x) => x.done);
+    assert.deepStrictEqual(done, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], '每完成一頁前進一格，不會卡住');
+    assert.strictEqual(seen[seen.length - 1], null, '完成後收起進度條');
+  } finally { cleanup(); }
+});
+test('14c flash-lite 找不到（404）：自動改用管理員選的模型', async () => {
+  const { ocrModelFor } = require('../modules/ai-config.js');
+  fakeDom(true, FAKE_KEY); fakePdf(['', '']);
+  global.LF_AI.getModel = () => 'gemini-2.5-flash'; global.LF_AI.ocrModelFor = ocrModelFor;
+  const f = fakeFetch([err(404, 'not found', 'NOT_FOUND'), ok('第一頁掃描內容（虛構）'), ok('第二頁掃描內容（虛構）')]);
+  try {
+    const rd = await T.read(new Uint8Array(1), { remoteOcr: G.hookFor('my-box', null, { fetch: f, parallel: 1 }) });
+    assert.ok(f.calls[0].url.includes('flash-lite')); assert.ok(f.calls[1].url.includes('gemini-2.5-flash:'));
+    assert.deepStrictEqual(rd.geminiPages, [1, 2]); assert.strictEqual(rd.geminiError, '');
+  } finally { cleanup(); }
+});
+test('14d 辨識模型對照：flash → flash-lite；lite 照用；pro → flash-lite', () => {
+  const A = require('../modules/ai-config.js');
+  assert.strictEqual(A.ocrModelFor('gemini-2.5-flash'), 'gemini-2.5-flash-lite');
+  assert.strictEqual(A.ocrModelFor('gemini-2.0-flash'), 'gemini-2.0-flash-lite');
+  assert.strictEqual(A.ocrModelFor('gemini-2.5-flash-lite'), 'gemini-2.5-flash-lite');
+  assert.strictEqual(A.ocrModelFor('gemini-2.5-pro'), 'gemini-2.5-flash-lite');
+  assert.strictEqual(A.ocrModelFor('something-else'), 'something-else');
 });
 test('15 沒勾選時 PDF 讀取完全照舊（不會呼叫 Gemini）', async () => {
   fakeDom(false, FAKE_KEY); fakePdf(['', '有文字（虛構）']);

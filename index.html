@@ -23,6 +23,22 @@
   ::-webkit-scrollbar { width: 8px; height: 8px; }
   ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
 </style>
+<style>
+/* 2026-11-05：可收合卡片（案件與時效頁、首頁行事曆）；主要文字 16px 以上 */
+.lf-fold{background:#fff;border:1px solid #e2e8f0;border-radius:.5rem}
+.lf-fold>summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding:1rem 1.25rem;font-size:18px;font-weight:600;color:#1e293b;user-select:none}
+.lf-fold>summary::-webkit-details-marker{display:none}
+.lf-fold>summary:hover{background:#f8fafc;border-radius:.5rem}
+.lf-fold-n{color:#4f46e5}
+.lf-fold-arrow{color:#94a3b8;transition:transform .2s}
+.lf-fold[open]>summary .lf-fold-arrow{transform:rotate(90deg)}
+.lf-fold-body{border-top:1px solid #f1f5f9;padding:0 .25rem .5rem}
+.lf-fold-body>div{border:0 !important;border-radius:0 !important;box-shadow:none !important}
+.lf-fold-body table{min-width:1150px}
+.lf-fold-body table, .lf-home-lists{font-size:16px}
+.lf-fold-body thead th{font-size:14px}
+.lf-manual>summary{cursor:pointer;color:#64748b;font-size:16px;text-decoration:underline;width:max-content}
+</style>
 <!-- 比賽示範版（AIDA 2026）：已移除 Firebase 與所有雲端連線，資料只存在使用者自己的瀏覽器。 -->
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
 <style id="theme-ledger">
@@ -322,6 +338,39 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
           <div id="urgent-todo-list" class="space-y-2 text-sm"></div>
         </div>
 
+        <!-- 2026-11-05：「開庭通知列表」「末日提醒列表」從案件與時效頁搬來，只列「我的」：今天明天的開庭、7 天內到期（右上可切換全所） -->
+        <div class="grid grid-cols-1 xl:grid-cols-2 gap-4 lf-home-lists">
+          <div class="bg-white rounded-lg border-2 border-indigo-200 p-5">
+            <div class="flex items-center justify-between gap-2 mb-3"><h3 class="font-semibold text-slate-800" style="font-size:18px" id="hearing-list-title">我的開庭（今天、明天）</h3><span id="hearing-list-n" class="text-slate-500"></span></div>
+            <div id="hearing-list" class="space-y-2 max-h-96 overflow-y-auto"></div>
+          </div>
+          <div class="bg-white rounded-lg border-2 border-amber-200 p-5">
+            <div class="flex items-center justify-between gap-2 mb-3"><h3 class="font-semibold text-slate-800" style="font-size:18px" id="deadline-list-title">我的期限（7 天內到期）</h3><span id="deadline-list-n" class="text-slate-500"></span></div>
+            <div id="deadline-list" class="space-y-2 max-h-96 overflow-y-auto"></div>
+          </div>
+        </div>
+        <label class="flex items-center gap-2 text-slate-500 -mt-3" style="font-size:16px"><input type="checkbox" id="home-lists-all-dates" /> 顯示之後所有日期（要改期、刪除時用）</label>
+
+        <details class="lf-fold" data-fold="home-cal">
+          <summary><span class="lf-fold-t">開庭行事曆<span class="lf-fold-n">（<span id="fold-n-cal">0</span>）</span></span><span class="lf-fold-arrow" aria-hidden="true">▸</span></summary>
+          <div class="lf-fold-body">
+        <div class="bg-white rounded-lg border border-slate-200 p-2.5 md:p-5">
+          
+          <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+            <div class="flex items-center gap-2">
+              <button id="cal-prev" class="w-9 h-9 md:w-7 md:h-7 rounded border border-slate-200 hover:bg-slate-50">‹</button>
+              <span id="cal-label" class="text-sm font-medium w-28 text-center"></span>
+              <button id="cal-next" class="w-9 h-9 md:w-7 md:h-7 rounded border border-slate-200 hover:bg-slate-50">›</button>
+            </div>
+            <span class="text-[11px] text-slate-400">灰底＝有事件，點該日可看完整內容</span>
+          </div>
+          <div id="calendar-grid" class="grid grid-cols-7 gap-0.5 md:gap-1 text-xs"></div>
+        </div>
+
+          </div>
+        </details>
+
+
         <div class="bg-white rounded-lg border-2 border-red-300 p-5">
           <h3 class="font-semibold text-red-800 mb-1 flex items-center gap-2">裁判費補繳期限提醒（負部分，限期補正）</h3>
           <p class="text-xs text-slate-400 mb-3">依「案件與時效」末日提醒中事由含「裁判費」的項目自動彙整，逾期未補正將影響訴訟權利，請優先處理</p>
@@ -457,41 +506,19 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
       </section>
 
       <!-- ============ 案件與時效 ============ -->
-      <section id="page-cases" class="page space-y-6">
+      <section id="page-cases" class="page space-y-4">
 
         <div>
           <h1 class="text-2xl font-bold text-slate-900">案件與時效（現在案件）</h1>
-          <p class="text-slate-500 text-sm mt-1">案件總覽、開庭行事曆自動化、末日提醒自動化；已結案的完整歷史紀錄請到 <a href="#" id="link-to-closed-cases" class="text-indigo-600 hover:underline">結案案件表</a> 查詢</p>
+          <p class="text-slate-500 mt-1" style="font-size:16px">點標題展開。開庭與期限的提醒在<a href="#" data-goto-page="page-dashboard" class="text-indigo-600 hover:underline">首頁</a>；已結案請到 <a href="#" id="link-to-closed-cases" class="text-indigo-600 hover:underline">結案案件表</a></p>
         </div>
 
-
-
+        <details class="lf-fold" data-fold="cases-list">
+          <summary><span class="lf-fold-t">案件列表<span class="lf-fold-n">（<span id="fold-n-cases">0</span>）</span></span><span class="lf-fold-arrow" aria-hidden="true">▸</span></summary>
+          <div class="lf-fold-body">
         <div class="bg-white rounded-lg border border-slate-200 p-5">
           <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
-            <h3 class="font-semibold text-slate-800">代辦與進度總表</h3>
-            <span class="text-xs text-slate-400" title="因為是靜態網站沒有後端，無法整份行事曆自動雙向同步；請用下方「開庭通知列表」或本表每一列的「+ 加入 Google 日曆」連結，逐筆一鍵加入您自己的 Google 日曆">📅 各筆開庭旁可點「+ 加入 Google 日曆」逐筆加入</span>
-          </div>
-          <div class="overflow-x-auto">
-            <table class="w-full text-sm">
-              <thead><tr class="text-left text-xs text-slate-500 border-b border-slate-100 bg-slate-50">
-                <th class="px-3 py-2 font-medium whitespace-nowrap">期日/收文日期</th>
-                <th class="px-3 py-2 font-medium whitespace-nowrap">案號</th>
-                <th class="px-3 py-2 font-medium whitespace-nowrap">股別</th>
-                <th class="px-3 py-2 font-medium">當事人/對造</th>
-                <th class="px-3 py-2 font-medium">負責律師</th>
-                <th class="px-3 py-2 font-medium" title="以案件為單位記錄，同案件的所有列都會同步顯示最新收文">最近收文</th>
-                <th class="px-3 py-2 font-medium">代辦/開庭項目</th>
-                <th class="px-3 py-2 font-medium">進度條</th>
-                <th class="px-3 py-2 font-medium">進度狀態</th>
-              </tr></thead>
-              <tbody id="todo-board-body" class="divide-y divide-slate-100"></tbody>
-            </table>
-          </div>
-        </div>
-
-        <div class="bg-white rounded-lg border border-slate-200 p-5">
-          <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
-            <h3 class="font-semibold text-slate-800">案件列表</h3>
+            <span></span>
             <div class="flex items-center gap-2 flex-wrap">
               <!-- 2026-08-20：案件列表關鍵字搜尋 -->
               <input id="case-search" placeholder="搜尋案號／當事人／案由／對造／律師" class="text-xs border border-slate-300 rounded px-2 py-1 w-56" />
@@ -516,8 +543,43 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
           </div>
         </div>
 
+          </div>
+        </details>
+
+        <details class="lf-fold" data-fold="cases-todo">
+          <summary><span class="lf-fold-t">待辦<span class="lf-fold-n">（<span id="fold-n-todo">0</span>）</span></span><span class="lf-fold-arrow" aria-hidden="true">▸</span></summary>
+          <div class="lf-fold-body">
+        <div class="bg-white rounded-lg border border-slate-200 p-5">
+          <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+            <span></span>
+            <span class="text-xs text-slate-400" title="因為是靜態網站沒有後端，無法整份行事曆自動雙向同步；請用下方「開庭通知列表」或本表每一列的「+ 加入 Google 日曆」連結，逐筆一鍵加入您自己的 Google 日曆">📅 各筆開庭旁可點「+ 加入 Google 日曆」逐筆加入</span>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead><tr class="text-left text-xs text-slate-500 border-b border-slate-100 bg-slate-50">
+                <th class="px-3 py-2 font-medium whitespace-nowrap">期日/收文日期</th>
+                <th class="px-3 py-2 font-medium whitespace-nowrap">案號</th>
+                <th class="px-3 py-2 font-medium whitespace-nowrap">股別</th>
+                <th class="px-3 py-2 font-medium">當事人/對造</th>
+                <th class="px-3 py-2 font-medium">負責律師</th>
+                <th class="px-3 py-2 font-medium" title="以案件為單位記錄，同案件的所有列都會同步顯示最新收文">最近收文</th>
+                <th class="px-3 py-2 font-medium">代辦/開庭項目</th>
+                <th class="px-3 py-2 font-medium">進度條</th>
+                <th class="px-3 py-2 font-medium">進度狀態</th>
+              </tr></thead>
+              <tbody id="todo-board-body" class="divide-y divide-slate-100"></tbody>
+            </table>
+          </div>
+        </div>
+
+          </div>
+        </details>
+
+        <details class="lf-fold" data-fold="cases-rcv">
+          <summary><span class="lf-fold-t">未收款項<span class="lf-fold-n">（<span id="fold-n-rcv">0</span>）</span></span><span class="lf-fold-arrow" aria-hidden="true">▸</span></summary>
+          <div class="lf-fold-body">
         <div class="bg-white rounded-lg border border-slate-200 overflow-hidden">
-          <div class="px-5 pt-4 pb-2 text-sm font-semibold text-slate-700">應收款項總覽（依「簽約總額－已收款」計算，屬案件管理範疇）</div>
+          <div class="px-5 pt-2 pb-2 text-slate-500">依「簽約總額－已收款」計算</div>
           <table class="w-full text-sm">
             <thead><tr class="text-left text-xs text-slate-500 border-b border-slate-100 bg-slate-50">
               <th class="px-5 py-2 font-medium">案號</th><th class="px-5 py-2 font-medium"><button type="button" id="rcv-sort-party" class="hover:text-navy-900 flex items-center gap-1">當事人 <span class="text-slate-300">⇅</span></button></th><th class="px-5 py-2 font-medium"><button type="button" id="rcv-sort-attorney" class="hover:text-navy-900 flex items-center gap-1">承辦律師 <span class="text-slate-300">⇅</span></button></th><th class="px-5 py-2 font-medium">未收金額</th>
@@ -527,36 +589,22 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
           </table>
         </div>
 
-        <!-- 2026-07-22 會議：移除「案件與時效」頁重複的法顧契約子面板，統一於獨立的「法顧契約管理」頁維護 -->
-
-        <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
-          <div id="form-hearing-wrap"></div>
-          <div id="form-deadline-wrap"></div>
-        </div>
-
-        <div class="bg-white rounded-lg border border-slate-200 p-2.5 md:p-5">
-          <h3 class="font-semibold text-slate-800 mb-3">開庭行事曆</h3>
-          <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
-            <div class="flex items-center gap-2">
-              <button id="cal-prev" class="w-9 h-9 md:w-7 md:h-7 rounded border border-slate-200 hover:bg-slate-50">‹</button>
-              <span id="cal-label" class="text-sm font-medium w-28 text-center"></span>
-              <button id="cal-next" class="w-9 h-9 md:w-7 md:h-7 rounded border border-slate-200 hover:bg-slate-50">›</button>
-            </div>
-            <span class="text-[11px] text-slate-400">灰底＝有事件，點該日可看完整內容</span>
           </div>
-          <div id="calendar-grid" class="grid grid-cols-7 gap-0.5 md:gap-1 text-xs"></div>
-        </div>
+        </details>
 
-        <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
-          <div class="bg-white rounded-lg border border-slate-200 p-5">
-            <h3 class="font-semibold text-slate-800 mb-3">開庭通知列表</h3>
-            <div id="hearing-list" class="space-y-2 text-sm max-h-96 overflow-y-auto"></div>
-          </div>
-          <div class="bg-white rounded-lg border border-slate-200 p-5">
-            <h3 class="font-semibold text-slate-800 mb-3">末日 / 提醒列表</h3>
-            <div id="deadline-list" class="space-y-2 text-sm max-h-96 overflow-y-auto"></div>
-          </div>
+        <!-- 2026-11-05：新增開庭／期限的主要入口改成「收文登記」；手動表單保留，收進小連結 -->
+        <div class="bg-white rounded-lg border border-slate-200 p-4 flex flex-wrap items-center gap-3" style="font-size:16px">
+          <span class="text-slate-700">收到法院／機關來文？</span>
+          <button type="button" id="btn-cases-goto-intake" class="px-4 py-2 rounded bg-navy-900 text-white">📥 到「收文登記」上傳來文</button>
+          <span class="text-slate-500">會自動建開庭、期限與待辦</span>
         </div>
+        <details id="manual-entry" class="lf-manual" data-fold="cases-manual">
+          <summary>沒有來文時手動補登（新增開庭通知／期限提醒）</summary>
+          <div class="grid grid-cols-1 xl:grid-cols-2 gap-6 mt-3">
+            <div id="form-hearing-wrap"></div>
+            <div id="form-deadline-wrap"></div>
+          </div>
+        </details>
 
       </section>
 
@@ -2739,7 +2787,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
     const u = currentUser(); const canEdit = !!(u && u.roleGroup === 'boss');
     const st = document.getElementById('adm-ai-status');
     st.className = 'text-sm rounded border px-3 py-2 ' + (A.hasKey() ? 'border-emerald-300 bg-emerald-50 text-emerald-800' : 'border-amber-300 bg-amber-50 text-amber-800');
-    st.textContent = A.hasKey() ? `🟢 已設定：金鑰 ${A.masked()}，模型 ${A.getModel()}` : '尚未設定 AI：各功能目前為示意版';
+    st.textContent = A.hasKey() ? `🟢 已設定：金鑰 ${A.masked()}，模型 ${A.getModel()}；辨識模型 ${A.getOcrModel ? A.getOcrModel() : A.getModel()}（掃描檔逐字辨識用，較快）` : '尚未設定 AI：各功能目前為示意版';
     const sel = document.getElementById('adm-model');
     if (!sel.options.length || ![...sel.options].some((o) => o.value === A.getModel())) sel.innerHTML = `<option value="${esc(A.getModel())}">${esc(A.getModel())}</option>`;
     sel.value = A.getModel();
@@ -2924,6 +2972,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
     // 2026-07-14 三次會議：「⚡ 今日待辦與時效提醒」移到首頁最上方後，切換掃描範圍或單獨渲染首頁時都要即時更新
     renderUrgentTodo();
     renderCloudSyncPanel();
+    try { renderHearingAndDeadlineLists(); } catch (e) { /* ignore */ }
   }
 
   // 2026-08-20：管制表線上同步按鈕
@@ -3302,6 +3351,24 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
   }
   document.getElementById('btn-toggle-closed-cases').addEventListener('click', () => { showClosedCases = !showClosedCases; renderCasesTable(); });
   document.getElementById('link-to-closed-cases').addEventListener('click', (e) => { e.preventDefault(); showPage('page-closed-cases'); });
+  // 2026-11-05：可收合卡片——預設收合、記住展開狀態（只存在這台電腦的瀏覽器）；標題顯示筆數
+  (function setupFolds() {
+    const KEY = 'lf_ui_folds';
+    let st = {}; try { st = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (e) { st = {}; }
+    document.querySelectorAll('details[data-fold]').forEach((d) => {
+      d.open = !!st[d.dataset.fold];
+      d.addEventListener('toggle', () => { st[d.dataset.fold] = d.open; try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) { /* ignore */ } });
+    });
+    const rows = (id) => { const el = document.getElementById(id); return el ? [...el.children].filter((tr) => !tr.querySelector('td[colspan]')).length : 0; };
+    const counts = [['fold-n-cases', 'cases-table-body', rows], ['fold-n-todo', 'todo-board-body', rows], ['fold-n-rcv', 'receivables-table-body', rows],
+      ['fold-n-cal', 'calendar-grid', () => hearings.filter((h) => h.date && h.date.slice(0, 7) === TODAY.slice(0, 7)).length]];
+    const upd = () => counts.forEach(([n, src, f]) => { const el = document.getElementById(n); if (el) el.textContent = String(f(src)); });
+    counts.forEach(([, src]) => { const el = document.getElementById(src); if (el) new MutationObserver(upd).observe(el, { childList: true }); });
+    upd();
+    document.querySelectorAll('[data-goto-page]').forEach((a) => a.addEventListener('click', (e) => { e.preventDefault(); showPage(a.dataset.gotoPage); }));
+    const gi = document.getElementById('btn-cases-goto-intake'); if (gi) gi.addEventListener('click', () => showPage('page-autofill'));
+    const all = document.getElementById('home-lists-all-dates'); if (all) all.addEventListener('change', () => renderHearingAndDeadlineLists());
+  })();
   { const _lrp = document.getElementById('link-to-retainer-page'); if (_lrp) _lrp.addEventListener('click', (e) => { e.preventDefault(); showPage('page-retainer'); }); }
   document.getElementById('link-to-dashboard-from-cases')?.addEventListener('click', (e) => { e.preventDefault(); showPage('page-dashboard'); });
   document.getElementById('link-to-new-intake-from-cases')?.addEventListener('click', (e) => { e.preventDefault(); showPage('page-new-intake'); });
@@ -3773,7 +3840,17 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
   function renderHearingAndDeadlineLists() {
     // 2026-07-16 審查修正：開庭/末日原本「只能新增、不能刪除」，打錯字只能整站重設。補上刪除鈕，
     // 並連動清除關聯紀錄（刪開庭 → 一併刪自動產生的「筆錄調閱確認」；刪末日 → 一併刪提前提醒）
-    document.getElementById('hearing-list').innerHTML = [...hearings].sort((a, b) => a.date.localeCompare(b.date)).map((h) => `
+    // 2026-11-05：搬到首頁，只列「我的」（首頁右上切換全所）：今天明天的開庭、7 天內到期；勾「顯示之後所有日期」才列全部
+    const allDates = !!(document.getElementById('home-lists-all-dates') || {}).checked;
+    const scopeA = scopeAttorneyFilter();
+    const closedIds = new Set(cases.filter((c) => isClosedStatus(c.status)).map((c) => c.id));
+    const tmr = addDaysISO(TODAY, 1); const wk = addDaysISO(TODAY, 7);
+    const myH = hearings.filter((h) => attorneyMatchesScope(h.attorneys, scopeA) && !closedIds.has(h.caseId) && (allDates ? h.date >= TODAY : (h.date >= TODAY && h.date <= tmr)));
+    const myD = deadlines.filter((d) => attorneyMatchesScope(d.attorney, scopeA) && !closedIds.has(d.caseId) && d.computedDeadline && (allDates ? d.computedDeadline >= TODAY : (d.computedDeadline >= TODAY && d.computedDeadline <= wk)));
+    { const who = scopeA ? '我的' : '全所'; const ht = document.getElementById('hearing-list-title'); const dt = document.getElementById('deadline-list-title');
+      if (ht) ht.textContent = `${who}開庭（${allDates ? '今天起全部' : '今天、明天'}）`; if (dt) dt.textContent = `${who}期限（${allDates ? '今天起全部' : '7 天內到期'}）`;
+      const hn = document.getElementById('hearing-list-n'); const dn = document.getElementById('deadline-list-n'); if (hn) hn.textContent = `${myH.length} 筆`; if (dn) dn.textContent = `${myD.length} 筆`; }
+    document.getElementById('hearing-list').innerHTML = [...myH].sort((a, b) => a.date.localeCompare(b.date)).map((h) => `
       <div class="border border-slate-100 rounded p-2">
         <div class="flex items-center justify-between gap-2">
           <div class="font-mono text-xs text-slate-400">${esc(h.date)}${h.allDay ? '（整日）' : ''}</div>
@@ -3791,9 +3868,9 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
           <label class="text-[11px] text-slate-500">法庭<input class="he-field block text-xs border rounded px-1.5 py-1 w-24" data-field="courtroom" value="${esc(h.courtroom || '')}" /></label>
           <button type="button" data-hearing-id="${esc(h.id)}" class="btn-save-hearing text-xs px-3 py-1 rounded bg-navy-900 text-white">儲存</button>
         </div>` : `<div>${esc(h.title)}</div>`}
-      </div>`).join('') || '<div class="text-slate-400">尚無開庭紀錄</div>';
+      </div>`).join('') || `<div class="text-slate-400">${allDates ? '沒有之後的開庭' : '今天、明天沒有開庭'}</div>`;
 
-    document.getElementById('deadline-list').innerHTML = [...deadlines].sort((a, b) => (a.computedDeadline || '').localeCompare(b.computedDeadline || '')).map((d) => `
+    document.getElementById('deadline-list').innerHTML = [...myD].sort((a, b) => (a.computedDeadline || '').localeCompare(b.computedDeadline || '')).map((d) => `
       <div class="border border-slate-100 rounded p-2">
         <div class="font-mono text-xs text-slate-400 flex items-center gap-2">${esc(d.computedDeadline)}
           ${d.kind === 'reminder' ? '<span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">提前提醒</span>' : ''}
@@ -3808,7 +3885,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
           <button type="button" data-deadline-id="${esc(d.id)}" class="btn-save-deadline text-xs px-3 py-1 rounded bg-navy-900 text-white">儲存</button>
           <span class="text-[10px] text-amber-600 w-full">⚠ 手動修改末日不會重新套用期限規則，請自行確認日期正確</span>
         </div>` : `<div>${esc(d.displayTitle || d.eventType)}</div>`}
-      </div>`).join('') || '<div class="text-slate-400">尚無末日/提醒紀錄</div>';
+      </div>`).join('') || `<div class="text-slate-400">${allDates ? '沒有之後的期限' : '7 天內沒有到期的期限'}</div>`;
 
     // 2026-08-20：開庭「改期/編輯」與期限「編輯」——法院改期是常態，原本只能刪掉重建
     document.querySelectorAll('.btn-edit-hearing').forEach((btn) => {

@@ -17,7 +17,9 @@
   const DEFAULT_MODEL = 'gemini-2.5-flash'; // 使用者還沒按「載入模型」時用這個
   const TIMEOUT_MS = 90000;
   const MIN_CHARS = 5;
-  const RENDER_WIDTH = 2000;
+  const RENDER_WIDTH = 1400; // 2026-11-05：夠讀就好（原 2000 太大、上傳慢）
+  const JPEG_Q = 0.8;
+  const PARALLEL = 3; // 2026-11-05：同時送 3 頁，每頁回來就更新進度條
   const LABEL = '掃描頁用 Gemini 辨識（較準，但頁面圖片會原樣送給 Google，無法先遮姓名）';
 
   const PROMPT = [
@@ -84,7 +86,9 @@
   function credentials() {
     const A = root.LF_AI; let key = ''; let model = '';
     try { key = A ? A.getKey() : ''; model = A ? A.getModel() : ''; } catch (e) { /* ignore */ }
-    return { key: String(key || '').trim(), model: String(model || '').trim() || DEFAULT_MODEL };
+    model = String(model || '').trim() || DEFAULT_MODEL;
+    let ocrModel = model; try { ocrModel = A && A.ocrModelFor ? A.ocrModelFor(model) : model; } catch (e) { /* ignore */ }
+    return { key: String(key || '').trim(), model, ocrModel };
   }
 
   // 送一頁：回傳 { text } 或 { error, fatal }
@@ -103,7 +107,9 @@
       const x = explainError(aborted ? -1 : 0); return { error: x.reason, fatal: x.fatal };
     } finally { if (timer) clearTimeout(timer); }
     const j = await r.json().catch(() => ({}));
-    return parseResponse(r.status, j);
+    const out = parseResponse(r.status, j);
+    if (r.status === 404) out.status404 = true;
+    return out;
   }
 
   // 頁面轉成圖片：用原本的樣子（不做本機 OCR 用的黑白、去雜點處理），寬度約 2000 像素
@@ -137,23 +143,40 @@
       if (!cred.key) return { pages: [], error: '沒有 Gemini 金鑰（請到「AI 智慧閱卷」頁貼上）' };
       const done = []; let error = ''; let fatal = false;
       const list = ctx.imagePages || [];
-      for (let k = 0; k < list.length; k++) {
-        const pg = ctx.pages[list[k] - 1];
-        say(`Gemini 辨識中：掃描頁 ${k + 1}／${list.length}（第 ${pg.n} 頁）`);
-        if (opt.onProgress) { try { opt.onProgress({ done: k, total: list.length, page: pg.n, percent: Math.round((k / list.length) * 100), label: `Gemini 辨識中：第 ${k + 1}／${list.length} 頁（文件第 ${pg.n} 頁）` }); } catch (e) { /* ignore */ } }
+      // 2026-11-05：辨識改用較快的 flash-lite（認不得時退回管理員選的模型）；同時送 PARALLEL 頁，每完成一頁就更新進度條
+      let model = cred.ocrModel || cred.model;
+      const total = list.length; let finished = 0;
+      const tick = (pageNo) => {
+        say(`Gemini 辨識中：已完成 ${finished}／${total} 頁`);
+        if (opt.onProgress && finished < total) { try { opt.onProgress({ done: finished, total, page: pageNo, percent: Math.round((finished / total) * 100), label: `Gemini 辨識中：已完成 ${finished}／${total} 頁` }); } catch (e) { /* ignore */ } }
+      };
+      tick(null);
+      let next = 0;
+      const one = async (pg) => {
         const cv = await renderPage(await ctx.pdf.getPage(pg.n));
-        const b64 = cv.toDataURL('image/jpeg', 0.9).split(',')[1] || '';
+        const b64 = cv.toDataURL('image/jpeg', JPEG_Q).split(',')[1] || '';
         cv.width = cv.height = 0;
-        const r = await recognize(b64, 'image/jpeg', { key: cred.key, model: cred.model, page: pg.n, fetch: opt.fetch });
-        if (r.text) {
-          pg.text = r.text; pg.chars = r.text.replace(/[\s　]+/g, '').length; pg.image = false; pg.gemini = true; done.push(pg.n);
-        } else if (r.blank) {
-          pg.text = ''; pg.chars = 0; pg.image = false; pg.blank = true; // 空白頁：略過，不警告
-        } else {
-          error = `第 ${pg.n} 頁：${r.error}`;
-          if (r.fatal) { fatal = true; break; }
+        let r = await recognize(b64, 'image/jpeg', { key: cred.key, model, page: pg.n, fetch: opt.fetch });
+        if (r.status404 && model !== cred.model) { model = cred.model; r = await recognize(b64, 'image/jpeg', { key: cred.key, model, page: pg.n, fetch: opt.fetch }); }
+        return r;
+      };
+      const worker = async () => {
+        while (!fatal && next < total) {
+          const pg = ctx.pages[list[next++] - 1];
+          let r; try { r = await one(pg); } catch (e) { r = { error: (e && e.message) || String(e), fatal: false }; }
+          if (r.text) {
+            pg.text = r.text; pg.chars = r.text.replace(/[\s　]+/g, '').length; pg.image = false; pg.gemini = true; done.push(pg.n);
+          } else if (r.blank) {
+            pg.text = ''; pg.chars = 0; pg.image = false; pg.blank = true; // 空白頁：略過，不警告
+          } else {
+            error = `第 ${pg.n} 頁：${r.error}`;
+            if (r.fatal) fatal = true;
+          }
+          finished++; tick(pg.n);
         }
-      }
+      };
+      await Promise.all(Array.from({ length: Math.min(opt.parallel || PARALLEL, total) }, worker));
+      done.sort((a, b) => a - b);
       if (opt.onProgress) { try { opt.onProgress(null); } catch (e) { /* ignore */ } }
       return { pages: done, error, fatal, used: true };
     };
@@ -164,7 +187,7 @@
     return err ? `Gemini 讀取失敗（${err}）${fatal ? '，已改用本機辨識' : ''}` : '';
   }
 
-  const api = { PROMPT, LABEL, PAGE_MARK, DEFAULT_MODEL, buildRequest, parseResponse, explainError, cleanText, recognize, credentials, checkboxHtml, hookFor, pagesNote, fallbackNote };
+  const api = { PARALLEL, RENDER_WIDTH, PROMPT, LABEL, PAGE_MARK, DEFAULT_MODEL, buildRequest, parseResponse, explainError, cleanText, recognize, credentials, checkboxHtml, hookFor, pagesNote, fallbackNote };
   if (typeof module === 'object' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') window.LF_GeminiOcr = api;
 })(typeof window !== 'undefined' ? window : globalThis);

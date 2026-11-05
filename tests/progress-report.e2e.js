@@ -22,6 +22,8 @@ const OUT = path.join(__dirname, '..', 'docs', 'screenshots');
   async function openDraft(caseId) {
     await page.evaluate(() => { const m = document.getElementById('pr-modal'); if (m) m.remove(); });
     await page.evaluate(() => { location.hash = '#page-cases'; });
+    // 2026-11-05：案件列表改成可收合卡片，先展開
+    await page.evaluate(() => { const d = document.querySelector('details[data-fold="cases-list"]'); if (d) d.open = true; });
     await page.locator(`.btn-case-detail[data-case-id="${caseId}"]`).first().click();
     await page.locator('#cdm-progress-report').click();
     await page.locator('#pr-modal').waitFor();
