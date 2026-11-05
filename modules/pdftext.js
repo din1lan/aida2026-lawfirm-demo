@@ -281,7 +281,7 @@
       tessLoading = new Promise((resolve, reject) => {
         const el = document.createElement('script'); el.src = OCR.script; el.async = true;
         el.onload = () => (root.Tesseract ? resolve(root.Tesseract) : reject(new Error('文字辨識元件載入失敗')));
-        el.onerror = () => { tessLoading = null; el.remove(); reject(new Error('文字辨識元件載入失敗（需要網路）')); };
+        el.onerror = () => { tessLoading = null; el.remove(); reject(new Error('文字辨識元件載入失敗（請重新整理頁面再試）')); };
         document.head.appendChild(el);
       });
     }
@@ -335,7 +335,7 @@
 
   function open(data) {
     const lib = root.pdfjsLib;
-    if (!lib) throw new Error('PDF 讀取元件沒有載入（需要網路）');
+    if (!lib) throw new Error('PDF 讀取元件沒有載入（請重新整理頁面再試）');
     return lib.getDocument(Object.assign({ data }, OPTIONS)).promise;
   }
 

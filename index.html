@@ -6173,7 +6173,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
     const list = [...(fileList || [])];
     AIB_DOC.raw = list;
     if (!list.length) { AIB_DOC.files = []; AIB_DOC.pages = []; AIB_DOC.pdf = null; st.textContent = '未選擇檔案時，使用上方貼入的文字'; return; }
-    if (!window.pdfjsLib) { st.textContent = 'PDF 元件載入失敗（需要網路），請改用貼入文字'; return; }
+    if (!window.pdfjsLib) { st.textContent = 'PDF 元件載入失敗，請重新整理頁面，或改用貼入文字'; return; }
     st.textContent = `讀取中…（共 ${list.length} 份）`; AIB_DOC.loading = true; AIB_DOC.files = []; AIB_DOC.pages = []; AIB_DOC.pdf = null;
     try {
       const files = [], pages = [], notes = [];
@@ -6217,7 +6217,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
         notes.push(`文件${fi + 1}：${esc(f.name)}（${pdf.numPages} 頁${chars < 30 ? `，讀不到文字，可能是掃描檔${rd.ocrError ? `；文字辨識沒有成功：${esc(rd.ocrError)}` : ''}` : ''}）${imgNote}`);
       }
       AIB_DOC.files = files; AIB_DOC.pages = pages; AIB_DOC.source = 'pdf'; AIB_DOC.pdf = (files.find((x) => x.pdf) || {}).pdf || null; AIB_DOC.name = files.map((x) => x.name).join('、');
-      st.innerHTML = '✓ ' + notes.join('<br>') + (files.length ? '<br><span class="text-slate-500">送給 AI 時每頁只標「文件N（文件種類）」，<b>不含檔名</b>（檔名常有姓名、案號）；上面的檔名只顯示在你的畫面</span>' : '') + (notes.some((x) => x.includes('掃描檔')) ? '<br><span class="text-red-600">掃描檔要靠文字辨識（OCR）才讀得到：請確認網路連線後重新選擇檔案，或改用貼入文字</span>' : '');
+      st.innerHTML = '✓ ' + notes.join('<br>') + (files.length ? '<br><span class="text-slate-500">送給 AI 時每頁只標「文件N（文件種類）」，<b>不含檔名</b>（檔名常有姓名、案號）；上面的檔名只顯示在你的畫面</span>' : '') + (notes.some((x) => x.includes('掃描檔')) ? '<br><span class="text-red-600">掃描檔要靠文字辨識（OCR）才讀得到：請重新整理頁面後再選一次檔案，或改用貼入文字</span>' : '');
       // 文字框的頁首和送 AI 的一樣只寫「文件N（文件種類）」：檔名常含姓名、案號，不放進會送出的文字
       const safeLbl = (fi) => { const t = window.Deid && Deid.safeFileLabel ? Deid.safeFileLabel(files[fi].name) : ''; return `文件${fi + 1}${t ? '（' + t + '）' : ''}`; };
       document.getElementById('aib-text').value = pages.map((p) => `【${safeLbl(p.file)}｜第${p.fn}頁】\n${p.image ? '（這一頁是圖片，讀不到文字）' : p.gemini ? window.LF_GeminiOcr.PAGE_MARK + '\n' + p.text : (p.ocr ? `（此頁為 OCR 辨識，可能有錯字，請核對原文；標〔?〕的字辨識信心較低${p.skipped ? `；有 ${p.skipped} 行無法辨識，已略過` : ''}）\n` + (p.marked || p.text) : p.text)}`).join('\n\n');
