@@ -19,12 +19,11 @@ const buf = fs.readFileSync(path.join(__dirname, 'fixtures', 'pdf-cjk', FILE));
   for (const c of cases) {
     console.log('■ ' + c.name);
     const ctx = await b.newContext({ viewport: { width: 1440, height: 900 } }); await offline(ctx);
-    await ctx.addInitScript(() => { try { localStorage.setItem('lf_admin_gemini_key', 'TEST-FAKE-KEY-0000'); } catch (e) { /* ignore */ } });
+    // 沒設定金鑰：掃描頁用本機 OCR（有金鑰時改由 Gemini 讀）
     const p = await ctx.newPage(); const errs = []; p.on('pageerror', (e) => errs.push(String(e)));
     await p.goto('http://localhost:8765/index.html?demo=ding' + c.hash, { waitUntil: 'load' }); await p.waitForTimeout(900);
     if (c.hash === '#page-autofill') await p.evaluate(() => window.LF_AutofillHost.showPage('page-autofill'));
-    await p.waitForSelector('#' + c.box, { state: 'attached' });
-    ok(!(await p.isChecked('#' + c.box)), '「掃描頁用 Gemini 辨識」預設不勾');
+    ok(!(await p.$('#' + c.box)), '沒有「掃描頁用 Gemini 辨識」勾選框（2026-11-05 拿掉）');
     await p.setInputFiles(c.input, { name: FILE, mimeType: 'application/pdf', buffer: buf });
     const seen = []; const t0 = Date.now();
     while (Date.now() - t0 < 180000) {

@@ -42,7 +42,8 @@ async function route(ctx, gem) {
       return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ candidates: [{ content: { parts: [{ text }] }, finishReason: 'STOP' }] }) });
     });
     // 金鑰：2026-11-05 起由「管理員設定」頁存在瀏覽器 localStorage（這裡直接放假的）
-    await ctx.addInitScript((k) => { try { localStorage.setItem('lf_admin_gemini_key', k); } catch (e) { /* ignore */ } }, FAKE_KEY);
+    // 2026-11-05：沒有勾選框了 —— 有金鑰＝掃描頁交給 Gemini；沒金鑰＝本機 OCR。去識別化開關打開，測確認視窗
+    if (checked) await ctx.addInitScript((k) => { try { localStorage.setItem('lf_admin_gemini_key', k); localStorage.setItem('lf_admin_deid_before_send', '1'); } catch (e) { /* ignore */ } }, FAKE_KEY);
     const p = await ctx.newPage(); const errs = [];
     p.on('pageerror', (e) => errs.push(String(e)));
     await p.goto('http://localhost:8765/index.html?demo=ding#page-ai-brief', { waitUntil: 'load' });
@@ -51,9 +52,7 @@ async function route(ctx, gem) {
     // 2026-11-05：「AI 自動填」併進「收文登記」，第二組改測收文登記（#in-*）
     const box = isAib ? '#aib-gemini-ocr' : '#in-gemini-ocr'; const input = isAib ? '#aib-pdf' : '#in-file'; const status = isAib ? 'aib-pdf-status' : 'in-status';
     if (!isAib) await p.evaluate(() => window.LF_AutofillHost.showPage('page-autofill'));
-    await p.waitForSelector(box, { state: 'attached' });
-    check(!(await p.isChecked(box)), '勾選框預設沒打勾');
-    if (checked) await p.check(box);
+    check(!(await p.$(box)), '沒有「掃描頁用 Gemini 辨識」勾選框');
     await p.evaluate((id) => { document.getElementById(id).textContent = '__wait'; }, status);
     await p.setInputFiles(input, { name: FILE, mimeType: 'application/pdf', buffer: buf });
     await p.waitForFunction((id) => !/讀取中|__wait|辨識中|辨識完成/.test(document.getElementById(id).textContent), status, { timeout: 300000 });
@@ -63,8 +62,8 @@ async function route(ctx, gem) {
     const tess = (ctx.__vendorHits && ctx.__vendorHits.tesseract) || 0;
 
     if (!checked) {
-      check(calls.length === 0, '沒勾選：完全沒有呼叫 Gemini');
-      check(/OCR 辨識，可能有錯字|圖片、讀不到文字/.test(st), '沒勾選：照舊用本機 OCR');
+      check(calls.length === 0, '沒設定金鑰：完全沒有呼叫 Gemini');
+      check(/OCR 辨識，可能有錯字|圖片、讀不到文字/.test(st), '沒設定金鑰：用本機 OCR');
     } else if (mode === 'ok') {
       check(calls.length === 1 && calls[0].page === 2 && calls[0].hasImg, '只送第 2 頁（掃描頁）的圖片，第 1、3 頁有文字層不送');
       check(calls.every((c) => c.url.includes('key=' + FAKE_KEY)), '用管理員設定頁存的金鑰');
@@ -88,7 +87,7 @@ async function route(ctx, gem) {
       const prev = await p.evaluate(() => document.getElementById('deid-preview').innerText);
       check(/【(對造|人名|關係人|當事人)[A-Z0-9]+】/.test(prev) && !/被告\s*李大華/.test(prev.split('將送出')[1] || prev), '分析前的預覽：Gemini 轉回來的姓名（李大華）已換成代號');
       await p.screenshot({ path: path.join(SHOTS, `${tag}_2分析前已遮姓名.png`) });
-    } else if (!isAib) {
+    } else if (!isAib && checked) {
       // 收文登記：有金鑰時用 Gemini 抓欄位 → 先跳出去識別化確認視窗，確認後才送
       await p.click('#in-run');
       await p.waitForSelector('#deid-preview', { timeout: 30000 });
@@ -106,11 +105,11 @@ async function route(ctx, gem) {
     await ctx.close();
   }
 
-  await scenario('AI 智慧閱卷｜不勾選（本機 OCR）', 'aib', false, 'ok');
-  await scenario('AI 智慧閱卷｜勾選（Gemini 假回應）', 'aib', true, 'ok');
-  await scenario('AI 智慧閱卷｜勾選但金鑰錯（退回本機）', 'aib', true, 'badkey');
-  await scenario('收文登記｜不勾選（本機 OCR）', 'af', false, 'ok');
-  await scenario('收文登記｜勾選（Gemini 假回應）', 'af', true, 'ok');
+  await scenario('AI 智慧閱卷｜沒設定金鑰（本機 OCR）', 'aib', false, 'ok');
+  await scenario('AI 智慧閱卷｜有金鑰（Gemini 假回應）', 'aib', true, 'ok');
+  await scenario('AI 智慧閱卷｜金鑰錯（退回本機）', 'aib', true, 'badkey');
+  await scenario('收文登記｜沒設定金鑰（本機 OCR）', 'af', false, 'ok');
+  await scenario('收文登記｜有金鑰（Gemini 假回應）', 'af', true, 'ok');
   await b.close();
   console.log(fails.length ? `\n失敗 ${fails.length} 項：\n` + fails.join('\n') : '\n全部通過');
   process.exit(fails.length ? 1 : 0);

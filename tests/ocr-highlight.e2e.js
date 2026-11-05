@@ -44,11 +44,10 @@ function pickQuotes(file, dpi, pagesWanted) {
       return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ candidates: [{ content: { parts: [{ text: truth[file][n - 1].text }] }, finishReason: 'STOP' }] }) });
     } : null);
     // 金鑰：管理員設定頁存在 localStorage（假的）
-    if (gemini) await ctx.addInitScript(() => { try { localStorage.setItem('lf_admin_gemini_key', 'FAKE-KEY-FOR-TEST'); } catch (e) { /* ignore */ } });
+    if (gemini) await ctx.addInitScript(() => { try { localStorage.setItem('lf_admin_gemini_key', 'FAKE-KEY-FOR-TEST'); } catch (e) { /* ignore */ } }); // 有金鑰 → 掃描頁直接交給 Gemini
     const p = await ctx.newPage(); const errs = [];
     p.on('pageerror', (e) => errs.push(String(e)));
     await p.goto('http://localhost:8765/index.html?demo=ding#page-ai-brief', { waitUntil: 'load' }); await p.waitForTimeout(800);
-    if (gemini) await p.check('#aib-gemini-ocr');
     await p.evaluate(() => { document.getElementById('aib-pdf-status').textContent = '__wait'; });
     await p.setInputFiles('#aib-pdf', { name: file, mimeType: 'application/pdf', buffer: fs.readFileSync(path.join(FX, file)) });
     await p.waitForFunction(() => !/讀取中|__wait|辨識中|辨識完成/.test(document.getElementById('aib-pdf-status').textContent), null, { timeout: 300000 });

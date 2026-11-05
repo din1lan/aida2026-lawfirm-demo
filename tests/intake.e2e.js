@@ -66,7 +66,7 @@ const CASES = [
     const ctx = await b.newContext({ viewport: { width: 1360, height: 2200 }, timezoneId: 'Asia/Taipei' });
     await route(ctx, gem);
     // Gemini 情境：金鑰放進「管理員設定」的儲存位置（假的，不是真金鑰）
-    if (gem) await ctx.addInitScript(() => { try { localStorage.setItem('lf_admin_gemini_key', 'fake-key-for-test-only'); localStorage.setItem('lf_admin_gemini_model', 'gemini-fake'); } catch (e) { /* ignore */ } });
+    if (gem) await ctx.addInitScript((deid) => { try { localStorage.setItem('lf_admin_gemini_key', 'fake-key-for-test-only'); localStorage.setItem('lf_admin_gemini_model', 'gemini-fake'); if (deid) localStorage.setItem('lf_admin_deid_before_send', '1'); } catch (e) { /* ignore */ } }, gem.__deid !== false);
     const p = await ctx.newPage(); const errs = [];
     p.on('pageerror', (e) => { if (!/tailwind/.test(String(e))) errs.push(String(e)); });
     await p.goto(BASE + '?demo=ding#page-autofill', { waitUntil: 'load' });
@@ -187,6 +187,20 @@ const CASES = [
   check(sent.length === 1, '確認視窗按取消：沒有送出（Gemini 呼叫次數不變）');
   check(!g.errs.length, `頁面錯誤 ${g.errs.length} 個`);
   await g.ctx.close();
+
+  // ---------------------------------------------------------------- 2a) 去識別化開關關著（預設）：不跳確認視窗、直接送
+  {
+    const sent2 = []; const gh = async (r) => { sent2.push(r.request().postData() || ''); return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify(fake) }] } }] }) }); };
+    gh.__deid = false;
+    const o = await open(gh);
+    await o.p.setInputFiles('#in-file', asFile(path.join(FX, '07_郵局繳款通知單.pdf')));
+    await o.p.waitForFunction(() => /已讀入|讀取失敗/.test(document.getElementById('in-status').textContent), null, { timeout: 120000 });
+    await o.p.click('#in-run');
+    await o.p.waitForFunction(() => /請逐欄確認|⚠/.test(document.getElementById('in-status').textContent), null, { timeout: 60000 });
+    check(!(await o.p.$('#deid-preview')) && sent2.length === 1, '去識別化開關關著（預設）：不跳確認視窗，直接送 Gemini');
+    check(JSON.parse(sent2[0] || '{}').contents[0].parts[0].text.includes('中華郵政'), '直接送：送出的是原文');
+    await o.ctx.close();
+  }
 
   // ---------------------------------------------------------------- 2b) 用範例按鈕跑：判決、開庭通知、繳款通知各一（示意版）
   log('\n■ 範例按鈕：判決、開庭通知、繳款通知');

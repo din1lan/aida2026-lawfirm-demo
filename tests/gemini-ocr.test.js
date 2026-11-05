@@ -102,14 +102,17 @@ test('09 呼叫網址：用選的模型、金鑰放在網址參數（沿用網�
 });
 
 // ── 開關：預設不送 ──
-test('10 沒勾選：不提供 Gemini 辨識（照舊本機 OCR）', () => {
+test('10 規則（2026-11-05 起沒有勾選框）：有金鑰＝交給 Gemini；沒金鑰＝本機 OCR；畫面若有同名框且沒勾＝不送', () => {
   fakeDom(false, FAKE_KEY);
-  try { assert.strictEqual(G.hookFor('my-box'), undefined); assert.strictEqual(G.hookFor('不存在的框'), undefined); } finally { cleanup(); }
+  try {
+    assert.strictEqual(G.hookFor('my-box'), undefined, '有框但沒勾 → 不送');
+    assert.strictEqual(typeof G.hookFor('不存在的框'), 'function', '沒有框、有金鑰 → 交給 Gemini');
+  } finally { cleanup(); }
+  fakeDom(false, '');
+  try { assert.strictEqual(G.hookFor('不存在的框'), undefined, '沒有框、沒金鑰 → 本機 OCR'); } finally { cleanup(); }
 });
-test('11 勾選框預設沒打勾、也不寫進任何儲存', () => {
-  const h = G.checkboxHtml('x1');
-  assert.ok(/type="checkbox"/.test(h)); assert.ok(!/checked/.test(h));
-  assert.ok(h.includes('頁面圖片會原樣送給 Google，無法先遮姓名'));
+test('11 勾選框已拿掉，也不寫進任何儲存', () => {
+  assert.strictEqual(G.checkboxHtml('x1'), '');
   const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'modules', 'gemini-ocr.js'), 'utf8');
   assert.ok(!/(localStorage|sessionStorage)\.setItem/.test(src), '不應寫入儲存');
 });
