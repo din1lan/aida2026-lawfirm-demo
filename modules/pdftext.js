@@ -139,6 +139,29 @@
     return { text: j.text, marked: j.marked, skipped: all.length - keep.length };
   }
 
+  // ---- 有文字層的頁：每個字＋座標（頁面單位，同 ocrChars）。vt＝pdf.js scale 1 的 viewport.transform ----
+  // pdf.js 只給一段文字的起點與寬度，字平均分配寬度；同一條基準線的字算同一行
+  function textItemChars(items, vt) {
+    const T = vt || [1, 0, 0, -1, 0, 0];
+    const map = (x, y) => [T[0] * x + T[2] * y + T[4], T[1] * x + T[3] * y + T[5]];
+    const out = []; let li = -1; let lastY = null;
+    (items || []).forEach((it) => {
+      const s = it && typeof it.str === 'string' ? it.str : ''; const tr = it && it.transform;
+      if (!s || !tr) return;
+      const cs = [...s]; const fh = Math.hypot(tr[2], tr[3]) || it.height || 10;
+      const wTot = it.width || fh * cs.length; const cw = wTot / cs.length;
+      const ux = (Math.hypot(tr[0], tr[1]) ? tr[0] / Math.hypot(tr[0], tr[1]) : 1), uy = (Math.hypot(tr[0], tr[1]) ? tr[1] / Math.hypot(tr[0], tr[1]) : 0);
+      if (lastY === null || Math.abs(tr[5] - lastY) > fh / 2) li++;
+      lastY = tr[5];
+      cs.forEach((c, k) => {
+        const bx = tr[4] + ux * cw * k, by = tr[5] + uy * cw * k;
+        const pts = [map(bx, by), map(bx + ux * cw, by + uy * cw), map(bx - uy * fh, by + ux * fh), map(bx + ux * cw - uy * fh, by + uy * cw + ux * fh)];
+        out.push({ c, li, x0: Math.min(...pts.map((p) => p[0])), y0: Math.min(...pts.map((p) => p[1])), x1: Math.max(...pts.map((p) => p[0])), y1: Math.max(...pts.map((p) => p[1])) });
+      });
+    });
+    return out;
+  }
+
   // ---- 掃描頁的「原文」螢光標示：每個辨識出的字＋座標（頁面單位＝pdf.js scale 1，左上角為原點；只存在記憶體） ----
   function ocrChars(data, scale) {
     const out = []; const k = 1 / (scale || 1); let li = 0;
@@ -355,11 +378,15 @@
     const pages = []; const imagePages = []; const blankPages = []; let chars = 0;
     for (let i = 1; i <= pdf.numPages; i++) {
       const page = await pdf.getPage(i);
-      const text = pageText((await page.getTextContent()).items);
+      const items = (await page.getTextContent()).items;
+      const text = pageText(items);
       const n = squash(text).length; chars += n;
       let image = false;
       if (n < MIN_PAGE_CHARS) { image = await hasImage(page); (image ? imagePages : blankPages).push(i); }
-      pages.push({ n: i, text, chars: n, image, ocr: false });
+      // 有文字層的頁：記下每個字的位置（原圖黃框用）
+      let posChars = null;
+      if (n >= MIN_PAGE_CHARS) { try { posChars = textItemChars(items, page.getViewport({ scale: 1 }).transform); } catch (e) { posChars = null; } }
+      pages.push({ n: i, text, chars: n, image, ocr: false, posChars });
     }
     // 可選：使用者勾選「掃描頁用 Gemini 辨識」時，先送 Gemini（modules/gemini-ocr.js）；沒成功的頁才走下面的本機 OCR
     let remote = { pages: [], error: '' };
@@ -442,7 +469,7 @@
     return box;
   }
 
-  const api = { progressBar, progressLabel, OPTIONS, OCR, MIN_PAGE_CHARS, pageText, imagePagesNote, ocrPagesNote, cleanOcr, ocrPageText, isJunkLine, joinLines, preprocess, skippedNote, stripPrintMarks, ocrChars, matchQuote, quoteRects, MATCH_MIN, open, read };
+  const api = { progressBar, progressLabel, OPTIONS, OCR, MIN_PAGE_CHARS, pageText, imagePagesNote, ocrPagesNote, cleanOcr, ocrPageText, isJunkLine, joinLines, preprocess, skippedNote, stripPrintMarks, ocrChars, textItemChars, matchQuote, quoteRects, MATCH_MIN, open, read };
   if (typeof module === 'object' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') window.LF_PdfText = api;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -114,7 +114,7 @@ const CASES = [
     if (c.newCase) { await p.selectOption('#in-case', '__new__'); await p.fill('#in-newcase-name', c.newCase); await p.check('input[data-in-att][value="王大明律師"]'); }
     if (c.pickCase) await p.selectOption('#in-case', c.pickCase);
     if (c.manualDate) { await p.fill('#in-manual-date', c.manualDate); await p.dispatchEvent('#in-manual-date', 'input'); }
-    const okRows = await p.$$eval('#in-rows tr[data-in-status="ok"]', (r) => r.length);
+    const okRows = await p.$$eval('#in-rows [data-in-status="ok"]', (r) => r.length);
     check(okRows >= 1, `有出處（綠燈）的欄位 ${okRows} 個`);
     const shotName = `${String(i).padStart(2, '0')}_${c.f.replace(/\.(pdf|png)$/, '')}_確認畫面.png`;
     await p.locator('#in-review-card').screenshot({ path: path.join(SHOTS, shotName) });
@@ -177,7 +177,7 @@ const CASES = [
   { const line = (g.p.__preview.text.split('\n').find((l) => l.trim().length > 8) || '').trim();
     check(line && JSON.parse(sent[0] || '{}').contents[0].parts[0].text.includes(line), '實際送出的就是確認視窗裡那一份'); }
   check(await g.p.$eval('#in-category', (el) => el.value) === 'agency_payment', 'Gemini 判斷類別：其他機關繳款通知');
-  const st = await g.p.$$eval('#in-rows tr', (rs) => Object.fromEntries(rs.map((r) => [r.dataset.inRow, r.dataset.inStatus])));
+  const st = await g.p.$$eval('#in-rows [data-in-row]', (rs) => Object.fromEntries(rs.map((r) => [r.dataset.inRow, r.dataset.inStatus])));
   check(st.caseNumber === 'ok' && st.amount === 'ok' && st.payDue === 'ok', '案號、金額、繳款期限綠燈');
   check(st.issueDate === 'badquote', '發文日期出處是編的 → 黃燈留空');
   check(st.issuer === 'uncertain', '發文機關 AI 沒把握 → 黃燈留空');

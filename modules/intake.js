@@ -599,6 +599,7 @@
       if (/^image\//.test(file.type) || /\.(png|jpe?g|webp)$/i.test(file.name)) {
         const dataUrl = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(file); });
         UI.doc = { name: file.name, image: true, mime: file.type || 'image/png', dataUrl, text: null };
+        UI.doc.pageImgs = window.LF_DocViewer ? await window.LF_DocViewer.imagePage(dataUrl) : [];
         setStatus(`✓ 已讀入照片：${esc(file.name)}（示意版會在你的瀏覽器裡辨識文字，照片不上傳）`);
       } else {
         if (typeof pdfjsLib === 'undefined' || !window.LF_PdfText) throw new Error('PDF 讀取元件沒有載入');
@@ -609,7 +610,9 @@
         });
         const text = rd.pages.map((p) => p.text).join('\n');
         if (squash(text).length < 10) throw new Error('這份 PDF 讀不到文字（掃描檔辨識也沒有成功' + (rd.ocrError ? '：' + rd.ocrError : '') + '）。仍可在下方選類別、手動登記');
-        UI.doc = { name: file.name, image: false, text, numPages: rd.numPages, ocrPages: rd.ocrPages, imagePages: rd.imagePages, geminiPages: rd.geminiPages, geminiError: rd.geminiError, geminiFatal: rd.geminiFatal };
+        UI.doc = { name: file.name, image: false, text, numPages: rd.numPages, ocrPages: rd.ocrPages, imagePages: rd.imagePages, geminiPages: rd.geminiPages, geminiError: rd.geminiError, geminiFatal: rd.geminiFatal, rdPages: rd.pages };
+        // 原圖（右側檢視用）：在瀏覽器裡把每頁畫成圖，不上傳；畫不出來就只顯示欄位
+        try { UI.doc.pageImgs = window.LF_DocViewer ? await window.LF_DocViewer.renderPdfPages(rd.pdf) : []; } catch (e) { UI.doc.pageImgs = []; }
         setStatus(`✓ 已讀入：${esc(file.name)}（${rd.numPages} 頁，約 ${squash(text).length} 字）${pageNotes(UI.doc)}`);
       }
       $('in-run').disabled = false; paintConsent();
@@ -645,6 +648,7 @@
     try {
       const r = await w.recognize(cv, {}, { text: true, blocks: true });
       const t = P.ocrPageText ? P.ocrPageText(r && r.data, O).text : ((r && r.data && r.data.text) || '');
+      if (UI.doc && UI.doc.dataUrl === dataUrl && P.ocrChars) { try { UI.doc.photoChars = P.ocrChars(r && r.data, k); } catch (e) { /* ignore */ } }
       return P.stripPrintMarks ? P.stripPrintMarks(t).text : t;
     } finally { try { await w.terminate(); } catch (e) { /* ignore */ } }
   }
@@ -736,7 +740,8 @@
     const cnRaw = res.fields.caseNumber && res.fields.caseNumber.value;
     const m = cnRaw ? A.matchCases(cnRaw, h.getCases()) : { status: 'none', matches: [] };
     UI.match = m;
-    const imgSide = UI.doc && UI.doc.image ? `<div class="md:w-80 flex-shrink-0"><p class="text-xs text-slate-500 mb-1">原圖（請對照）</p><img src="${esc(UI.doc.dataUrl)}" alt="上傳的照片" class="border rounded w-full" /></div>` : '';
+    const imgs = (UI.doc && UI.doc.pageImgs) || [];
+    const hasImg = !!(imgs.length && window.LF_DocViewer);
     const rc = UI.ruleCls;
     const ruleNote = rc && UI.engine === 'gemini' && rc.category !== UI.category ? `<span class="text-amber-700">（示意規則判斷為「${esc(rc.label)}」，請確認）</span>` : '';
     const confNote = UI.engine === 'mock' && rc ? (rc.category === 'other' ? '<span class="text-amber-700">🟡 判斷不出類別，先歸「其他」，可自己改</span>' : rc.confident ? '<span class="text-emerald-700">🟢 標題與內容都符合</span>' : `<span class="text-amber-700">🟡 不太確定${rc.ranking[1] ? `（也可能是「${esc(CAT_LABEL[rc.ranking[1].id])}」）` : ''}，請確認</span>`) : '';
@@ -747,8 +752,9 @@
           <select id="in-category" class="text-sm border rounded px-2 py-1.5">${CATEGORIES.map((c) => `<option value="${c.id}" ${c.id === UI.category ? 'selected' : ''}>${esc(c.label)}</option>`).join('')}</select>
           <span class="text-xs">${confNote}${ruleNote}</span>
         </div>
-        <div class="flex flex-col md:flex-row gap-4">
-          <div class="flex-1 overflow-x-auto"><table class="w-full text-sm" id="in-table"><thead><tr class="text-left text-xs text-slate-500 border-b"><th class="py-2 pr-2">欄位</th><th class="py-2 pr-2">抓到的值（可改）</th><th class="py-2 pr-2">原文出處那一句</th></tr></thead><tbody id="in-rows"></tbody></table></div>${imgSide}
+        <div class="dv-split${hasImg ? '' : ' dv-noimg'}" id="in-split">
+          <div class="dv-left"><p class="text-xs text-slate-500 mb-1">AI 抓到的值（可改）${hasImg ? '・點一欄，右邊原圖會跳到出處' : ''}</p><div id="in-rows" class="text-sm border-t"></div></div>
+          ${hasImg ? '<div class="dv-right" id="in-viewer"></div>' : ''}
         </div>
         <div class="text-sm space-y-2 border-t pt-3">
           <div class="flex flex-wrap items-center gap-3">
@@ -766,6 +772,7 @@
         <div id="in-summary" class="text-sm bg-slate-50 border border-slate-200 rounded p-3"></div>
         <div class="flex items-center gap-3"><button type="button" id="in-confirm" class="text-sm px-5 py-2 rounded bg-emerald-600 text-white hover:bg-emerald-700">確認登記</button><span id="in-done" class="text-sm"></span></div>
       </div>`;
+    UI.viewer = hasImg ? window.LF_DocViewer.panel($('in-viewer'), imgs) : null;
     paintRows();
     $('in-category').addEventListener('change', (e) => { saveValues(); UI.category = e.target.value; const a = $('in-action'); if (a && (!a.value || a.dataset.auto !== '0')) a.value = suggestAction(UI.category, UI.values); paintRows(); refresh(); });
     $('in-action').addEventListener('input', (e) => { e.target.dataset.auto = '0'; refresh(); });
@@ -783,6 +790,27 @@
     const res = UI.result;
     tb.innerHTML = (CATEGORY_FIELDS[UI.category] || COMMON).map((k) => rowHTML(k, res.fields[k])).join('');
     tb.querySelectorAll('[data-in-field]').forEach((el) => el.addEventListener('input', () => { saveValues(); const a = $('in-action'); if (a && a.dataset.auto !== '0') a.value = suggestAction(UI.category, UI.values); refresh(); }));
+    tb.querySelectorAll('[data-in-row]').forEach((row) => {
+      const go = () => focusField(row.dataset.inRow);
+      row.addEventListener('click', go); row.addEventListener('focusin', go);
+    });
+  }
+  // 各頁的字座標：PDF 文字層／本機 OCR 的字位置；照片用本機辨識的字位置；Gemini 頁背景補座標後也會有
+  function viewerPages() {
+    const d = UI.doc || {}; const imgs = d.pageImgs || [];
+    return imgs.map((im) => {
+      const pg = (d.rdPages || [])[im.n - 1] || {};
+      return { n: im.n, w: im.w, h: im.h, chars: d.image ? (d.photoChars || null) : (pg.ocrChars || pg.posChars || null), text: d.image ? (d.text || '') : (pg.text || '') };
+    });
+  }
+  /** 點某一欄：原圖捲到該頁，有座標就畫黃框 */
+  function focusField(k) {
+    document.querySelectorAll('#in-rows [data-in-row]').forEach((r) => r.classList.toggle('dv-active', r.dataset.inRow === k));
+    if (!UI.viewer || !window.LF_DocViewer) return;
+    const f = (UI.result && UI.result.fields[k]) || {};
+    const loc = window.LF_DocViewer.locate(viewerPages(), f.quote || f.raw || '', window.LF_PdfText);
+    if (!loc) { UI.viewer.show(UI.viewer.page, [], f.quote ? '原圖上找不到這句的位置，請自行對照' : '這一欄沒有原文出處'); return; }
+    UI.viewer.show(loc.page, loc.rects, loc.rects.length ? '' : `出處在第 ${loc.page} 頁（這頁沒有字的座標，無法畫框）`);
   }
   function rowHTML(k, f) {
     const d = FIELD_DEFS[k];
@@ -798,10 +826,12 @@
     else input = `<input type="text" data-in-field="${k}" value="${esc(v)}" class="border rounded px-2 py-1 text-sm w-full min-w-[10rem]" />`;
     const raw = f.raw && f.raw !== v ? `<div class="text-[11px] text-slate-400">原文寫法：${esc(f.raw)}</div>` : '';
     const guess = f.aiGuess ? `<div class="text-[11px] text-slate-400">AI 的猜測（未帶入）：${esc(f.aiGuess)}</div>` : '';
-    return `<tr class="border-b align-top" data-in-row="${k}" data-in-status="${esc(status)}">
-      <td class="py-2 pr-2 whitespace-nowrap font-medium text-slate-700">${esc(d.label)}</td>
-      <td class="py-2 pr-2">${input}<div class="text-[11px] ${cls}">${icon} ${esc(reason)}</div>${raw}${guess}</td>
-      <td class="py-2 pr-2 text-xs text-slate-600 max-w-xs">${f.quote ? `「${esc(f.quote)}」` : '<span class="text-slate-300">—</span>'}</td></tr>`;
+    // 原文出處：每欄下方一行小字（點選該欄才展開全文），原文以右邊原圖為準
+    return `<div class="dv-field" data-in-row="${k}" data-in-status="${esc(status)}">
+      <div class="dv-l">${esc(d.label)}</div>
+      <div>${input}</div>
+      <div class="text-[11px] ${cls}">${icon} ${esc(reason)}</div>${raw}${guess}
+      ${f.quote ? `<div class="dv-quote" data-in-quote title="${esc(f.quote)}">出處：「${esc(f.quote)}」</div>` : ''}</div>`;
   }
 
   function selectedCase() { const id = ($('in-case') || {}).value; return id && id !== '__new__' ? (H().getCases() || []).find((c) => c.id === id) || null : null; }
