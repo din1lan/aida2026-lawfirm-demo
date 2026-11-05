@@ -6549,7 +6549,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
     const tierTxt = (f) => f.tier === '待核' ? (f.status === 'ok' ? '已確認' : f.status === 'wrong' ? '有出入' : '重點') : f.tier;
     const files = AIB_DOC.files.length ? AIB_DOC.files.map((x, i) => `文件${i + 1}：${x.name}`) : ['貼入的文字'];
     return { app: 'lawfirm-ai-brief-report', version: 2, exportedAt: stamp, caseLabel: meta.caseLabel || '', caseType: meta.caseType || '', engine: meta.engineLabel || '', summary: meta.summary || '', files,
-      items: F.filter((f) => f.status !== 'wrong').map((f) => ({ section: f.category, kind: aibKindOf(f.category, f), role: aibRoleOf(f), date: f.date || '', text: f.text.replace(/^(原告主張|被告主張|原告|被告)[：:]\s*/, ''), tier: tierTxt(f), source: aibSourceLabel(f), quote: f.quote || '' })) };
+      items: F.filter((f) => f.status !== 'wrong').map((f) => ({ section: f.category, kind: aibKindOf(f.category, f), role: aibRoleOf(f), date: f.date || '', text: f.category === '當事人' ? f.text : f.text.replace(/^(原告主張|被告主張|原告|被告)[：:]\s*/, ''), tier: tierTxt(f), source: aibSourceLabel(f), quote: f.quote || '' })) };
   }
   function aibBriefPage(d) {
     const e = (x) => esc(x == null ? '' : x);
@@ -6567,7 +6567,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
       if (k === 'summary') return `<section class="card"><h2><i>01</i>案情概要</h2>${its.map(row).join('')}</section>`;
       if (k === 'update') return `<section class="card upd"><h2><i>新</i>${e(sec)}</h2>${its.map(row).join('')}</section>`;
       const rocD = (x) => { const m = String(x || '').match(/^(\d{2,3})(\d{2})(\d{2})$/); return m ? `${+m[1]}年${+m[2]}月${+m[3]}日` : (x || ''); };
-      if (k === 'timeline') return `<section class="card"><h2><i>02</i>${e(sec)}</h2><ol class="tl">${its.map((it) => `<li><b>${e(rocD(it.date))}</b>${row(it)}</li>`).join('')}</ol></section>`;
+      if (k === 'timeline') return `<section class="card"><h2><i>${secs.some((x) => kindOf(x) === 'summary') ? '02' : '時'}</i>${e(sec)}</h2><ol class="tl">${its.map((it) => `<li><b>${e(rocD(it.date))}</b>${row(it)}</li>`).join('')}</ol></section>`;
       if (k === 'issue') {
         const col = (r) => its.filter((it) => it.role === r).map(row).join('') || '<div class="none">文件未載明</div>';
         const evals = its.filter((it) => it.role === '評估'), others = its.filter((it) => !['原告', '被告', '評估'].includes(it.role));
@@ -6581,7 +6581,9 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
       return `<section class="card"><h2>${e(sec)}</h2>${its.map(row).join('')}</section>`;
     };
     const order = ['update', 'summary', 'timeline', 'issue', 'strategy', 'todo', 'other'];
-    const sorted = secs.slice().sort((a, b) => order.indexOf(kindOf(a)) - order.indexOf(kindOf(b)));
+    // 2026-11-05：示意版的「當事人」排在時間軸前面（之前被當成「其他」排到時間軸後面）
+    const rank = (sec) => (sec === '當事人' ? order.indexOf('summary') + 0.5 : order.indexOf(kindOf(sec)));
+    const sorted = secs.slice().sort((a, b) => rank(a) - rank(b));
     const css = `:root{--ink:#0e1826;--paper:#f4f1ea;--brass:#a8834a;--rule:#e2dccf;--text:#1c2431;--sub:#5b6472}
 *{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--text);font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;font-size:16px;line-height:1.75}
 .wrap{max-width:1040px;margin:0 auto;padding:0 28px 48px}
