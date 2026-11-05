@@ -314,6 +314,32 @@ test('71 律師勾選建議後（加入名單）就會遮', () => {
   no(r.text, '那英'); assert.ok(!(r.suggestions || []).some((x) => x.name === '那英'));
 });
 
+// ── 前面沒有角色字的名字（2026-11-05 體檢）：句中單獨出現也要遮；但不能又遮太多 ──
+test('72 句中名字：「嗣後陳小美向原告表示」「當天由林志強開車」「並將款項交給張美玲，」都要遮', () => {
+  const r = roundTrip('嗣後陳小美向原告表示願意還款，當天由林志強開車載被告前往，並將款項交給張美玲，', []);
+  ['陳小美', '林志強', '張美玲'].forEach((n) => no(r.text, n)); has(r.text, '向原告表示'); has(r.text, '開車載');
+});
+test('73 句中名字只出現在第二份文件、前面沒有角色字：一樣遮，且全文同一個代號', () => {
+  const r = deidentify('【文件2】\n經查黃志偉於113年5月1日匯款，黃志偉並未爭執。', []);
+  no(r.text, '黃志偉'); assert.strictEqual(r.items.filter((x) => x.original === '黃志偉').length, 1);
+});
+test('74 句中兩字名（王五、林芳）：不預設遮，列為「可能是人名，請確認」', () => {
+  const r = deidentify('並由王五交付款項，嗣林芳到場。', []);
+  has(r.text, '王五'); has(r.text, '林芳');
+  ['王五', '林芳'].forEach((n) => assert.ok((r.suggestions || []).some((x) => x.name === n), n + ' 應列為建議：' + JSON.stringify(r.suggestions)));
+});
+test('75 句中規則不遮一般詞：詐欺、錯誤、契約、給付、平安、地名機關、姓氏字開頭的詞', () => {
+  const t = '被告以詐欺方法使原告陷於錯誤，與原告簽訂契約，應給付款項，祝平安。經高雄市政府、林務局、黃金價格、許多人、方面、何時、陳述、曾經、周知，由高等法院審理，並向臺北市政府申請。';
+  const r = notMasked(t);
+  ['詐欺', '錯誤', '契約', '給付', '平安'].forEach((w) => assert.ok(!(r.suggestions || []).some((x) => x.name.includes(w)), w + ' 不應列為建議'));
+});
+test('76 示範案件 4 份文件的全文：真名都遮到，法律用語一個都沒被遮', () => {
+  const t = '原告王小明主張，被告李大華於民國113年3月1日向原告借款新臺幣500,000元，約定於114年3月1日清償。被告於113年6月15日以LINE向原告表示「錢我年底一定還你」。兩造於113年2月20日以兩人名義共同承租店面，被告抗辯係合夥出資，並主張時效。';
+  const r = roundTrip(t, []);
+  ['王小明', '李大華'].forEach((n) => no(r.text, n));
+  ['借款', '清償', '承租店面', '合夥出資', '時效', '表示'].forEach((w) => has(r.text, w));
+});
+
 let pass = 0; const fails = [];
 for (const t of tests) {
   try { t.fn(); pass++; console.log('  ✓ ' + t.name); }
