@@ -1,5 +1,5 @@
 /* ==========================================================================
- * AI 自動填：書狀 → 案件欄位＋期限；開庭通知 → 開庭行事曆
+ * AI 自動填：書狀 → 案件欄位＋期限；開庭通知 → 行事曆
  * 規格：docs/AI自動填-規格.md
  *
  * 分兩層：
@@ -700,7 +700,7 @@
     // 律師：案件沒有承辦律師時（或新案件）讓使用者勾
     const needAtt = p.isNew || (p.hearing && !(p.case && h.caseAttorneys(p.case).length));
     const keepAtt = new Set([...document.querySelectorAll('input[data-af-att]:checked')].map((x) => x.value));
-    extra.innerHTML = needAtt ? `<div class="text-xs text-slate-600">承辦律師（開庭行事曆需要）：${h.ATTORNEYS.map((a) => `<label class="inline-flex items-center gap-1 mr-3"><input type="checkbox" data-af-att value="${esc(a.fullName)}" ${keepAtt.has(a.fullName) ? 'checked' : ''} />${esc(a.fullName)}</label>`).join('')}</div>` : '';
+    extra.innerHTML = needAtt ? `<div class="text-xs text-slate-600">承辦律師（行事曆需要）：${h.ATTORNEYS.map((a) => `<label class="inline-flex items-center gap-1 mr-3"><input type="checkbox" data-af-att value="${esc(a.fullName)}" ${keepAtt.has(a.fullName) ? 'checked' : ''} />${esc(a.fullName)}</label>`).join('')}</div>` : '';
     extra.querySelectorAll('input[data-af-att]').forEach((el) => el.addEventListener('change', refresh));
     if (p.kind === 'case') {
       const ups = Object.entries(p.updates).map(([k, v]) => `${FIELDS.case.find((d) => d.key === k).label}＝${esc(v)}`);
@@ -710,7 +710,7 @@
         : `<div class="text-amber-700">⏰ 不建立期限：${esc(p.deadline.reason)}</div>`);
     }
     if (p.hearing) parts.push(`<div>📅 開庭：<b>${esc(p.hearing.date)} ${esc(p.hearing.time || '（整日）')}</b> ${esc(p.hearing.courtroom || '')} ${esc(p.hearing.court || '')}${p.hearing.attorneys.length ? `｜${esc(p.hearing.attorneys.join('、'))}` : ''}${p.hearing.duplicate ? '<span class="text-amber-700">｜⚠ 這件案件同一時間已有開庭，確認後會再多排一筆</span>' : ''}</div>`);
-    if (p.kind === 'case' && p.hearing) parts.push(`<label class="text-xs text-slate-600 flex items-center gap-2"><input type="checkbox" id="af-add-hearing" ${document.getElementById('af-add-hearing') && !document.getElementById('af-add-hearing').checked ? '' : 'checked'} />同時把這個開庭日排進開庭行事曆</label>`);
+    if (p.kind === 'case' && p.hearing) parts.push(`<label class="text-xs text-slate-600 flex items-center gap-2"><input type="checkbox" id="af-add-hearing" ${document.getElementById('af-add-hearing') && !document.getElementById('af-add-hearing').checked ? '' : 'checked'} />同時把這個開庭日排進行事曆</label>`);
     if (p.problems.length) parts.push(`<div class="text-red-600">⚠ ${p.problems.map(esc).join('；')}</div>`);
     const keepHearingBox = document.getElementById('af-add-hearing');
     const keepVal = keepHearingBox ? keepHearingBox.checked : true;

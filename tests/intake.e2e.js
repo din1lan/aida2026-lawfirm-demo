@@ -127,7 +127,7 @@ const CASES = [
     if (c.expect.deadline || c.expect.deadlineDate) check(after.d > before.d, `建了期限（${after.d - before.d} 筆）`);
     if (c.expect.deadlineDate) check(await p.evaluate((d) => window.LF_AutofillHost.getDeadlines().some((x) => x.source === 'intake' && x.computedDeadline === d && x.kind === 'main'), c.expect.deadlineDate), `期限末日 ${c.expect.deadlineDate}`);
     if (c.expect.task) check(after.t > before.t, '建了待辦');
-    if (c.expect.hearing) check(await p.evaluate((d) => window.LF_AutofillHost.getHearings().some((x) => x.source === 'intake' && x.date === d), c.expect.hearing), `排進開庭行事曆 ${c.expect.hearing}`);
+    if (c.expect.hearing) check(await p.evaluate((d) => window.LF_AutofillHost.getHearings().some((x) => x.source === 'intake' && x.date === d), c.expect.hearing), `排進行事曆 ${c.expect.hearing}`);
     const logged = await p.evaluate(() => window.LF_AutofillHost.getCases().some((x) => (x.intakeLog || []).length && x.intakeLog[x.intakeLog.length - 1].fileName));
     check(logged, '案件有收文紀錄');
     if (c.openCase) {
@@ -218,7 +218,7 @@ const CASES = [
     await sm.p.click('#in-confirm');
     const after = await counts(sm.p);
     if (ck === 'deadline') check(after.d > before.d, '判決 → 建了期限');
-    if (ck === 'hearing') check(after.h > before.h, '開庭通知 → 排進開庭行事曆');
+    if (ck === 'hearing') check(after.h > before.h, '開庭通知 → 排進行事曆');
     if (ck === 'task') check(after.t > before.t, '繳款通知 → 建了待辦');
   }
   check(!sm.errs.length, `頁面錯誤 ${sm.errs.length} 個`);

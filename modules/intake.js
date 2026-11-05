@@ -883,7 +883,7 @@
     parts.push(`<div>📥 收文紀錄：${esc(CAT_LABEL[p.category])}｜收文日 ${esc(p.v.receivedDate || '（未填）')}${p.v.docNo ? '｜' + esc(p.v.docNo) : ''} → ${p.isNew ? '🆕 新案件' : p.case ? `案件 <b>${esc(p.case.caseNumber)}</b>` : '（尚未選案件）'}</div>`);
     (p.deadlines.items || []).forEach((it) => parts.push(deadlineLine(it)));
     if (p.manual) parts.push(p.manual.kind === 'payDue' ? `<div data-in-deadline="${esc(p.manual.dueDate)}">⏰ 手動期限：${esc(p.manual.action)} <b>${esc(p.manual.dueDate)}</b>；＋待辦</div>` : deadlineLine(Object.assign({ task: true }, p.manual)));
-    if (p.hearing) parts.push(`<div>📅 排進開庭行事曆：<b>${esc(p.hearing.date)} ${esc(p.hearing.time || '（整日）')}</b> ${esc(p.hearing.courtroom)} ${esc(p.hearing.court)}${p.hearing.attorneys.length ? '｜' + esc(p.hearing.attorneys.join('、')) : ''}</div>`);
+    if (p.hearing) parts.push(`<div>📅 排進行事曆：<b>${esc(p.hearing.date)} ${esc(p.hearing.time || '（整日）')}</b> ${esc(p.hearing.courtroom)} ${esc(p.hearing.court)}${p.hearing.attorneys.length ? '｜' + esc(p.hearing.attorneys.join('、')) : ''}</div>`);
     (p.deadlines.notes || []).forEach((n) => parts.push(`<div class="text-amber-700">ⓘ ${esc(n)}</div>`));
     if (!p.deadlines.items.length && !p.manual && !p.hearing) parts.push('<div class="text-slate-500">這份來文沒有自動期限；需要的話在上面「手動加期限」。</div>');
     if (p.problems.length) parts.push(`<div class="text-red-600">⚠ ${p.problems.map(esc).join('；')}</div>`);

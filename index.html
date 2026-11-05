@@ -352,7 +352,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
         <label class="flex items-center gap-2 text-slate-500 -mt-3" style="font-size:16px"><input type="checkbox" id="home-lists-all-dates" /> 顯示之後所有日期（要改期、刪除時用）</label>
 
         <details class="lf-fold" data-fold="home-cal">
-          <summary><span class="lf-fold-t">開庭行事曆<span class="lf-fold-n">（<span id="fold-n-cal">0</span>）</span></span><span class="lf-fold-arrow" aria-hidden="true">▸</span></summary>
+          <summary><span class="lf-fold-t">行事曆<span class="lf-fold-n">（<span id="fold-n-cal">0</span>）</span></span><span class="lf-fold-arrow" aria-hidden="true">▸</span></summary>
           <div class="lf-fold-body">
         <div class="bg-white rounded-lg border border-slate-200 p-2.5 md:p-5">
           
@@ -423,7 +423,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
       <!-- ============ LINE 預約收件匣（比賽示範版：串接 LINE 24H AI 接待） ============ -->
       <section id="page-line-inbox" class="page space-y-6 hidden">
         <div>
-          <h1 class="text-2xl font-bold text-slate-900">LINE 預約收件匣</h1>
+          <div class="flex items-center justify-between gap-3 flex-wrap"><h1 class="text-2xl font-bold text-slate-900">LINE 預約收件匣</h1><a href="#" id="link-inbox-manual-conflict" class="text-indigo-600 hover:underline" style="font-size:16px">🔍 手動查利衝</a></div>
           <p class="text-slate-500 text-sm mt-1">LINE 24H AI 接待完成的預約會自動進到這裡。先做利益衝突審核，諮詢後確定委任，再一鍵轉為接案。示範資料皆為虛構。</p>
         </div>
         <div class="bg-white rounded-lg border border-slate-200 p-5">
@@ -3366,6 +3366,9 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
     counts.forEach(([, src]) => { const el = document.getElementById(src); if (el) new MutationObserver(upd).observe(el, { childList: true }); });
     upd();
     document.querySelectorAll('[data-goto-page]').forEach((a) => a.addEventListener('click', (e) => { e.preventDefault(); showPage(a.dataset.gotoPage); }));
+    // 2026-11-05：LINE 收件匣頂端「手動查利衝」→ 跳到首頁的查詢框
+    const mc = document.getElementById('link-inbox-manual-conflict');
+    if (mc) mc.addEventListener('click', (e) => { e.preventDefault(); showPage('page-dashboard'); const inp = document.getElementById('conflict-check-input'); if (inp) { inp.scrollIntoView({ block: 'center' }); inp.focus(); } });
     const gi = document.getElementById('btn-cases-goto-intake'); if (gi) gi.addEventListener('click', () => showPage('page-autofill'));
     const all = document.getElementById('home-lists-all-dates'); if (all) all.addEventListener('change', () => renderHearingAndDeadlineLists());
   })();
