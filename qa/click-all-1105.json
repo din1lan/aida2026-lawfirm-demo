@@ -3,8 +3,8 @@
   {
    "page": "page-ai-brief",
    "name": "AI 智慧閱卷可溯源",
-   "buttons": 4,
-   "clicked": 4,
+   "buttons": 3,
+   "clicked": 3,
    "skipped": 0,
    "newErrors": 0
   },
@@ -143,7 +143,6 @@
  "externalTried": [],
  "dialogs": [
   "alert：請先貼入至少 30 字的書狀或判決書內容、上傳 PDF，或點「貼入示範文字（測試用）」測試",
-  "alert：請先貼上 Gemini API 金鑰",
   "prompt：貼上 Make「比賽示範_收件匣讀取」的網址（只存在這台電腦的瀏覽器）。清空後按確定可移除。",
   "prompt：摘要："
  ],
