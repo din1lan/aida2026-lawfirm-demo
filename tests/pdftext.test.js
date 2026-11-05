@@ -7,9 +7,10 @@ let n = 0; const ok = (name, fn) => { fn(); n++; console.log('✓ ' + name); };
 const it = (str, y, hasEOL = false, h = 12) => ({ str, transform: [h, 0, 0, h, 50, y], height: h, hasEOL });
 
 ok('讀取參數帶中文字型對照表與標準字型（同 3.11.174 版）', () => {
-  assert.strictEqual(T.OPTIONS.cMapUrl, 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/');
+  assert.strictEqual(T.OPTIONS.cMapUrl, 'vendor/pdfjs/cmaps/'); // 2026-11-05：放在網站自己的 vendor/，不靠 CDN
   assert.strictEqual(T.OPTIONS.cMapPacked, true);
-  assert.strictEqual(T.OPTIONS.standardFontDataUrl, 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/standard_fonts/');
+  assert.strictEqual(T.OPTIONS.standardFontDataUrl, 'vendor/pdfjs/standard_fonts/');
+  ['cmaps/Adobe-CNS1-UCS2.bcmap', 'standard_fonts/FoxitSerif.pfb', 'pdf.min.js', 'pdf.worker.min.js'].forEach((f) => assert.ok(require('fs').existsSync(require('path').join(__dirname, '..', 'vendor', 'pdfjs', f)), '缺少 vendor/pdfjs/' + f));
 });
 ok('同一行的片段直接接起來，一個字都不少', () => {
   assert.strictEqual(T.pageText([it('被告應給付', 700), it('原告新臺幣', 700), it('參拾伍萬元。', 700, true)]), '被告應給付原告新臺幣參拾伍萬元。\n');
@@ -92,7 +93,10 @@ ok('紙本印記：英數序號要同時有字母和數字、12～24 碼才算�
   assert.strictEqual(T.stripPrintMarks('LINE\nABC123\nREPUBLICOFCHINA').text, 'LINE\nABC123\nREPUBLICOFCHINA');
   assert.strictEqual(T.stripPrintMarks('A1B2C3D4E5F6G7H8').removed, 1);
 });
-ok('OCR 元件版本全部釘死（不會自動跳新版）', () => {
-  for (const k of ['script', 'workerPath', 'corePath', 'langPath']) assert(/@\d+\.\d+\.\d+/.test(T.OCR[k]), k);
+ok('OCR 元件放在網站自己的 vendor/tesseract/（不靠 CDN、版本固定），檔案都在', () => {
+  const fs = require('fs'); const path = require('path'); const V = path.join(__dirname, '..', 'vendor', 'tesseract');
+  for (const k of ['script', 'workerPath', 'corePath', 'langPath']) assert(/^vendor\/tesseract\//.test(T.OCR[k]) && !/^https?:/.test(T.OCR[k]), k + '：' + T.OCR[k]);
+  ['tesseract.min.js', 'worker.min.js', 'core/tesseract-core-lstm.wasm.js', 'core/tesseract-core-simd-lstm.wasm.js', 'lang/chi_tra.traineddata.gz'].forEach((f) => assert(fs.existsSync(path.join(V, f)), '缺少 vendor/tesseract/' + f));
+  assert(fs.readFileSync(path.join(V, 'tesseract.min.js'), 'utf8').includes('"5.1.1"'), 'tesseract.js 版本應為 5.1.1');
 });
 console.log(`\n全部通過（${n} 項）`);
