@@ -19,7 +19,7 @@ const ROOT = path.join(__dirname, '..', '..');
   await p.selectOption('#login-role-select', 'ding').catch(() => {}); await P(900);
   await p.click('#form-login button'); await P(2000); mark('王大明登入 → 首頁總覽');
   await p.click('button[data-page="page-ai-brief"]'); await P(1800); mark('AI 智慧閱卷');
-  await smooth('#aib-engine', 'center'); await p.selectOption('#aib-engine', 'local'); await P(1200); mark('切換示意版（免金鑰）');
+  await smooth('#aib-engine-status', 'center'); await P(1500); mark('尚未設定 AI，自動用示意版（主畫面沒有金鑰框）');
   await p.click('#aib-load-case');
   for (let i = 0; i < 120; i++) {
     const done = await p.evaluate(() => /04_原告民事準備書狀/.test(document.querySelector('#page-ai-brief').innerText) && !/讀取中|下載示範/.test(document.getElementById('aib-pdf-status').textContent));
