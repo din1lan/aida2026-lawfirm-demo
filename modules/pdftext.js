@@ -193,24 +193,44 @@
   const MATCH_MIN = 0.6; // 比對分數低於這個就不標，改顯示提示
 
   // Gemini 辨識的頁沒有座標：背景用本機 Tesseract 再跑一次，只為了取得座標（文字不用）。一次只跑一份工作
+  // 2026-11-05：之前要「整份每一頁」都跑完黃框才出現（5 頁約 19 秒）。改成：
+  //   ① 每頁辨識完就能用（pg.boxes 是「這一頁」的 Promise）
+  //   ② 使用者點開的那頁插隊先做（prioritizeBoxes）
+  //   ③ 等待時有進度（pg.boxProgress：0～1，以及前面還排幾頁）
   let boxQueue = Promise.resolve();
   function locateInBackground(pdf, pgs) {
+    const pending = pgs.slice();
+    pgs.forEach((pg) => {
+      pg.boxProgress = 0;
+      pg.boxes = new Promise((res) => { pg._boxDone = res; });
+      pg.boxAhead = () => { const i = pending.indexOf(pg); return i < 0 ? 0 : i; };
+      pg.prioritizeBoxes = () => { const i = pending.indexOf(pg); if (i > 0) { pending.splice(i, 1); pending.unshift(pg); } };
+    });
     const job = boxQueue.then(async () => {
-      let worker = null;
+      let worker = null; let cur = null;
       try {
         const T = await loadTesseract();
-        worker = await T.createWorker(OCR.lang, 1, { workerPath: OCR.workerPath, corePath: OCR.corePath, langPath: OCR.langPath });
-        for (const pg of pgs) {
-          const cv = await renderToCanvas(await pdf.getPage(pg.n));
-          const r = await worker.recognize(cv, {}, { blocks: true });
-          pg.ocrChars = ocrChars(r && r.data, OCR.scale || 3);
-          cv.width = cv.height = 0;
+        worker = await T.createWorker(OCR.lang, 1, {
+          workerPath: OCR.workerPath, corePath: OCR.corePath, langPath: OCR.langPath,
+          logger: (m) => { if (cur && m && m.status === 'recognizing text' && typeof m.progress === 'number') cur.boxProgress = m.progress; },
+        });
+        while (pending.length) {
+          const pg = pending[0]; cur = pg;
+          try {
+            const cv = await renderToCanvas(await pdf.getPage(pg.n));
+            const r = await worker.recognize(cv, {}, { blocks: true });
+            pg.ocrChars = ocrChars(r && r.data, OCR.scale || 3);
+            cv.width = cv.height = 0;
+          } catch (e) { pg.boxError = (e && e.message) || String(e); }
+          pg.boxProgress = 1; pending.shift(); pg._boxDone();
         }
-      } catch (e) { pgs.forEach((pg) => { if (!pg.ocrChars) pg.boxError = (e && e.message) || String(e); }); }
-      finally { if (worker) { try { await worker.terminate(); } catch (e) { /* ignore */ } } }
+      } catch (e) { pending.forEach((pg) => { if (!pg.ocrChars) pg.boxError = (e && e.message) || String(e); }); }
+      finally {
+        pending.splice(0).forEach((pg) => pg._boxDone());
+        if (worker) { try { await worker.terminate(); } catch (e) { /* ignore */ } }
+      }
     });
     boxQueue = job.catch(() => {});
-    pgs.forEach((pg) => { pg.boxes = job; });
     return job;
   }
 

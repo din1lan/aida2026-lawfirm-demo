@@ -50,6 +50,21 @@ function pickQuotes(file, dpi, pagesWanted) {
     await p.evaluate(() => { document.getElementById('aib-pdf-status').textContent = '__wait'; });
     await p.setInputFiles('#aib-pdf', { name: file, mimeType: 'application/pdf', buffer: fs.readFileSync(path.join(FX, file)) });
     await p.waitForFunction(() => !/讀取中|__wait|辨識中|辨識完成/.test(document.getElementById('aib-pdf-status').textContent), null, { timeout: 300000 });
+    if (gemini) {
+      // 2026-11-05：讀完馬上點最後一頁（第 5 頁）的原文：要插隊先辨識、有進度，不用等整份 5 頁跑完（之前約 19 秒）
+      const q5 = pickQuotes(file, dpi, [5])[0]; const t0 = Date.now(); let sawProgress = false;
+      await p.evaluate((f) => window.LF_AibViewer(f), { page: q5.page, quote: q5.quote });
+      for (let i = 0; i < 600; i++) {
+        const st = await p.evaluate(() => { const c = document.querySelector('#aib-viewer-body canvas + canvas'); const n = document.querySelector('.aib-scan-note'); return { done: !!(c && c.dataset.rects), note: n ? n.textContent : '' }; });
+        if (/\d+%|前面還有/.test(st.note)) sawProgress = true;
+        if (st.done) break; await p.waitForTimeout(100);
+      }
+      const sec = (Date.now() - t0) / 1000;
+      console.log(`  第 5 頁黃框出現：${sec.toFixed(1)} 秒；等待時有顯示進度：${sawProgress ? '有' : '沒有'}`);
+      summary.push(`Gemini 第5頁黃框 ${sec.toFixed(1)} 秒`);
+      if (sec > 12) fails.push(`Gemini 第 5 頁黃框要等 ${sec.toFixed(1)} 秒（應該插隊先做，12 秒內）`);
+      if (!sawProgress) fails.push('等黃框時沒有顯示進度');
+    }
     const quotes = pickQuotes(file, dpi, pagesWanted); let hits = 0; let shot = 0;
     for (const q of quotes) {
       await p.evaluate((f) => window.LF_AibViewer(f), { page: q.page, quote: q.quote });

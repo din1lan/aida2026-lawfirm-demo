@@ -6734,9 +6734,17 @@ footer{font-size:12.5px;color:#8a8273;border-top:1px solid var(--rule);padding-t
     };
     if (draw()) return;
     if (!src.ocrChars && src.boxes) {
-      note('正在用本機辨識取得這一頁的文字位置（圖片不上傳），完成後會自動標出黃色位置…', 'text-slate-500');
+      // 2026-11-05：這一頁插隊先做，並顯示進度（不用等整份每一頁都辨識完）
+      if (src.prioritizeBoxes) src.prioritizeBoxes();
       const token = aibViewing;
-      src.boxes.then(() => { if (aibViewing !== token || !hl.isConnected) return; if (!draw()) fallback(); });
+      const tick = () => {
+        const ahead = src.boxAhead ? src.boxAhead() : 0;
+        const pct = Math.round((src.boxProgress || 0) * 100);
+        note(`正在用本機辨識取得這一頁的文字位置（圖片不上傳）…${ahead ? `前面還有 ${ahead} 頁` : `${pct}%`}，完成後會自動標出黃色位置`, 'text-slate-500');
+      };
+      tick();
+      const timer = setInterval(() => { if (aibViewing !== token || !hl.isConnected || src.ocrChars) { clearInterval(timer); return; } tick(); }, 400);
+      src.boxes.then(() => { clearInterval(timer); if (aibViewing !== token || !hl.isConnected) return; if (!draw()) fallback(); });
       return;
     }
     fallback();
