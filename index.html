@@ -6290,7 +6290,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
         files.push({ name: f.name.replace(/\.pdf$/i, ''), pdf, numPages: pdf.numPages, report: isRep });
         const G = window.LF_GeminiOcr;
         const skipNote = window.LF_PdfText.skippedNote(rd.pages);
-        const imgNote = (G && rd.geminiPages && rd.geminiPages.length ? `；<b class="text-indigo-700">${G.pagesNote(rd.geminiPages)}</b>` : '') + (G && rd.geminiError ? `；<b class="text-amber-700">${esc(G.fallbackNote(rd.geminiError))}</b>` : '')
+        const imgNote = (G && rd.geminiPages && rd.geminiPages.length && !rd.geminiError ? ` · ${G.pagesNote(rd.geminiPages)}` : '') + (G && rd.geminiError ? `；<b class="text-red-600">${esc(G.fallbackNote(rd.geminiError, rd.geminiFatal))}</b>` : '')
           + (rd.ocrPages.length ? `；<b class="text-amber-700">${window.LF_PdfText.ocrPagesNote(rd.ocrPages)}${skipNote ? '；' + skipNote : ''}</b>` : '')
           + (chars >= 30 && rd.imagePages.length ? `；<b class="text-red-600">${window.LF_PdfText.imagePagesNote(rd.imagePages)}</b>，這幾頁的內容不會送去分析${rd.ocrError ? `（${esc(rd.ocrError)}）` : ''}` : '');
         notes.push(`文件${fi + 1}：${esc(f.name)}（${pdf.numPages} 頁${chars < 30 ? `，讀不到文字，可能是掃描檔${rd.ocrError ? `；文字辨識沒有成功：${esc(rd.ocrError)}` : ''}` : ''}）${imgNote}`);

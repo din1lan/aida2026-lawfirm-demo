@@ -34,9 +34,9 @@
   // 「第 2、5 頁由 Gemini 辨識」
   function pagesNote(nums) {
     const list = (nums || []).filter((n) => Number.isFinite(n));
-    return list.length ? `第 ${list.join('、')} 頁由 Gemini 辨識（頁面圖片已原樣送給 Google，這一步沒有遮姓名；之後送去分析的文字會先遮姓名）` : '';
+    return list.length ? 'Gemini 讀取完成' : ''; // 2026-11-05：只留一句（事務所已決定直接交給 Google）
   }
-  const PAGE_MARK = '（此頁由 Gemini 辨識：圖片原樣送給 Google、未遮姓名；分析時文字會先遮姓名。請核對原文）';
+  const PAGE_MARK = '（此頁由 Gemini 辨識，請核對原文）';
 
   function buildRequest(base64, mime, pageNo) {
     return {
@@ -75,8 +75,9 @@
     const c = (j.candidates || [])[0] || {};
     const text = cleanText(((c.content || {}).parts || []).map((p) => p.text || '').join(''));
     if (text.replace(/[\s　]+/g, '').length >= MIN_CHARS) return { text };
-    const why = c.finishReason && c.finishReason !== 'STOP' ? '（' + c.finishReason + '）' : '';
-    return { error: '這一頁 Gemini 沒有回傳文字' + why, fatal: false };
+    // 2026-11-05：正常結束但沒有文字＝空白頁，略過、不算失敗
+    if (!c.finishReason || c.finishReason === 'STOP') return { text: '', blank: true };
+    return { error: '這一頁 Gemini 沒有回傳文字（' + c.finishReason + '）', fatal: false };
   }
 
   // 金鑰與模型：管理員設定頁（modules/ai-config.js）
@@ -134,7 +135,7 @@
       const say = (t) => { if (onStatus) { try { onStatus(t); } catch (e) { /* ignore */ } } };
       const cred = opt.credentials ? opt.credentials() : credentials();
       if (!cred.key) return { pages: [], error: '沒有 Gemini 金鑰（請到「AI 智慧閱卷」頁貼上）' };
-      const done = []; let error = '';
+      const done = []; let error = ''; let fatal = false;
       const list = ctx.imagePages || [];
       for (let k = 0; k < list.length; k++) {
         const pg = ctx.pages[list[k] - 1];
@@ -146,19 +147,21 @@
         const r = await recognize(b64, 'image/jpeg', { key: cred.key, model: cred.model, page: pg.n, fetch: opt.fetch });
         if (r.text) {
           pg.text = r.text; pg.chars = r.text.replace(/[\s　]+/g, '').length; pg.image = false; pg.gemini = true; done.push(pg.n);
+        } else if (r.blank) {
+          pg.text = ''; pg.chars = 0; pg.image = false; pg.blank = true; // 空白頁：略過，不警告
         } else {
           error = `第 ${pg.n} 頁：${r.error}`;
-          if (r.fatal) break;
+          if (r.fatal) { fatal = true; break; }
         }
       }
       if (opt.onProgress) { try { opt.onProgress(null); } catch (e) { /* ignore */ } }
-      return { pages: done, error };
+      return { pages: done, error, fatal, used: true };
     };
   }
 
   // 失敗原因 → 畫面說明（「Gemini 辨識沒有成功（…），已改用本機辨識」）
-  function fallbackNote(err) {
-    return err ? `Gemini 辨識沒有成功（${err}），沒成功的頁已改用本機辨識` : '';
+  function fallbackNote(err, fatal) {
+    return err ? `Gemini 讀取失敗（${err}）${fatal ? '，已改用本機辨識' : ''}` : '';
   }
 
   const api = { PROMPT, LABEL, PAGE_MARK, DEFAULT_MODEL, buildRequest, parseResponse, explainError, cleanText, recognize, credentials, checkboxHtml, hookFor, pagesNote, fallbackNote };

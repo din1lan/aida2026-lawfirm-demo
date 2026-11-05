@@ -364,10 +364,11 @@
     // 可選：使用者勾選「掃描頁用 Gemini 辨識」時，先送 Gemini（modules/gemini-ocr.js）；沒成功的頁才走下面的本機 OCR
     let remote = { pages: [], error: '' };
     if (imagePages.length && opts.remoteOcr) {
-      try { remote = (await opts.remoteOcr({ pdf, pages, imagePages: imagePages.slice(), renderToCanvas })) || remote; } catch (e) { remote = { pages: [], error: (e && e.message) || String(e) }; }
+      try { remote = (await opts.remoteOcr({ pdf, pages, imagePages: imagePages.slice(), renderToCanvas })) || remote; } catch (e) { remote = { pages: [], error: (e && e.message) || String(e), fatal: true, used: true }; }
       remote.pages.forEach((n) => { chars += pages[n - 1].chars; });
     }
-    const ocrTodo = imagePages.filter((n) => !remote.pages.includes(n));
+    // 2026-11-05：有交給 Gemini 就不再用本機 OCR 混著補（空白頁已略過）；只有 Gemini 整個不能用（金鑰錯、斷線）才退回本機
+    const ocrTodo = remote.used && !remote.fatal ? [] : imagePages.filter((n) => !remote.pages.includes(n) && pages[n - 1].image);
     const ocrPages = []; let ocrError = ''; let ocrMs = 0;
     if (ocrTodo.length && opts.ocr !== false) {
       const t0 = Date.now(); let worker = null;
@@ -412,7 +413,7 @@
     const gem = pages.filter((pg) => pg.gemini && !pg.ocrChars);
     if (gem.length && opts.ocr !== false && opts.locate !== false) locateInBackground(pdf, gem);
     const stillImage = ocrTodo.filter((n) => !ocrPages.includes(n));
-    return { printMarks, pdf, numPages: pdf.numPages, pages, imagePages: stillImage, ocrPages, blankPages, chars, ocrError, ocrMs, geminiPages: remote.pages, geminiError: remote.error || '' };
+    return { printMarks, pdf, numPages: pdf.numPages, pages, imagePages: stillImage, ocrPages, blankPages, chars, ocrError, ocrMs, geminiPages: remote.pages, geminiError: remote.error || '', geminiFatal: !!remote.fatal };
   }
 
   // ---- 本機 OCR 進度條（AI 智慧閱卷、收文登記、AI 自動填共用）：放在狀態文字下面，辨識完自動收起 ----

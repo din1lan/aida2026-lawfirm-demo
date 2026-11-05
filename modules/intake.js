@@ -609,7 +609,7 @@
         });
         const text = rd.pages.map((p) => p.text).join('\n');
         if (squash(text).length < 10) throw new Error('這份 PDF 讀不到文字（掃描檔辨識也沒有成功' + (rd.ocrError ? '：' + rd.ocrError : '') + '）。仍可在下方選類別、手動登記');
-        UI.doc = { name: file.name, image: false, text, numPages: rd.numPages, ocrPages: rd.ocrPages, imagePages: rd.imagePages, geminiPages: rd.geminiPages, geminiError: rd.geminiError };
+        UI.doc = { name: file.name, image: false, text, numPages: rd.numPages, ocrPages: rd.ocrPages, imagePages: rd.imagePages, geminiPages: rd.geminiPages, geminiError: rd.geminiError, geminiFatal: rd.geminiFatal };
         setStatus(`✓ 已讀入：${esc(file.name)}（${rd.numPages} 頁，約 ${squash(text).length} 字）${pageNotes(UI.doc)}`);
       }
       $('in-run').disabled = false; paintConsent();
@@ -625,8 +625,9 @@
   // 掃描頁說明：哪幾頁由 Gemini 辨識（圖片沒遮姓名）、哪幾頁是本機 OCR（可能有錯字）
   function pageNotes(doc) {
     const P = window.LF_PdfText; const G = window.LF_GeminiOcr; if (!doc || !P) return '';
-    return (G && doc.geminiPages && doc.geminiPages.length ? `<br><b class="text-indigo-700">ⓘ ${esc(G.pagesNote(doc.geminiPages))}</b>` : '')
-      + (G && doc.geminiError ? `<br><b class="text-amber-700">⚠ ${esc(G.fallbackNote(doc.geminiError))}</b>` : '')
+    // 2026-11-05：Gemini 成功只加「· Gemini 讀取完成」；真的失敗才一行錯誤
+    return (G && doc.geminiPages && doc.geminiPages.length && !doc.geminiError ? ` · ${esc(G.pagesNote(doc.geminiPages))}` : '')
+      + (G && doc.geminiError ? `<br><b class="text-red-600">⚠ ${esc(G.fallbackNote(doc.geminiError, doc.geminiFatal))}</b>` : '')
       + (doc.ocrPages && doc.ocrPages.length ? `<br><b class="text-amber-700">⚠ ${esc(P.ocrPagesNote(doc.ocrPages))}</b>，確認欄位時請對照原檔` : '')
       + (doc.imagePages && doc.imagePages.length ? `<br><b class="text-red-600">⚠ ${esc(P.imagePagesNote(doc.imagePages))}</b>，這幾頁的欄位請對照原檔自己填` : '');
   }

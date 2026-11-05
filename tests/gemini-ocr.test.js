@@ -70,8 +70,8 @@ test('03 回應包了 Markdown 框、中文字之間夾半形空白：拿掉，�
   const r = G.parseResponse(200, ok('```\n主 文\n被告應給付原告　新臺幣 參拾伍萬元。\n```').json);
   assert.strictEqual(r.text, '主文\n被告應給付原告　新臺幣參拾伍萬元。');
 });
-test('04 回應是空的或只有幾個字：當成失敗（之後退回本機）', () => {
-  assert.ok(G.parseResponse(200, ok('  ').json).error.includes('沒有回傳文字'));
+test('04 正常結束但沒有文字＝空白頁（略過、不算失敗）；被擋或中斷才算失敗', () => {
+  assert.strictEqual(G.parseResponse(200, ok('  ').json).blank, true);
   assert.ok(G.parseResponse(200, { candidates: [{ finishReason: 'RECITATION' }] }).error.includes('RECITATION'));
   assert.ok(G.parseResponse(200, { promptFeedback: { blockReason: 'SAFETY' } }).error.includes('SAFETY'));
 });
@@ -167,10 +167,11 @@ test('15 沒勾選時 PDF 讀取完全照舊（不會呼叫 Gemini）', async ()
 });
 test('16 畫面說明：Gemini 頁標示「圖片沒遮、分析有遮」，失敗說明已改用本機', () => {
   const n = G.pagesNote([2, 5]);
-  assert.ok(n.startsWith('第 2、5 頁由 Gemini 辨識')); assert.ok(n.includes('沒有遮姓名')); assert.ok(n.includes('會先遮姓名'));
+  assert.strictEqual(n, 'Gemini 讀取完成'); assert.ok(!/遮姓名|送給 Google/.test(n));
   assert.strictEqual(G.pagesNote([]), '');
   assert.ok(G.PAGE_MARK.includes('此頁由 Gemini 辨識'));
-  assert.ok(G.fallbackNote('第 1 頁：連不上 Google（可能沒有網路）').includes('已改用本機辨識'));
+  assert.ok(G.fallbackNote('第 1 頁：連不上 Google（可能沒有網路）', true).includes('已改用本機辨識'));
+  assert.deepStrictEqual(G.parseResponse(200, { candidates: [{ content: { parts: [{ text: '' }] }, finishReason: 'STOP' }] }), { text: '', blank: true }, '空白頁：正常結束但沒文字＝略過，不算失敗');
   assert.strictEqual(G.fallbackNote(''), '');
 });
 test('17 轉回來的文字照原流程去識別化：姓名在分析那一步會被遮', () => {
