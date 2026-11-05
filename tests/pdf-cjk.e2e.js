@@ -7,32 +7,14 @@
 'use strict';
 const { chromium } = require('playwright');
 const fs = require('fs'); const path = require('path');
+const { offline, unexpected } = require('./offline');
 const FX = path.join(__dirname, 'fixtures', 'pdf-cjk');
 const OFFLINE = process.env.OFFLINE_OCR === '1';
 const OCR_MIN = 0.85;
 
-// 沙箱擋外部 CDN 時：設 CDN_DIR 指向本機 npm 同版本套件（npm pack 解開），只在測試瀏覽器內替換：
-//   pdfjs-dist-3.11.174、xlsx-0.18.5、tesseract.js-5.1.1、tesseract.js-core-5.1.1、tesseract.js-data-chi_tra-1.0.0
 async function route(ctx) {
-  const dir = process.env.CDN_DIR;
-  await ctx.route(/^https:\/\/(cdnjs\.cloudflare\.com|cdn\.jsdelivr\.net)\//, (r) => {
-    const u = r.request().url(); const H = { 'Access-Control-Allow-Origin': '*' };
-    const file = (p, type) => r.fulfill({ path: path.join(dir, p), contentType: type || 'application/octet-stream', headers: H });
-    if (/cdn\.jsdelivr\.net/.test(u) && OFFLINE) return r.abort();
-    if (!dir) return r.continue();
-    let m = u.match(/pdf\.js\/3\.11\.174\/(pdf\.min\.js|pdf\.worker\.min\.js)$/);
-    if (m) return file('pdfjs-dist-3.11.174/package/build/' + m[1], 'application/javascript');
-    m = u.match(/pdf\.js\/3\.11\.174\/(cmaps|standard_fonts)\/(.+)$/);
-    if (m) return file(`pdfjs-dist-3.11.174/package/${m[1]}/${decodeURIComponent(m[2])}`);
-    if (/xlsx\/0\.18\.5\/xlsx\.full\.min\.js$/.test(u)) return file('xlsx-0.18.5/package/dist/xlsx.full.min.js', 'application/javascript');
-    m = u.match(/npm\/tesseract\.js@5\.1\.1\/dist\/(.+)$/);
-    if (m) return file('tesseract.js-5.1.1/package/dist/' + m[1], 'application/javascript');
-    m = u.match(/npm\/tesseract\.js-core@5\.1\.1\/(.+)$/);
-    if (m) return file('tesseract.js-core-5.1.1/package/' + m[1], m[1].endsWith('.wasm') ? 'application/wasm' : 'application/javascript');
-    m = u.match(/npm\/@tesseract\.js-data\/(chi_tra)@1\.0\.0\/(.+)$/);
-    if (m) return file(`tesseract.js-data-${m[1]}-1.0.0/package/${m[2]}`);
-    return r.abort();
-  });
+  // 斷網：外部網址全擋（元件都在 vendor/）。OFFLINE_OCR=1 時連本機的 OCR 元件也擋，模擬元件壞掉
+  ctx.__blocked = await offline(ctx, OFFLINE ? { blockLocal: /\/vendor\/tesseract\// } : {});
 }
 const sq = (s) => String(s || '').replace(/[\s　]+/g, '');
 function lcs(a, b) { // 依序比對：b 裡有幾個字依序對得上 a
@@ -49,7 +31,7 @@ const strip = (html) => html.replace(/<br>/g, ' / ').replace(/<[^>]+>/g, '');
   const ctx = await b.newContext({ viewport: { width: 1280, height: 1000 } });
   await route(ctx);
   const p = await ctx.newPage(); const errs = [];
-  p.on('pageerror', (e) => { if (!/tailwind/.test(String(e))) errs.push(String(e)); });
+  p.on('pageerror', (e) => errs.push(String(e)));
   p.on('console', (m) => { if (/CMap/i.test(m.text())) errs.push('console: ' + m.text().slice(0, 160)); });
   await p.goto('http://localhost:8765/index.html?demo=ding#page-ai-brief', { waitUntil: 'load' });
   await p.waitForTimeout(800);

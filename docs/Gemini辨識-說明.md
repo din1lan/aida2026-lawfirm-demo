@@ -1,5 +1,7 @@
 # 掃描頁用 Gemini 辨識（可選功能）
 
+> **2026-11-05 更新**：pdf.js、Tesseract（含繁中語言檔）、xlsx、Tailwind 已全部放進網站的 `vendor/`，不再從 CDN 下載；本文提到 cdnjs、jsDelivr、`CDN_DIR`、「暖機」的地方是舊版說明。測試現在一律在斷網模式下跑（`tests/offline.js`）。詳見 `docs/正式版規格-1105.md`。
+
 分支：`feature/gemini-ocr`，已合併到 main（11/4，同時併入 `fix/ocr-quality` 的 OCR 品質改善）
 
 ## 一句話說明

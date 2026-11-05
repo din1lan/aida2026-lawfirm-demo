@@ -65,6 +65,8 @@ const CASES = [
   async function open(gem) {
     const ctx = await b.newContext({ viewport: { width: 1360, height: 2200 }, timezoneId: 'Asia/Taipei' });
     await route(ctx, gem);
+    // Gemini 情境：金鑰放進「管理員設定」的儲存位置（假的，不是真金鑰）
+    if (gem) await ctx.addInitScript(() => { try { localStorage.setItem('lf_admin_gemini_key', 'fake-key-for-test-only'); localStorage.setItem('lf_admin_gemini_model', 'gemini-fake'); } catch (e) { /* ignore */ } });
     const p = await ctx.newPage(); const errs = [];
     p.on('pageerror', (e) => { if (!/tailwind/.test(String(e))) errs.push(String(e)); });
     await p.goto(BASE + '?demo=ding#page-autofill', { waitUntil: 'load' });
@@ -73,7 +75,7 @@ const CASES = [
     return { ctx, p, errs };
   }
   async function runOne(p, file, engine) {
-    if (engine) await p.selectOption('#in-engine', engine);
+    if (engine) await p.evaluate((e) => { const s = document.getElementById('in-engine'); s.value = e; s.dispatchEvent(new Event('change')); }, engine);
     await p.setInputFiles('#in-file', asFile(path.join(FX, file))); // 中文路徑在部分環境傳不進去，改傳內容
     await p.waitForFunction(() => /已讀入|讀取失敗/.test(document.getElementById('in-status').textContent), null, { timeout: 120000 });
     await p.click('#in-run');
@@ -157,10 +159,7 @@ const CASES = [
     sent.push(r.request().postData() || '');
     return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify(fake) }] } }] }) });
   });
-  await g.p.evaluate(() => {
-    const k = document.getElementById('aib-gemini-key'); if (k) k.value = 'fake-key-for-test-only';
-    const m = document.getElementById('aib-gemini-model'); if (m) { const o = document.createElement('option'); o.value = 'gemini-fake'; o.textContent = 'gemini-fake'; m.appendChild(o); m.value = 'gemini-fake'; }
-  });
+  check(await g.p.$eval('#in-engine', (el) => el.value) === 'gemini', '有管理員金鑰時自動用 Gemini');
   await runOne(g.p, '07_郵局繳款通知單.pdf', 'gemini');
   if (sent.length !== 1) log('    狀態：' + await g.p.$eval('#in-status', (el) => el.textContent));
   check(sent.length === 1, 'Gemini 只被呼叫 1 次（假回應）');

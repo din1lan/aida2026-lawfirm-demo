@@ -1,41 +1,21 @@
 // 掃描頁用 Gemini 辨識：瀏覽器實測（假回應，不連 Google、不用真的金鑰）
 //   先在專案根目錄 python3 -m http.server 8765，再 node tests/gemini-ocr.e2e.js
-//   沙箱擋外部 CDN 時：CDN_DIR＝本機 npm 同版本套件（同 tests/pdf-cjk.e2e.js）；TW_CSS＝先編好的 Tailwind 樣式（只為了截圖好看）
 // 跑 4 種情況，截圖到 docs/screenshots/gemini-ocr/：
 //   AI 智慧閱卷 × {不勾選→本機 OCR、勾選→Gemini}、AI 自動填 × {不勾選、勾選}，另加「勾選但金鑰錯→退回本機」
 // 用的檔案：tests/fixtures/pdf-cjk/T2_含圖片頁_3頁.pdf（虛構判決，第 2 頁是掃描圖片，第 1、3 頁有文字層）
 'use strict';
 const { chromium } = require('playwright');
 const fs = require('fs'); const path = require('path');
+const { offline, unexpected } = require('./offline');
 const FX = path.join(__dirname, 'fixtures', 'pdf-cjk');
 const FILE = 'T2_含圖片頁_3頁.pdf';
 const SHOTS = path.join(__dirname, '..', 'docs', 'screenshots', 'gemini-ocr');
 const FAKE_KEY = 'fake-key-for-test-only';
 
 async function route(ctx, gem) {
-  const dir = process.env.CDN_DIR; const tw = process.env.TW_CSS;
-  await ctx.route(/^https:\/\/cdn\.tailwindcss\.com/, (r) => (tw
-    ? r.fulfill({ contentType: 'application/javascript', body: `(function(){var s=document.createElement('style');s.textContent=${JSON.stringify(fs.readFileSync(tw, 'utf8'))};document.head.appendChild(s);window.tailwind={};})();` })
-    : r.abort()));
+  // 斷網：外部網址全擋（元件都在 vendor/）；只有 Gemini 走假回應
+  ctx.__blocked = await offline(ctx);
   await ctx.route(/^https:\/\/generativelanguage\.googleapis\.com\//, gem);
-  await ctx.route(/^https:\/\/(cdnjs\.cloudflare\.com|cdn\.jsdelivr\.net)\//, (r) => {
-    const u = r.request().url(); const H = { 'Access-Control-Allow-Origin': '*' };
-    if (/cdn\.jsdelivr\.net/.test(u)) ctx.__tessHits = (ctx.__tessHits || 0) + 1;
-    if (!dir) return r.continue();
-    const file = (p, type) => r.fulfill({ path: path.join(dir, p), contentType: type || 'application/octet-stream', headers: H });
-    let m = u.match(/pdf\.js\/3\.11\.174\/(pdf\.min\.js|pdf\.worker\.min\.js)$/);
-    if (m) return file('pdfjs-dist-3.11.174/package/build/' + m[1], 'application/javascript');
-    m = u.match(/pdf\.js\/3\.11\.174\/(cmaps|standard_fonts)\/(.+)$/);
-    if (m) return file(`pdfjs-dist-3.11.174/package/${m[1]}/${decodeURIComponent(m[2])}`);
-    if (/xlsx\/0\.18\.5\/xlsx\.full\.min\.js$/.test(u)) return file('xlsx-0.18.5/package/dist/xlsx.full.min.js', 'application/javascript');
-    m = u.match(/npm\/tesseract\.js@5\.1\.1\/dist\/(.+)$/);
-    if (m) return file('tesseract.js-5.1.1/package/dist/' + m[1], 'application/javascript');
-    m = u.match(/npm\/tesseract\.js-core@5\.1\.1\/(.+)$/);
-    if (m) return file('tesseract.js-core-5.1.1/package/' + m[1], m[1].endsWith('.wasm') ? 'application/wasm' : 'application/javascript');
-    m = u.match(/npm\/@tesseract\.js-data\/(chi_tra)@1\.0\.0\/(.+)$/);
-    if (m) return file(`tesseract.js-data-${m[1]}-1.0.0/package/${m[2]}`);
-    return r.abort();
-  });
 }
 
 (async () => {
@@ -61,15 +41,19 @@ async function route(ctx, gem) {
       const text = String((truth[n - 1] || {}).text || '').replace(/乙○○/g, '李大華');
       return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ candidates: [{ content: { parts: [{ text }] }, finishReason: 'STOP' }] }) });
     });
+    // 金鑰：2026-11-05 起由「管理員設定」頁存在瀏覽器 localStorage（這裡直接放假的）
+    await ctx.addInitScript((k) => { try { localStorage.setItem('lf_admin_gemini_key', k); } catch (e) { /* ignore */ } }, FAKE_KEY);
     const p = await ctx.newPage(); const errs = [];
-    p.on('pageerror', (e) => { if (!/tailwind/.test(String(e))) errs.push(String(e)); });
+    p.on('pageerror', (e) => errs.push(String(e)));
     await p.goto('http://localhost:8765/index.html?demo=ding#page-ai-brief', { waitUntil: 'load' });
     await p.waitForTimeout(800);
-    // 金鑰：照網站作法貼在「AI 智慧閱卷」頁（假的）
-    await p.fill('#aib-gemini-key', FAKE_KEY); await p.dispatchEvent('#aib-gemini-key', 'change');
     const isAib = feature === 'aib';
     const box = isAib ? '#aib-gemini-ocr' : '#af-gemini-ocr'; const input = isAib ? '#aib-pdf' : '#af-file'; const status = isAib ? 'aib-pdf-status' : 'af-status';
-    if (!isAib) await p.evaluate(() => { window.LF_AutofillHost.showPage('page-autofill'); const t = document.querySelector('[data-af-kind="case"]'); if (t) t.click(); }); // 收文登記上線後預設分頁改成「收文登記」，這裡切回原本的「書狀」分頁
+    if (!isAib) {
+      await p.evaluate(() => { window.LF_AutofillHost.showPage('page-autofill'); const t = document.querySelector('[data-af-kind="case"]'); if (t) t.click(); }); // 收文登記上線後預設分頁改成「收文登記」，這裡切回原本的「書狀」分頁
+      // 欄位抽取用示意版（這個測試只測掃描頁辨識）；有金鑰時預設是 Gemini，所以手動切回
+      await p.evaluate(() => { const s = document.getElementById('af-engine'); s.value = 'mock'; s.dispatchEvent(new Event('change')); });
+    }
     await p.waitForSelector(box, { state: 'attached' });
     check(!(await p.isChecked(box)), '勾選框預設沒打勾');
     if (checked) await p.check(box);
@@ -79,14 +63,14 @@ async function route(ctx, gem) {
     const st = await p.evaluate((id) => document.getElementById(id).textContent, status);
     log('  狀態：' + st.replace(/\s+/g, ' ').slice(0, 260));
     const aibText = isAib ? await p.inputValue('#aib-text') : '';
-    const tess = ctx.__tessHits || 0;
+    const tess = (ctx.__vendorHits && ctx.__vendorHits.tesseract) || 0;
 
     if (!checked) {
       check(calls.length === 0, '沒勾選：完全沒有呼叫 Gemini');
       check(/OCR 辨識，可能有錯字|圖片、讀不到文字/.test(st), '沒勾選：照舊用本機 OCR');
     } else if (mode === 'ok') {
       check(calls.length === 1 && calls[0].page === 2 && calls[0].hasImg, '只送第 2 頁（掃描頁）的圖片，第 1、3 頁有文字層不送');
-      check(calls.every((c) => c.url.includes('key=' + FAKE_KEY)), '用「AI 智慧閱卷」頁貼的金鑰');
+      check(calls.every((c) => c.url.includes('key=' + FAKE_KEY)), '用管理員設定頁存的金鑰');
       check(st.includes('第 2 頁由 Gemini 辨識') && st.includes('沒有遮姓名') && st.includes('會先遮姓名'), '畫面標示「由 Gemini 辨識」與圖片沒遮、分析有遮');
       // AI 智慧閱卷：文字用 Gemini 的，但背景會用本機 OCR 取得座標（只為了「原文」螢光，圖片不上傳）；AI 自動填不需要
       if (!isAib) check(tess === 0, '全部成功時不下載本機 OCR 元件（AI 自動填）');
@@ -101,7 +85,7 @@ async function route(ctx, gem) {
 
     // 接著照原流程分析：送出前去識別化（閱卷用「去識別化測試」假回應引擎；自動填用示意版）
     if (isAib && checked && mode === 'ok') {
-      await p.selectOption('#aib-engine', 'gemini-mock');
+      await p.evaluate(() => { const s = document.getElementById('aib-engine'); s.value = 'gemini-mock'; s.dispatchEvent(new Event('change')); });
       await p.click('#aib-analyze');
       await p.waitForSelector('#deid-preview', { timeout: 30000 });
       const prev = await p.evaluate(() => document.getElementById('deid-preview').innerText);

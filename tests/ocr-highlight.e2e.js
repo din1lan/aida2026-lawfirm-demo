@@ -1,5 +1,4 @@
 // 掃描頁「原文」螢光標示：先在專案根目錄 python3 -m http.server 8765，再 node tests/ocr-highlight.e2e.js
-//   沙箱擋外部 CDN 時：CDN_DIR＝本機 npm 同版本套件（同 tests/pdf-cjk.e2e.js）
 // 做法：上傳虛構掃描判決，從「產生測試檔時真的畫上去的句子」挑原句（不是 OCR 結果，所以含 OCR 錯字的情況），
 //   打開原文視窗，檢查黃框是否落在該句實際所在的行與位置。
 //   ① 本機 OCR：S1 乾淨掃描、S2 模擬掃描　② Gemini 辨識（假回應＝原文）：座標由背景本機 OCR 補上
@@ -7,27 +6,16 @@
 'use strict';
 const { chromium } = require('playwright');
 const fs = require('fs'); const path = require('path');
+const { offline, unexpected } = require('./offline');
 const FX = path.join(__dirname, 'fixtures', 'pdf-cjk');
 const SHOTS = path.join(__dirname, '..', 'docs', 'screenshots', 'ocr-highlight');
 const truth = JSON.parse(fs.readFileSync(path.join(FX, 'truth.json'), 'utf8'));
 const MIN_HITS = 8;
 
 async function route(ctx, gem) {
-  const dir = process.env.CDN_DIR;
-  if (process.env.TW_JS) await ctx.route(/^https:\/\/cdn\.tailwindcss\.com/, (r) => r.fulfill({ path: process.env.TW_JS, contentType: 'application/javascript' }));
+  // 斷網：外部網址全擋（元件都在 vendor/）；只有 Gemini 走假回應
+  ctx.__blocked = await offline(ctx);
   if (gem) await ctx.route(/^https:\/\/generativelanguage\.googleapis\.com\//, gem);
-  await ctx.route(/^https:\/\/(cdnjs\.cloudflare\.com|cdn\.jsdelivr\.net)\//, (r) => {
-    const u = r.request().url(); const H = { 'Access-Control-Allow-Origin': '*' };
-    if (!dir) return r.continue();
-    const file = (p, type) => r.fulfill({ path: path.join(dir, p), contentType: type || 'application/octet-stream', headers: H });
-    let m = u.match(/pdf\.js\/3\.11\.174\/(pdf\.min\.js|pdf\.worker\.min\.js)$/); if (m) return file('pdfjs-dist-3.11.174/package/build/' + m[1], 'application/javascript');
-    m = u.match(/pdf\.js\/3\.11\.174\/(cmaps|standard_fonts)\/(.+)$/); if (m) return file(`pdfjs-dist-3.11.174/package/${m[1]}/${decodeURIComponent(m[2])}`);
-    if (/xlsx\/0\.18\.5\/xlsx\.full\.min\.js$/.test(u)) return file('xlsx-0.18.5/package/dist/xlsx.full.min.js', 'application/javascript');
-    m = u.match(/npm\/tesseract\.js@5\.1\.1\/dist\/(.+)$/); if (m) return file('tesseract.js-5.1.1/package/dist/' + m[1], 'application/javascript');
-    m = u.match(/npm\/tesseract\.js-core@5\.1\.1\/(.+)$/); if (m) return file('tesseract.js-core-5.1.1/package/' + m[1], m[1].endsWith('.wasm') ? 'application/wasm' : 'application/javascript');
-    m = u.match(/npm\/@tesseract\.js-data\/(chi_tra)@1\.0\.0\/(.+)$/); if (m) return file(`tesseract.js-data-${m[1]}-1.0.0/package/${m[2]}`);
-    return r.abort();
-  });
 }
 
 // 產生器（tests/fixtures/pdf-cjk/gen_scan.py）的版面：每行 30 字、字高 fs、行距 int(fs*1.6)、左上邊界 0.9 吋
@@ -55,13 +43,30 @@ function pickQuotes(file, dpi, pagesWanted) {
       const n = +(String(ask.text || '').match(/第 (\d+) 頁/) || [])[1];
       return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ candidates: [{ content: { parts: [{ text: truth[file][n - 1].text }] }, finishReason: 'STOP' }] }) });
     } : null);
+    // 金鑰：管理員設定頁存在 localStorage（假的）
+    if (gemini) await ctx.addInitScript(() => { try { localStorage.setItem('lf_admin_gemini_key', 'FAKE-KEY-FOR-TEST'); } catch (e) { /* ignore */ } });
     const p = await ctx.newPage(); const errs = [];
-    p.on('pageerror', (e) => { if (!/tailwind/.test(String(e))) errs.push(String(e)); });
+    p.on('pageerror', (e) => errs.push(String(e)));
     await p.goto('http://localhost:8765/index.html?demo=ding#page-ai-brief', { waitUntil: 'load' }); await p.waitForTimeout(800);
-    if (gemini) { await p.fill('#aib-gemini-key', 'FAKE-KEY-FOR-TEST'); await p.dispatchEvent('#aib-gemini-key', 'change'); await p.check('#aib-gemini-ocr'); }
+    if (gemini) await p.check('#aib-gemini-ocr');
     await p.evaluate(() => { document.getElementById('aib-pdf-status').textContent = '__wait'; });
     await p.setInputFiles('#aib-pdf', { name: file, mimeType: 'application/pdf', buffer: fs.readFileSync(path.join(FX, file)) });
     await p.waitForFunction(() => !/讀取中|__wait|辨識中|辨識完成/.test(document.getElementById('aib-pdf-status').textContent), null, { timeout: 300000 });
+    if (gemini) {
+      // 2026-11-05：讀完馬上點最後一頁（第 5 頁）的原文：要插隊先辨識、有進度，不用等整份 5 頁跑完（之前約 19 秒）
+      const q5 = pickQuotes(file, dpi, [5])[0]; const t0 = Date.now(); let sawProgress = false;
+      await p.evaluate((f) => window.LF_AibViewer(f), { page: q5.page, quote: q5.quote });
+      for (let i = 0; i < 600; i++) {
+        const st = await p.evaluate(() => { const c = document.querySelector('#aib-viewer-body canvas + canvas'); const n = document.querySelector('.aib-scan-note'); return { done: !!(c && c.dataset.rects), note: n ? n.textContent : '' }; });
+        if (/\d+%|前面還有/.test(st.note)) sawProgress = true;
+        if (st.done) break; await p.waitForTimeout(100);
+      }
+      const sec = (Date.now() - t0) / 1000;
+      console.log(`  第 5 頁黃框出現：${sec.toFixed(1)} 秒；等待時有顯示進度：${sawProgress ? '有' : '沒有'}`);
+      summary.push(`Gemini 第5頁黃框 ${sec.toFixed(1)} 秒`);
+      if (sec > 12) fails.push(`Gemini 第 5 頁黃框要等 ${sec.toFixed(1)} 秒（應該插隊先做，12 秒內）`);
+      if (!sawProgress) fails.push('等黃框時沒有顯示進度');
+    }
     const quotes = pickQuotes(file, dpi, pagesWanted); let hits = 0; let shot = 0;
     for (const q of quotes) {
       await p.evaluate((f) => window.LF_AibViewer(f), { page: q.page, quote: q.quote });

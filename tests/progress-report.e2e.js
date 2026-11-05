@@ -13,9 +13,8 @@ const OUT = path.join(__dirname, '..', 'docs', 'screenshots');
   // 示範資料的開庭/期限在 2026 年 7–8 月，把瀏覽器時間固定在 2026-07-20，才看得到「下次開庭」「近期期限」
   await page.clock.setFixedTime(new Date('2026-07-20T10:00:00+08:00'));
   const errors = [];
-  // 沙箱連不到 cdn.tailwindcss.com（樣式），那個錯誤與本功能無關，另外列出
   const envErrors = [];
-  page.on('pageerror', (e) => (/tailwind/.test(String(e)) ? envErrors : errors).push(String(e)));
+  page.on('pageerror', (e) => errors.push(String(e)));
   await page.goto(BASE + '?demo=ding#page-cases', { waitUntil: 'load' });
   await page.waitForTimeout(800);
 

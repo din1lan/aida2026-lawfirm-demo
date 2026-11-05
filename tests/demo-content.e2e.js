@@ -1,28 +1,18 @@
 // 一鍵示範結果內容檢查（2026-11-06，體檢第 2 項）：node tests/demo-content.e2e.js
 // 檢查：當事人只有「原告：王小明」「被告：李大華」；時間軸每筆的日期都出現在自己那句話裡。
-// 沙箱擋外部 CDN 時：設 CDN_DIR（同 demo-regression.e2e.js）
 'use strict';
 const { chromium } = require('playwright');
+const { offline, unexpected } = require('./offline');
 const path = require('path');
 const url = process.argv[2] || 'http://localhost:8765/index.html?demo=ding&autorun=pdf-view';
 (async () => {
   const b = await chromium.launch();
   const ctx = await b.newContext({ viewport: { width: 1440, height: 900 } });
-  const dir = process.env.CDN_DIR;
-  if (dir) {
-    const map = {
-      'pdf.js/3.11.174/pdf.min.js': 'pdfjs-dist-3.11.174/package/build/pdf.min.js',
-      'pdf.js/3.11.174/pdf.worker.min.js': 'pdfjs-dist-3.11.174/package/build/pdf.worker.min.js',
-      'xlsx/0.18.5/xlsx.full.min.js': 'xlsx-0.18.5/package/dist/xlsx.full.min.js',
-    };
-    await ctx.route('https://cdnjs.cloudflare.com/**', (r) => {
-      const k = Object.keys(map).find((x) => r.request().url().endsWith(x));
-      return k ? r.fulfill({ path: path.join(dir, map[k]), contentType: 'application/javascript', headers: { 'Access-Control-Allow-Origin': '*' } }) : r.abort();
-    });
-  }
+  // 斷網：外部網址全擋（元件都在 vendor/），順便證明一鍵示範不需要網路
+  const blocked = await offline(ctx);
   const p = await ctx.newPage();
   const errs = [];
-  p.on('pageerror', (e) => { if (!/tailwind/.test(String(e))) errs.push(String(e)); });
+  p.on('pageerror', (e) => errs.push(String(e)));
   await p.goto(url, { waitUntil: 'load' });
   await p.waitForFunction(() => { const v = document.getElementById('aib-viewer'); return v && !v.classList.contains('hidden'); }, null, { timeout: 30000 });
   const text = await p.evaluate(() => document.getElementById('aib-trace').innerText);
@@ -39,6 +29,15 @@ const url = process.argv[2] || 'http://localhost:8765/index.html?demo=ding&autor
     if (/^[^，。]*。/.test(ctxText)) fails.push('時間軸內容夾到上一句：' + line);
   });
   if (tl.length < 5) fails.push('時間軸筆數太少：' + tl.length);
+  // 2026-11-05：時間軸要照日期由舊到新；優勢／劣勢／風險不能互相矛盾、不能重複
+  const dates = tl.map((l) => l.slice(0, 11));
+  if (dates.join() !== [...dates].sort().join()) fails.push('時間軸沒有照日期排序：' + dates.join('、'));
+  const good = section('優勢', '劣勢'), bad = section('劣勢', '風險'), risk = section('風險', '📁 歸檔到案件');
+  if (/已明確援引/.test(good) && /未見具體法條/.test(bad)) fails.push('優勢說有援引法條、劣勢卻說全文未見法條');
+  if (/證據標號完整|書證可資佐證/.test(good) && /未見原證/.test(bad)) fails.push('優勢說有證據標號、劣勢卻說全文未見標號');
+  if (/未偵測到明顯程序風險/.test(risk) && /⚠️/.test(risk)) fails.push('風險同時說「未偵測到」又列出風險');
+  if ((good.match(/證據標號完整/g) || []).length > 1) fails.push('優勢重複列出「證據標號完整」');
+  if (unexpected(blocked).length) fails.push('斷網時還在連外部網址：' + unexpected(blocked).join('、'));
   console.log(JSON.stringify({ parties, timeline: tl.length, fails, pageErrors: errs }, null, 1));
   await b.close();
   process.exit(fails.length || errs.length ? 1 : 0);

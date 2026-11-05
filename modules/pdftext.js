@@ -5,21 +5,24 @@
  * 結果整份中文被丟掉、被誤判成掃描檔。這裡統一帶上對照表與標準字型的位置。
  *
  * 另外逐頁檢查：某頁幾乎沒有文字、但有圖片（掃描檔）→ 在使用者自己的瀏覽器裡做文字辨識（OCR，Tesseract.js 繁體中文）。
- * 圖片不送到任何伺服器；只從 CDN 下載辨識程式與繁中語言檔（第一次約 3MB 傳輸量、解開約 5.8MB，之後瀏覽器會快取）。
- * 辨識失敗（例如沒網路）就照舊標成「圖片頁」，讓畫面明確告訴使用者，不默默漏掉。
+ * 圖片不送到任何伺服器；辨識程式與繁中語言檔都放在網站自己的 vendor/tesseract/（不需要網路）。
+ * 辨識失敗就照舊標成「圖片頁」，讓畫面明確告訴使用者，不默默漏掉。
  * 純函式（pageText、imagePagesNote、ocrPagesNote、cleanOcr）可在 node 測試：node tests/pdftext.test.js
  */
 (function (root) {
   'use strict';
-  const BASE = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
+  // 2026-11-05：pdf.js 的對照表、標準字型、OCR 元件與繁中語言檔都放在網站自己的 vendor/ 裡，不靠 CDN（斷網也能用）。
+  // 一律轉成完整網址：Tesseract 的 worker 是從 blob 啟動的，相對路徑在那裡會解析錯。
+  const abs = (p) => { try { return new URL(p, (root.document && root.document.baseURI) || root.location.href).href; } catch (e) { return p; } };
+  const BASE = abs('vendor/pdfjs/');
   const OPTIONS = { cMapUrl: BASE + 'cmaps/', cMapPacked: true, standardFontDataUrl: BASE + 'standard_fonts/' };
   const MIN_PAGE_CHARS = 5; // 一頁少於 5 個字（不算空白）就當「幾乎沒有文字」
-  // 文字辨識（OCR）元件：全部釘死版本，從 jsDelivr 下載
+  // 文字辨識（OCR）元件：tesseract.js 5.1.1、core 5.1.1、繁中語言檔 4.0.0_best_int，全部放在 vendor/tesseract/
   const OCR = {
-    script: 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js',
-    workerPath: 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/worker.min.js',
-    corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.1',
-    langPath: 'https://cdn.jsdelivr.net/npm/@tesseract.js-data/chi_tra@1.0.0/4.0.0_best_int',
+    script: abs('vendor/tesseract/tesseract.min.js'),
+    workerPath: abs('vendor/tesseract/worker.min.js'),
+    corePath: abs('vendor/tesseract/core'),
+    langPath: abs('vendor/tesseract/lang'),
     lang: 'chi_tra',
     scale: 3,          // pdf.js 算圖倍率（A4 約 1786×2526 像素）
     colorDrop: true,   // 灰階時取 RGB 最亮的值：紅色印章、彩色對話框會變淡，黑字不受影響
@@ -190,24 +193,44 @@
   const MATCH_MIN = 0.6; // 比對分數低於這個就不標，改顯示提示
 
   // Gemini 辨識的頁沒有座標：背景用本機 Tesseract 再跑一次，只為了取得座標（文字不用）。一次只跑一份工作
+  // 2026-11-05：之前要「整份每一頁」都跑完黃框才出現（5 頁約 19 秒）。改成：
+  //   ① 每頁辨識完就能用（pg.boxes 是「這一頁」的 Promise）
+  //   ② 使用者點開的那頁插隊先做（prioritizeBoxes）
+  //   ③ 等待時有進度（pg.boxProgress：0～1，以及前面還排幾頁）
   let boxQueue = Promise.resolve();
   function locateInBackground(pdf, pgs) {
+    const pending = pgs.slice();
+    pgs.forEach((pg) => {
+      pg.boxProgress = 0;
+      pg.boxes = new Promise((res) => { pg._boxDone = res; });
+      pg.boxAhead = () => { const i = pending.indexOf(pg); return i < 0 ? 0 : i; };
+      pg.prioritizeBoxes = () => { const i = pending.indexOf(pg); if (i > 0) { pending.splice(i, 1); pending.unshift(pg); } };
+    });
     const job = boxQueue.then(async () => {
-      let worker = null;
+      let worker = null; let cur = null;
       try {
         const T = await loadTesseract();
-        worker = await T.createWorker(OCR.lang, 1, { workerPath: OCR.workerPath, corePath: OCR.corePath, langPath: OCR.langPath });
-        for (const pg of pgs) {
-          const cv = await renderToCanvas(await pdf.getPage(pg.n));
-          const r = await worker.recognize(cv, {}, { blocks: true });
-          pg.ocrChars = ocrChars(r && r.data, OCR.scale || 3);
-          cv.width = cv.height = 0;
+        worker = await T.createWorker(OCR.lang, 1, {
+          workerPath: OCR.workerPath, corePath: OCR.corePath, langPath: OCR.langPath,
+          logger: (m) => { if (cur && m && m.status === 'recognizing text' && typeof m.progress === 'number') cur.boxProgress = m.progress; },
+        });
+        while (pending.length) {
+          const pg = pending[0]; cur = pg;
+          try {
+            const cv = await renderToCanvas(await pdf.getPage(pg.n));
+            const r = await worker.recognize(cv, {}, { blocks: true });
+            pg.ocrChars = ocrChars(r && r.data, OCR.scale || 3);
+            cv.width = cv.height = 0;
+          } catch (e) { pg.boxError = (e && e.message) || String(e); }
+          pg.boxProgress = 1; pending.shift(); pg._boxDone();
         }
-      } catch (e) { pgs.forEach((pg) => { if (!pg.ocrChars) pg.boxError = (e && e.message) || String(e); }); }
-      finally { if (worker) { try { await worker.terminate(); } catch (e) { /* ignore */ } } }
+      } catch (e) { pending.forEach((pg) => { if (!pg.ocrChars) pg.boxError = (e && e.message) || String(e); }); }
+      finally {
+        pending.splice(0).forEach((pg) => pg._boxDone());
+        if (worker) { try { await worker.terminate(); } catch (e) { /* ignore */ } }
+      }
     });
     boxQueue = job.catch(() => {});
-    pgs.forEach((pg) => { pg.boxes = job; });
     return job;
   }
 
@@ -258,7 +281,7 @@
       tessLoading = new Promise((resolve, reject) => {
         const el = document.createElement('script'); el.src = OCR.script; el.async = true;
         el.onload = () => (root.Tesseract ? resolve(root.Tesseract) : reject(new Error('文字辨識元件載入失敗')));
-        el.onerror = () => { tessLoading = null; el.remove(); reject(new Error('文字辨識元件載入失敗（需要網路）')); };
+        el.onerror = () => { tessLoading = null; el.remove(); reject(new Error('文字辨識元件載入失敗（請重新整理頁面再試）')); };
         document.head.appendChild(el);
       });
     }
@@ -312,7 +335,7 @@
 
   function open(data) {
     const lib = root.pdfjsLib;
-    if (!lib) throw new Error('PDF 讀取元件沒有載入（需要網路）');
+    if (!lib) throw new Error('PDF 讀取元件沒有載入（請重新整理頁面再試）');
     return lib.getDocument(Object.assign({ data }, OPTIONS)).promise;
   }
 

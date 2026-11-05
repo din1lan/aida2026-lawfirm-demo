@@ -233,6 +233,27 @@
         if (!looks) continue;
         parts.filter((x) => !/^【/.test(x)).forEach((x) => take(x, '人名'));
       }
+      //  (d) 2026-11-05：前面沒有角色字、單獨出現在句子裡的名字（「嗣後陳小美向原告表示…」「由林志強開車…」）
+      //      只抓「常見姓氏開頭」：前面是行頭、標點或「與及和跟由向對經請將被據把讓給替幫為之」，
+      //      後面是標點或常見動詞。三字（姓＋兩字名）→ 預設遮；兩字 → 只列為「可能是人名，請確認」、預設不遮。
+      //      地名、機關（…市、…局、…院）和一般詞（SURNAME_WORDS、LEGAL_TERMS、LOOSE_STOP）一律不算。
+      {
+        const freeSur = `(?:${s2}|[${SURNAMES_1}])`;
+        const before = '(?<=^|[\\s\\u3000，,。、；;：:「」『』（）()]|與|及|和|跟|同|由|向|對|經|請|將|被|據|把|讓|給|替|幫|為|之|係|即|後|嗣|查|另|乃|遂|但|故|且|而|再|又|日)';
+        const after = '(?=[\\s\\u3000，,。、；;：:「」『』（）()]|$|於|向|對|跟|與|及|和|稱|說|表示|曾|已|亦|也|則|並|即|又|還|就|才|都|會|要|在|到|去|來|把|將|帶|拿|打|找|問|回|給|寄|傳|是|有|沒|不|的|主張|陳稱|證稱|到庭|簽|收|借|匯|交|開|先生|小姐|女士|太太)';
+        const freeRe = new RegExp(`${before}(${freeSur}${HAN}{1,2})${after}`, 'gm');
+        const PLACE_END = /[市縣區鄉鎮村里路街局署院部會所處科組股庭行社館校店園廠站港橋山河湖島國省州]$/;
+        const GIVEN_BAD = /[於與及和之的了是有在到為被把將向對以因所而但並等此其各該本某另每全這那哪何誰什麼們嗎呢吧啊喔年月日時分元萬千百個次件條項款號人物事情]/;
+        while ((m = freeRe.exec(t))) {
+          const n = m[1];
+          if (PLACE_END.test(n) || SURNAME_WORDS.test(n) || LEGAL_TERMS.test(n) || LOOSE_STOP.test(n) || ROLE_WORDS.includes(n)) continue;
+          const sl = SURNAMES_2.some((x) => n.startsWith(x)) ? 2 : 1;
+          const given = n.slice(sl);
+          if (!given || GIVEN_STOP.has(given[0]) || GIVEN_BAD.test(given)) continue;
+          if (given.length === 2 && sl === 1) { found.push({ name: n, label: '人名' }); continue; }
+          if (!sugg.has(n)) sugg.set(n, '人名');
+        }
+      }
       // 低信心候選：文件裡還在（沒被別的規則遮掉）的才列出，預設不遮
       suggestions = [...sugg.entries()].filter(([n]) => !found.some((f) => f.name === n) && !byOriginal.has(n) && !keep.has(n) && t.includes(n)).map(([name, label]) => ({ name, label }));
       found.forEach(({ name, label }) => {

@@ -1,0 +1,151 @@
+{
+ "rows": [
+  {
+   "page": "page-ai-brief",
+   "name": "AI 智慧閱卷可溯源",
+   "buttons": 3,
+   "clicked": 3,
+   "skipped": 0,
+   "newErrors": 0
+  },
+  {
+   "page": "page-autofill",
+   "name": "AI 自動填",
+   "buttons": 6,
+   "clicked": 6,
+   "skipped": 0,
+   "newErrors": 0
+  },
+  {
+   "page": "page-dashboard",
+   "name": "首頁總覽",
+   "buttons": 2,
+   "clicked": 2,
+   "skipped": 0,
+   "newErrors": 0
+  },
+  {
+   "page": "page-line-inbox",
+   "name": "LINE 預約收件匣3",
+   "buttons": 15,
+   "clicked": 8,
+   "skipped": 1,
+   "newErrors": 0
+  },
+  {
+   "page": "page-new-intake",
+   "name": "新增接案",
+   "buttons": 2,
+   "clicked": 1,
+   "skipped": 1,
+   "newErrors": 0
+  },
+  {
+   "page": "page-cases",
+   "name": "案件與時效",
+   "buttons": 29,
+   "clicked": 19,
+   "skipped": 10,
+   "newErrors": 0
+  },
+  {
+   "page": "page-tasks",
+   "name": "待辦任務指派",
+   "buttons": 5,
+   "clicked": 3,
+   "skipped": 2,
+   "newErrors": 0
+  },
+  {
+   "page": "page-closed-cases",
+   "name": "結案案件表",
+   "buttons": 15,
+   "clicked": 7,
+   "skipped": 1,
+   "newErrors": 0
+  },
+  {
+   "page": "page-crm",
+   "name": "客戶資料 (CRM)",
+   "buttons": 10,
+   "clicked": 8,
+   "skipped": 1,
+   "newErrors": 0
+  },
+  {
+   "page": "page-retainer",
+   "name": "法顧契約管理",
+   "buttons": 9,
+   "clicked": 5,
+   "skipped": 4,
+   "newErrors": 0
+  },
+  {
+   "page": "page-billing",
+   "name": "財務與代墊款",
+   "buttons": 9,
+   "clicked": 7,
+   "skipped": 2,
+   "newErrors": 0
+  },
+  {
+   "page": "page-client-billing",
+   "name": "客戶請款",
+   "buttons": 2,
+   "clicked": 2,
+   "skipped": 0,
+   "newErrors": 0
+  },
+  {
+   "page": "page-petty-cash",
+   "name": "零用金管理",
+   "buttons": 5,
+   "clicked": 3,
+   "skipped": 2,
+   "newErrors": 0
+  },
+  {
+   "page": "page-hr",
+   "name": "人事管理",
+   "buttons": 15,
+   "clicked": 8,
+   "skipped": 7,
+   "newErrors": 0
+  },
+  {
+   "page": "page-leave",
+   "name": "請假管理",
+   "buttons": 4,
+   "clicked": 3,
+   "skipped": 1,
+   "newErrors": 0
+  },
+  {
+   "page": "page-audit",
+   "name": "異動紀錄",
+   "buttons": 1,
+   "clicked": 1,
+   "skipped": 0,
+   "newErrors": 0
+  },
+  {
+   "page": "page-trash",
+   "name": "垃圾桶",
+   "buttons": 0,
+   "clicked": 0,
+   "skipped": 0,
+   "newErrors": 0
+  }
+ ],
+ "pageErrors": [],
+ "consoleErrors": [],
+ "localFailed": [],
+ "externalTried": [],
+ "dialogs": [
+  "alert：請先貼入至少 30 字的書狀或判決書內容、上傳 PDF，或點「貼入示範文字（測試用）」測試",
+  "prompt：貼上 Make「比賽示範_收件匣讀取」的網址（只存在這台電腦的瀏覽器）。清空後按確定可移除。",
+  "prompt：摘要："
+ ],
+ "modalNoCloseButton": [],
+ "escDoesNotClose": []
+}

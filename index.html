@@ -4,24 +4,15 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>法律事務所（比賽示範版）</title>
-<script src="https://cdn.tailwindcss.com"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<!-- 外部元件全部放在網站自己的 vendor/ 裡（2026-11-05），斷網也能開；只有呼叫 Gemini 需要網路 -->
+<script src="vendor/xlsx/xlsx.full.min.js"></script>
+<script src="vendor/pdfjs/pdf.min.js"></script>
+<script src="modules/ai-config.js"></script>
 <script src="modules/pdftext.js"></script>
 <script src="modules/gemini-ocr.js"></script>
 <!-- 去識別化模組（送 AI 前遮個資；規格見 docs/去識別化-規格.md） -->
 <script src="modules/deidentify.js"></script>
-<script>
-  tailwind.config = {
-    theme: {
-      extend: {
-        colors: {
-          navy: { 950: '#0a1128', 900: '#0f172a', 800: '#1e293b', 700: '#334155' },
-        },
-      },
-    },
-  }
-</script>
+<!-- Tailwind 已預先編好（vendor/tailwind.css，設定在 tools/tailwind.config.js），放在 head 最後面，跟原本 CDN 版插入樣式的位置一樣 -->
 <style>
   body { font-family: "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", system-ui, sans-serif; background:#f5f6f8; }
   .page.hidden { display: none; }
@@ -32,8 +23,10 @@
   ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
 </style>
 <!-- 比賽示範版（AIDA 2026）：已移除 Firebase 與所有雲端連線，資料只存在使用者自己的瀏覽器。 -->
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
 <style id="theme-ledger">
+/* 2026-11-05 體檢：表格裡的日期、案號（等寬字）不要被拆成兩行，例如「2026-07-/08」「113訴/101」 */
+main td.font-mono{white-space:nowrap}
 /* ===== 比賽版視覺主題「Ledger」：只改外觀，不動任何功能 ===== */
 :root{
   --ink:#0f1b2d; --ink-2:#1b2a40; --paper:#f4f2ec; --card:#ffffff; --rule:#e4dfd3; --rule-2:#eeeae1;
@@ -129,6 +122,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
 .inbox-step span{font-size:.79rem;color:#6b7280}
 #dash-backup-box,#dash-maint-box{display:none!important} /* 比賽示範版：首頁不顯示資料保全與系統資料維護 */
 </style>
+<link rel="stylesheet" href="vendor/tailwind.css">
 </head>
 <body class="h-screen flex text-sm text-slate-800">
 
@@ -271,6 +265,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
         <p id="sidebar-user-name" class="text-sm text-white truncate">尚未登入</p>
         <p id="sidebar-user-role" class="text-xs text-slate-400 truncate">－</p>
       </div>
+      <button id="btn-admin" type="button" class="text-xs text-slate-400 hover:text-white flex-shrink-0" title="管理員設定（AI 金鑰）">⚙</button>
       <button id="btn-logout" type="button" class="text-xs text-slate-400 hover:text-white flex-shrink-0" title="登出">登出</button>
     </div>
   </aside>
@@ -479,13 +474,13 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
             <table class="w-full text-sm">
               <thead><tr class="text-left text-xs text-slate-500 border-b border-slate-100 bg-slate-50">
                 <th class="px-3 py-2 font-medium whitespace-nowrap">期日/收文日期</th>
-                <th class="px-3 py-2 font-medium">案號</th>
-                <th class="px-3 py-2 font-medium">股別</th>
+                <th class="px-3 py-2 font-medium whitespace-nowrap">案號</th>
+                <th class="px-3 py-2 font-medium whitespace-nowrap">股別</th>
                 <th class="px-3 py-2 font-medium">當事人/對造</th>
                 <th class="px-3 py-2 font-medium">負責律師</th>
                 <th class="px-3 py-2 font-medium" title="以案件為單位記錄，同案件的所有列都會同步顯示最新收文">最近收文</th>
                 <th class="px-3 py-2 font-medium">代辦/開庭項目</th>
-                <th class="px-3 py-2 font-medium w-36">行政工作進度條</th>
+                <th class="px-3 py-2 font-medium">進度條</th>
                 <th class="px-3 py-2 font-medium">進度狀態</th>
               </tr></thead>
               <tbody id="todo-board-body" class="divide-y divide-slate-100"></tbody>
@@ -1091,7 +1086,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
           <p class="text-slate-500 text-sm mt-1">上傳同一案件的全部文件（書狀、筆錄、證據），AI 閱卷助理整理案情概要、爭點、攻防注意與下次開庭準備；也可以直接貼入文字</p>
         </div>
         <div class="text-xs bg-amber-50 border border-amber-200 text-amber-800 rounded-lg px-4 py-2.5">
-          由 <b>AI 閱卷助理</b>（Google Gemini，依事務所設定的角色與規矩工作）讀文件、整理爭點，並標示原文／推論／重點。標為「原文」的句子可以一鍵跳回文件原句對照；「推論」是綜合判斷、對不到單一句子，由律師自行確認。沒有金鑰時可切換<b>示意版</b>體驗流程。</div>
+          由 <b>AI 閱卷助理</b>（Google Gemini，依事務所設定的角色與規矩工作）讀文件、整理爭點，並標示原文／推論／重點。標為「原文」的句子可以一鍵跳回文件原句對照；「推論」是綜合判斷、對不到單一句子，由律師自行確認。尚未設定 AI 時，自動以<b>示意版</b>執行。</div>
 
         <div class="bg-white rounded-lg border-2 border-indigo-300 p-5">
           <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -1139,22 +1134,16 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
               <div id="aib-gemini-ocr-wrap"></div>
               <button id="aib-load-case" type="button" class="w-full text-xs px-3 py-2 rounded border border-slate-300 text-slate-600 hover:bg-slate-50">載入示範案件（4 份虛構文件）</button>
             </div>
-            <label class="text-xs text-slate-500 space-y-1 block">
+            <div class="lg:col-span-2 text-xs text-slate-500 space-y-2">
               <span>③ 分析引擎</span>
-              <select id="aib-engine" class="w-full text-sm border rounded px-3 py-2">
+              <!-- 2026-11-05：主畫面不再貼金鑰。金鑰由「管理員設定」頁（網址加 #admin）設定；沒設定就自動用示意版 -->
+              <div id="aib-engine-status" class="text-sm rounded border px-3 py-2"></div>
+              <select id="aib-engine" class="hidden" aria-hidden="true" tabindex="-1">
                 <option value="gemini">AI 閱卷助理（Google Gemini）</option>
-                <option value="local">示意版（免金鑰，供評審快速體驗）</option>
+                <option value="local">示意版</option>
                 <option value="gemini-mock">去識別化測試（Gemini 假回應，不連網）</option>
               </select>
-            </label>
-            <div id="aib-gemini-box" class="text-xs text-slate-500 space-y-1">
-              <span>④ Gemini API 金鑰（只存在這個分頁，關掉就清除，不寫進檔案）</span>
-              <input id="aib-gemini-key" type="password" autocomplete="off" placeholder="貼上你自己的金鑰" class="w-full text-sm border rounded px-3 py-2" />
-              <div class="flex gap-2">
-                <select id="aib-gemini-model" class="flex-1 text-xs border rounded px-2 py-1.5"><option value="">先輸入金鑰再載入模型</option></select>
-                <button id="aib-gemini-load" type="button" class="text-xs px-2 py-1.5 rounded border border-slate-300 hover:bg-slate-50 whitespace-nowrap">載入模型</button>
-              </div>
-              <label class="flex items-start gap-2 pt-1 text-slate-600"><input id="aib-gemini-consent" type="checkbox" class="mt-1" /><span>我了解選用 Gemini 時，文件文字會傳送給 Google 進行分析（正式版會留存同意紀錄）</span></label>
+              <label id="aib-gemini-box" class="flex items-start gap-2 pt-1 text-slate-600"><input id="aib-gemini-consent" type="checkbox" class="mt-1" /><span>我了解使用 AI 分析時，文件文字（已先遮蔽姓名等個資）會傳送給 Google 進行分析</span></label>
             </div>
           </div>
           <details id="aib-role" class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
@@ -1223,6 +1212,34 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
       </section>
 
       <!-- ============ 垃圾桶（2026-08-04）============ -->
+      <!-- 2026-11-05：管理員設定（不在主選單；網址加 #admin 或點左下角 ⚙ 進入）。Gemini 金鑰只存在這台電腦的瀏覽器 -->
+      <section id="page-admin" class="page space-y-4">
+        <h1 class="text-2xl font-bold text-slate-900">管理員設定</h1>
+        <p class="text-slate-500 text-sm -mt-2">這一頁不在主選單：網址後面加 <code>#admin</code>，或點左下角 ⚙ 進入。</p>
+        <div class="bg-white rounded-lg border border-slate-200 p-5 space-y-3 max-w-3xl">
+          <h3 class="font-semibold text-slate-800">AI 分析（Google Gemini）</h3>
+          <div id="adm-ai-status" class="text-sm rounded border px-3 py-2"></div>
+          <p id="adm-role-note" class="hidden text-xs text-amber-700">只有主持律師可以修改這裡的設定。</p>
+          <label class="block text-xs text-slate-500 space-y-1"><span>Gemini API 金鑰</span>
+            <input id="adm-key" type="password" autocomplete="off" spellcheck="false" placeholder="貼上金鑰（設定過的話留空＝沿用目前的）" class="w-full text-sm border rounded px-3 py-2" /></label>
+          <div class="flex flex-wrap items-end gap-2">
+            <label class="text-xs text-slate-500 space-y-1 flex-1 min-w-[220px]"><span>模型</span>
+              <select id="adm-model" class="w-full text-sm border rounded px-3 py-2"></select></label>
+            <button id="adm-load-models" type="button" class="text-sm px-3 py-2 rounded border border-slate-300 hover:bg-slate-50">載入可用模型（測試金鑰）</button>
+          </div>
+          <div class="flex flex-wrap gap-2 pt-1">
+            <button id="adm-save" type="button" class="text-sm px-4 py-2 rounded bg-navy-900 text-white hover:bg-navy-800">儲存</button>
+            <button id="adm-clear" type="button" class="text-sm px-4 py-2 rounded border border-red-300 text-red-700 hover:bg-red-50">清除金鑰</button>
+            <span id="adm-msg" class="text-xs text-slate-500 self-center"></span>
+          </div>
+          <ul class="text-xs text-slate-500 list-disc pl-5 space-y-1">
+            <li>金鑰只存在<b>這台電腦的這個瀏覽器</b>（localStorage）：不寫進網站程式、不上傳到任何伺服器、不會出現在「一鍵備份」檔裡。換電腦或清除瀏覽器資料後要重新設定。</li>
+            <li>設定後，AI 智慧閱卷、AI 自動填、掃描頁辨識會自動改用 Gemini；沒有設定時一律用示意版。</li>
+            <li>使用 AI 分析時，文件文字會先遮蔽姓名、電話、地址等個資，再連同金鑰送到 Google。</li>
+          </ul>
+        </div>
+      </section>
+
       <section id="page-trash" class="page space-y-4">
         <h1 class="text-2xl font-bold text-slate-900">垃圾桶</h1>
         <p class="text-slate-500 text-sm -mt-2">刪除的資料（案件、任務、員工、零用金、請假…）會先放這裡，可「復原」放回原處，或「永久刪除」。比賽示範版沒有雲端：資料只在這台電腦的瀏覽器。</p>
@@ -1461,10 +1478,11 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
     return max;
   }
   function isBusinessDay(dateISO) { return !isWeekend(dateISO) && !isExtraHoliday(dateISO); }
-  function previousBusinessDay(dateISO) {
+  // 2026-11-05：期限末日遇週末或國定假日，依法順延到「次一工作日」（民法第122條、民事訴訟法第161條準用）。
+  function nextBusinessDay(dateISO) {
     let d = new Date(dateISO + 'T00:00:00');
-    for (let i = 0; i < 60; i++) { const iso = toISO(d); if (isBusinessDay(iso)) return iso; d.setDate(d.getDate() - 1); }
-    throw new Error('previousBusinessDay: 60 天內找不到工作日');
+    for (let i = 0; i < 60; i++) { const iso = toISO(d); if (isBusinessDay(iso)) return iso; d.setDate(d.getDate() + 1); }
+    throw new Error('nextBusinessDay: 60 天內找不到工作日');
   }
 
   // ---- actionDeadline.js ----
@@ -1490,7 +1508,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
   }
   function computeActionDeadline(triggerDateISO, periodDays) {
     const naiveDeadline = addDaysISO(triggerDateISO, periodDays);
-    const finalDeadline = isBusinessDay(naiveDeadline) ? naiveDeadline : previousBusinessDay(naiveDeadline);
+    const finalDeadline = isBusinessDay(naiveDeadline) ? naiveDeadline : nextBusinessDay(naiveDeadline);
     return { naiveDeadline, finalDeadline, rolledForward: finalDeadline !== naiveDeadline };
   }
   function computeReminderDate(finalDeadlineISO, periodDays) {
@@ -1505,7 +1523,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
   }
   function buildReminderTitle({ finalDeadline, mainTitle }) { return `${shortMD(finalDeadline)}${mainTitle}`; }
 
-  // ---- deadlineRules.js (既有的一般期限規則，未套用假日順延) ----
+  // ---- deadlineRules.js（一般期限規則；2026-11-05 起末日同樣依法順延到次一工作日） ----
   const DEADLINE_RULES = [
     { id: 'civil_judgment_appeal', label: '民事判決送達 → 上訴期間', eventType: '收到民事判決', days: 20 },
     { id: 'civil_ruling_appeal', label: '民事裁定送達 → 抗告期間', eventType: '收到民事裁定', days: 10 },
@@ -1514,7 +1532,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
     { id: 'administrative_judgment_appeal', label: '行政訴訟判決送達 → 上訴期間', eventType: '收到行政訴訟判決', days: 20 },
     { id: 'payment_order_objection', label: '支付命令送達 → 異議期間', eventType: '收到支付命令', days: 20 },
   ];
-  function computeDeadlineDate(triggerDateISO, days) { return addDaysISO(triggerDateISO, days); }
+  function computeDeadlineDate(triggerDateISO, days) { return computeActionDeadline(triggerDateISO, days).finalDeadline; }
   // 2026-07-13 會議新增：期限提醒與末日提醒合併成一個表單，期限規則加「其他」讓天數可手動輸入
   const DEADLINE_RULES_WITH_OTHER = [...DEADLINE_RULES, { id: 'other', label: '其他（手動輸入天數）', eventType: '期限', days: null }];
 
@@ -1884,7 +1902,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
 
   const SEED_DEADLINES = (function () {
     const list = [];
-    // 一般期限（未套用假日順延，沿用既有 deadlineRules.js 邏輯）
+    // 一般期限（末日遇非工作日順延到次一工作日）
     const generalDeadline = computeDeadlineDate('2026-07-10', 20);
     list.push({ id: 'd1', kind: 'general', caseId: 'c2', person: '陳美惠', opponent: '—', division: '—', attorney: '張雅婷律師', eventType: '收到民事判決', triggerDate: '2026-07-10', periodDays: 20, computedDeadline: generalDeadline, caseNumberDisplay: '115婚20', displayTitle: `陳美惠收到民事判決期限-115婚20`, progress: 25 });
 
@@ -2022,7 +2040,8 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
   (function shiftDemoDates() {
     const ANCHOR = new Date(2026, 6, 22); // 示範資料原本以 2026-07-22 為「今天」編寫
     const now = new Date(); const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const off = Math.round((today - ANCHOR) / 86400000);
+    // 2026-11-05：平移整週（7 的倍數），星期幾不變，開庭不會被移到週末
+    const off = Math.round(Math.round((today - ANCHOR) / 86400000) / 7) * 7;
     if (!off) return;
     const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     const sh = (v) => { const [y, mo, da] = v.split('-').map(Number); return fmt(new Date(y, mo - 1, da + off)); };
@@ -2032,6 +2051,18 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
       else if (v && typeof v === 'object') walk(v);
     }); };
     [SEED_CASES, SEED_HEARINGS, SEED_DEADLINES, SEED_FILES, SEED_CLIENTS, SEED_BILLING, SEED_RETAINER_CONTRACTS, SEED_TAX_CASES, SEED_CASE_HOURS, SEED_TASKS, SEED_PETTY_CASH].forEach((arr) => (arr || []).forEach(walk));
+    // 平移後期限用法定規則重算（末日遇週末、國定假日順延到次一工作日），提前提醒跟著末日重算
+    SEED_DEADLINES.forEach((d) => {
+      if ((d.kind === 'main' || d.kind === 'general') && d.triggerDate && d.periodDays != null) {
+        const r = computeActionDeadline(d.triggerDate, d.periodDays);
+        d.computedDeadline = r.finalDeadline; if (d.kind === 'main') { d.naiveDeadline = r.naiveDeadline; d.rolledForward = r.rolledForward; }
+      }
+    });
+    SEED_DEADLINES.forEach((d) => {
+      const m = d.kind === 'reminder' && SEED_DEADLINES.find((x) => x.id === d.linkedDeadlineId);
+      const rem = m && computeReminderDate(m.computedDeadline, m.periodDays);
+      if (rem) { d.computedDeadline = rem.reminderDate; d.advanceDays = rem.advanceDays; d.displayTitle = buildReminderTitle({ finalDeadline: m.computedDeadline, mainTitle: m.displayTitle }); }
+    });
   })();
 
   // 持久化儲存層 v2（2026-07-16 架構升級）
@@ -2696,6 +2727,54 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
     document.querySelectorAll('.navitem').forEach((n) => n.classList.toggle('active', n.dataset.page === id));
     location.hash = id;
     renderAll();
+    if (id === 'page-admin') renderAdminPage();
+  }
+  // 管理員設定頁：網址 #admin 或左下角 ⚙
+  window.addEventListener('hashchange', () => { if (location.hash === '#admin' && currentUser()) showPage('page-admin'); });
+  document.getElementById('btn-admin').addEventListener('click', () => { if (currentUser()) showPage('page-admin'); });
+  function renderAdminPage() {
+    const A = window.LF_AI; if (!A) return;
+    const u = currentUser(); const canEdit = !!(u && u.roleGroup === 'boss');
+    const st = document.getElementById('adm-ai-status');
+    st.className = 'text-sm rounded border px-3 py-2 ' + (A.hasKey() ? 'border-emerald-300 bg-emerald-50 text-emerald-800' : 'border-amber-300 bg-amber-50 text-amber-800');
+    st.textContent = A.hasKey() ? `🟢 已設定：金鑰 ${A.masked()}，模型 ${A.getModel()}` : '尚未設定 AI：各功能目前為示意版';
+    const sel = document.getElementById('adm-model');
+    if (!sel.options.length || ![...sel.options].some((o) => o.value === A.getModel())) sel.innerHTML = `<option value="${esc(A.getModel())}">${esc(A.getModel())}</option>`;
+    sel.value = A.getModel();
+    document.getElementById('adm-role-note').classList.toggle('hidden', canEdit);
+    ['adm-key', 'adm-model', 'adm-load-models', 'adm-save', 'adm-clear'].forEach((id) => { document.getElementById(id).disabled = !canEdit; });
+    document.getElementById('adm-key').value = '';
+  }
+  {
+    const msg = (t, cls) => { const el = document.getElementById('adm-msg'); el.className = 'text-xs self-center ' + (cls || 'text-slate-500'); el.textContent = t; };
+    const keyNow = () => document.getElementById('adm-key').value.trim() || (window.LF_AI ? window.LF_AI.getKey() : '');
+    document.getElementById('adm-load-models').addEventListener('click', async () => {
+      const key = keyNow(); if (!key) { msg('請先貼上金鑰', 'text-amber-700'); return; }
+      msg('連線中…');
+      try {
+        const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=200&key=' + encodeURIComponent(key));
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error((j.error && j.error.message) || ('HTTP ' + r.status));
+        const ms = (j.models || []).filter((m) => (m.supportedGenerationMethods || []).includes('generateContent') && /gemini/i.test(m.name)).map((m) => m.name.replace('models/', ''));
+        ms.sort((a, b) => (/flash/.test(b) ? 1 : 0) - (/flash/.test(a) ? 1 : 0));
+        if (!ms.length) throw new Error('找不到可用的 Gemini 模型');
+        const sel = document.getElementById('adm-model'); const cur = sel.value;
+        sel.innerHTML = ms.map((m) => `<option value="${esc(m)}">${esc(m)}</option>`).join('');
+        if (ms.includes(cur)) sel.value = cur;
+        msg(`✓ 金鑰可以用，找到 ${ms.length} 個模型`, 'text-emerald-700');
+      } catch (e) { msg('⚠ 連線失敗：' + ((e && e.message) || e), 'text-red-600'); }
+    });
+    document.getElementById('adm-save').addEventListener('click', () => {
+      const k = document.getElementById('adm-key').value.trim(); const m = document.getElementById('adm-model').value;
+      if (!k && !(window.LF_AI && window.LF_AI.hasKey())) { msg('請先貼上金鑰', 'text-amber-700'); return; }
+      try { window.LF_AI.save(k, m); logAudit('更新 AI 設定', '', '模型 ' + m); persistAll(); renderAdminPage(); msg('✓ 已儲存（只存在這台電腦的瀏覽器）', 'text-emerald-700'); }
+      catch (e) { msg('⚠ ' + ((e && e.message) || e), 'text-red-600'); }
+    });
+    document.getElementById('adm-clear').addEventListener('click', () => {
+      confirmModal({ title: '清除 AI 金鑰', message: '清除後，這台電腦上的 AI 智慧閱卷、AI 自動填會改用示意版。確定要清除嗎？', confirmText: '清除' }, () => {
+        window.LF_AI.clear(); logAudit('清除 AI 金鑰', '', ''); persistAll(); renderAdminPage(); msg('已清除', 'text-slate-500');
+      });
+    });
   }
   document.querySelectorAll('.navitem').forEach((btn) => btn.addEventListener('click', () => showPage(btn.dataset.page)));
 
@@ -3110,12 +3189,12 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
       const fee = feeStatusDisplay(c);
       return `
       <tr class="hover:bg-slate-50">
-        <td class="px-3 py-2 font-mono text-xs"><button type="button" class="btn-case-detail text-indigo-700 hover:underline" data-case-id="${esc(c.id)}" title="點案號檢視案件詳情">${esc(c.caseNumber)}</button>${c.division ? `<span class="ml-1 text-slate-400">(${esc(c.division)})</span>` : ''}</td>
+        <td class="px-3 py-2 font-mono text-xs whitespace-nowrap"><button type="button" class="btn-case-detail text-indigo-700 hover:underline" data-case-id="${esc(c.id)}" title="點案號檢視案件詳情">${esc(c.caseNumber)}</button>${c.division ? `<span class="ml-1 text-slate-400">(${esc(c.division)})</span>` : ''}</td>
         <td class="px-3 py-2">
           <div>${esc(caseParty(c))}${caseCause(c) ? ` <span class="text-slate-300">/</span> <span class="text-slate-500">${esc(caseCause(c))}</span>` : ''}</div>
           ${matchedClient ? `<div class="text-[11px] text-slate-400 mt-0.5">客戶資料：${esc(matchedClient.phone) || '—'}${matchedClient.idNumber ? ' · ' + esc(matchedClient.idNumber) : ''}</div>` : ''}
         </td>
-        <td class="px-3 py-2 text-slate-500">${esc(caseAttorneyText(c)) || '—'}</td>
+        <td class="px-3 py-2 text-slate-500 break-keep">${esc(caseAttorneyText(c)) || '—'}</td>
         <td class="px-3 py-2 text-xs">
           ${esc(c.opponentName) || '<span class="text-slate-300">—</span>'}
           ${c.opponentAttorney ? `<div class="text-slate-400">律師：${esc(c.opponentAttorney)}</div>` : ''}
@@ -3264,13 +3343,13 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
       return `
       <tr class="hover:bg-slate-50 ${urgent ? 'bg-red-50' : ''}">
         <td class="px-3 py-2 font-mono text-xs whitespace-nowrap ${urgent ? 'text-red-700 font-bold' : 'text-slate-600'}">${esc(isoToROC(i.date))}${urgent ? ' ⚠️' : ''}</td>
-        <td class="px-3 py-2 font-mono text-xs">${esc(i.caseNumberDisplay) || '—'}</td>
+        <td class="px-3 py-2 font-mono text-xs whitespace-nowrap">${esc(i.caseNumberDisplay) || '—'}</td>
         <td class="px-3 py-2 text-xs">${esc(i.division)}</td>
         <td class="px-3 py-2">${esc(i.person)}${i.opponent && i.opponent !== '—' ? `<span class="text-slate-400"> / ${esc(i.opponent)}</span>` : ''}</td>
-        <td class="px-3 py-2 text-slate-500">${esc(i.attorney) || '—'}</td>
+        <td class="px-3 py-2 text-slate-500 whitespace-nowrap">${esc(i.attorney) || '—'}</td>
         <td class="px-3 py-2">
           ${i.caseRef ? `
-          <div class="flex items-center gap-1">
+          <div class="flex flex-col items-start gap-1">
             <input type="date" data-case-id="${esc(i.caseRef.id)}" class="todo-received-date text-[11px] border rounded px-1 py-0.5 w-[108px]" value="${esc(i.caseRef.lastReceivedDate) || ''}" />
             <select data-case-id="${esc(i.caseRef.id)}" class="todo-received-type text-[11px] border rounded px-1 py-0.5">
               <option value="">（類型）</option>
@@ -3283,7 +3362,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
           ${i.kind === 'hearing' ? googleCalendarLinkHTML(i.ref) : ''}
         </td>
         <td class="px-3 py-2">
-          <div class="w-28 h-2 rounded-full bg-slate-100 overflow-hidden"><div class="h-full ${progressColor(i.progress)}" style="width:${i.progress}%"></div></div>
+          <div class="w-16 h-2 rounded-full bg-slate-100 overflow-hidden"><div class="h-full ${progressColor(i.progress)}" style="width:${i.progress}%"></div></div>
         </td>
         <td class="px-3 py-2">
           <select data-item-id="${esc(i.id)}" class="todo-progress-select text-xs border rounded px-1.5 py-1">
@@ -3556,7 +3635,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
     document.getElementById('form-deadline-wrap').innerHTML = `
       <form id="form-deadline" class="bg-white rounded-lg border border-slate-200 p-5 space-y-3">
         <h3 class="font-semibold text-slate-800">新增期限提醒（末日提醒，已整合原本的一般期限提醒）</h3>
-        <p class="text-xs text-slate-400">依「收文隔日起算」計算末日，遇非工作日自動順延至前一個工作日，並依提前提醒天數表自動加開一筆提前提醒。選「期限規則」會自動帶入天數（仍可手動覆寫），選「其他」則自行輸入天數。</p>
+        <p class="text-xs text-slate-400">依「收文隔日起算」計算末日，末日遇週末或國定假日，依法順延到次一工作日，並依提前提醒天數表自動加開一筆提前提醒。選「期限規則」會自動帶入天數（仍可手動覆寫），選「其他」則自行輸入天數。</p>
         <div class="grid grid-cols-2 gap-3">
           <label class="text-xs text-slate-500 space-y-1"><span>案件（可打字搜尋案號/當事人，可留空）</span><input name="caseSearch" list="deadline-case-list" placeholder="輸入案號或當事人…" autocomplete="off" class="w-full text-sm border rounded px-2 py-1.5" /><input type="hidden" name="caseId" /><datalist id="deadline-case-list">${cases.map((c) => `<option value="${esc(c.caseNumber || '')}">${esc(caseParty(c) || c.title || '')}${c.attorney ? ' · ' + esc(c.attorney) : ''}</option>`).join('')}</datalist></label>
           <label class="text-xs text-slate-500 space-y-1"><span>負責律師</span><select name="attorney" class="w-full text-sm border rounded px-2 py-1.5">${ATTORNEYS.map((a) => `<option value="${esc(a.fullName)}">${esc(a.fullName)}</option>`).join('')}</select></label>
@@ -3618,7 +3697,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
       }
       box.classList.remove('hidden');
       box.innerHTML = `
-        <div>試算末日：<span class="font-semibold text-slate-800">${esc(finalDeadline)}</span>${rolledForward ? `<span class="text-xs text-amber-600 ml-2">（原始 ${esc(naiveDeadline)} 為非工作日，已順延）</span>` : ''}</div>
+        <div>試算末日：<span class="font-semibold text-slate-800">${esc(finalDeadline)}</span>${rolledForward ? `<span class="text-xs text-amber-600 ml-2">（原始 ${esc(naiveDeadline)} 為非工作日，已順延到次一工作日）</span>` : ''}</div>
         <div class="text-slate-700">末日行事曆標題：「${esc(mainTitle)}」</div>
         ${reminder ? `<div class="text-slate-700">提前提醒：${esc(reminder.reminderDate)}（提前 ${advanceDays} 天）「${esc(reminder.reminderTitle)}」</div>` : '<div class="text-slate-400">此限期天數無需提前提醒</div>'}`;
       return { caseNumberDisplay, finalDeadline, naiveDeadline, rolledForward, mainTitle, actionLabel, reminder, advanceDays };
@@ -4664,7 +4743,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
         <td class="px-5 py-3 font-mono text-xs">${esc(b.date)}</td>
         <td class="px-5 py-3 font-mono text-xs">${esc(b.caseNumber) || '—'}</td>
         <td class="px-5 py-3">${esc(b.item)}</td>
-        <td class="px-5 py-3">NT$ ${Number(b.amount).toLocaleString()}</td>
+        <td class="px-5 py-3 whitespace-nowrap">NT$ ${Number(b.amount).toLocaleString()}</td>
         <td class="px-5 py-3">
           <select data-billing-id="${esc(b.id)}" class="billing-status-select text-xs border rounded px-1.5 py-1 ${ADVANCE_STATUS_BADGE[b.advanceStatus] || ''}">
             ${ADVANCE_STATUSES.map((s) => `<option value="${esc(s)}" ${b.advanceStatus === s ? 'selected' : ''}>${esc(s)}</option>`).join('')}
@@ -4709,7 +4788,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
       <tr class="hover:bg-slate-50"><td class="px-5 py-2 font-mono text-xs">${esc(c.caseNumber)}</td><td class="px-5 py-2">${esc(caseParty(c))}${caseCause(c) ? ` <span class="text-slate-300">/</span> <span class="text-slate-500">${esc(caseCause(c))}</span>` : ''}</td><td class="px-5 py-2 text-slate-500">${esc(caseAttorneyText(c))}</td><td class="px-5 py-2">NT$ ${c.unpaid.toLocaleString()}</td></tr>
     `).join('') || '<tr><td class="px-5 py-3 text-slate-400" colspan="4">目前沒有未收款項</td></tr>';
     const total = rows.reduce((s, c) => s + c.unpaid, 0);
-    foot.innerHTML = rows.length ? `<tr class="font-semibold border-t border-slate-200"><td class="px-5 py-2" colspan="3">合計</td><td class="px-5 py-2">NT$ ${total.toLocaleString()}</td></tr>` : '';
+    foot.innerHTML = rows.length ? `<tr class="font-semibold border-t border-slate-200"><td class="px-5 py-2" colspan="3">合計</td><td class="px-5 py-2 whitespace-nowrap">NT$ ${total.toLocaleString()}</td></tr>` : '';
     const pBtn = document.getElementById('rcv-sort-party');
     const aBtn = document.getElementById('rcv-sort-attorney');
     const bind = (btn, key) => { if (btn) btn.onclick = () => { if (receivablesSort.key === key) receivablesSort.dir *= -1; else { receivablesSort.key = key; receivablesSort.dir = 1; } renderReceivablesSummary(); }; };
@@ -4748,7 +4827,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
         <td class="px-5 py-3 whitespace-nowrap">${esc(retainerAttorneyText(r)) || '—'}</td>
         <td class="px-5 py-3 font-mono text-xs">${esc(r.startDate) || '—'}</td>
         <td class="px-5 py-3 font-mono text-xs">${esc(r.endDate) || '—'}</td>
-        <td class="px-5 py-3">${r.amount ? 'NT$ ' + Number(r.amount).toLocaleString() : '—'}</td>
+        <td class="px-5 py-3 whitespace-nowrap">${r.amount ? 'NT$ ' + Number(r.amount).toLocaleString() : '—'}</td>
         <td class="px-5 py-3"><span class="text-xs px-2 py-0.5 rounded-full ${status.cls}">${esc(status.label)}</span></td>
         <td class="px-5 py-3 text-slate-500 text-xs">${esc(r.note) || '—'}</td>
         <td class="px-5 py-3 whitespace-nowrap">
@@ -5125,7 +5204,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
     const body = document.getElementById('ch-table-body');
     if (!body) return;
     const sorted = caseHours.slice().sort((a, b) => b.date.localeCompare(a.date));
-    body.innerHTML = sorted.map((h) => `<tr><td class="px-5 py-2">${esc(h.date)}</td><td class="px-5 py-2 font-mono text-xs">${esc(h.caseNumber)}</td><td class="px-5 py-2">${esc(h.attorney)}</td><td class="px-5 py-2">${h.hours}h</td><td class="px-5 py-2">NT$${Number(h.rate).toLocaleString()}</td><td class="px-5 py-2 text-slate-400">${esc(h.note || '')}</td></tr>`).join('') || `<tr><td class="px-5 py-3 text-slate-400" colspan="6">尚無資料</td></tr>`;
+    body.innerHTML = sorted.map((h) => `<tr><td class="px-5 py-2 whitespace-nowrap">${esc(h.date)}</td><td class="px-5 py-2 font-mono text-xs">${esc(h.caseNumber)}</td><td class="px-5 py-2">${esc(h.attorney)}</td><td class="px-5 py-2">${h.hours}h</td><td class="px-5 py-2">NT$${Number(h.rate).toLocaleString()}</td><td class="px-5 py-2 text-slate-400">${esc(h.note || '')}</td></tr>`).join('') || `<tr><td class="px-5 py-3 text-slate-400" colspan="6">尚無資料</td></tr>`;
   }
   function renderClientHoursSection() {
     renderCaseHoursTable();
@@ -5707,6 +5786,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
     e.target.reset(); populateLoginRoleSelect();
     applyRoleVisibility();
     let startId = (location.hash || '#page-dashboard').slice(1);
+    if (startId === 'admin') startId = 'page-admin';
     if (['page-billing', 'page-audit'].includes(startId) && !u.canSeeFinance) startId = 'page-dashboard';
     if (startId === 'page-petty-cash' && !canSeePettyCash(u)) startId = 'page-dashboard';
     showPage(document.getElementById(startId) ? startId : 'page-dashboard');
@@ -6158,7 +6238,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
   const AIB_RADICALS = { '⺠': '民', '⻑': '長', '⻔': '門', '⺟': '母', '⻄': '西', '⻝': '食', '⻣': '骨', '⺩': '王', '⻅': '見', '⻆': '角', '⻓': '長', '⻋': '車', '⻤': '鬼', '⻢': '馬', '⺁': '厂', '⺅': '人', '⺈': '刀', '⺌': '小', '⺍': '小', '⺮': '竹', '⺶': '羊', '⺺': '聿', '⻊': '足', '⻌': '辵', '⻍': '辵', '⻏': '邑', '⻖': '阜', '⻗': '雨', '⻘': '青', '⻙': '韋', '⻚': '頁', '⻛': '風', '⻜': '飛', '⻥': '魚', '⻦': '鳥', '⻨': '麥', '⻩': '黃', '⻬': '齊', '⻮': '齒', '⻯': '龍', '⻳': '龜' };
   const aibFixChars = (s) => String(s || '').replace(/[\u2F00-\u2FDF]/g, (c) => c.normalize('NFKC')).replace(/[\u2E80-\u2EFF]/g, (c) => AIB_RADICALS[c] || c);
   const aibNorm = (s) => aibFixChars(s).replace(/[\s\u3000]+/g, '');
-  if (window.pdfjsLib) { try { pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; } catch (e) { /* ignore */ } }
+  if (window.pdfjsLib) { try { pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('vendor/pdfjs/pdf.worker.min.js', document.baseURI).href; } catch (e) { /* ignore */ } }
 
   // 全案模式：一次讀多份 PDF，每頁記住「第幾份文件、該文件第幾頁」；pages 的 n 是全案流水頁碼
   async function aibLoadFiles(fileList) {
@@ -6166,7 +6246,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
     const list = [...(fileList || [])];
     AIB_DOC.raw = list;
     if (!list.length) { AIB_DOC.files = []; AIB_DOC.pages = []; AIB_DOC.pdf = null; st.textContent = '未選擇檔案時，使用上方貼入的文字'; return; }
-    if (!window.pdfjsLib) { st.textContent = 'PDF 元件載入失敗（需要網路），請改用貼入文字'; return; }
+    if (!window.pdfjsLib) { st.textContent = 'PDF 元件載入失敗，請重新整理頁面，或改用貼入文字'; return; }
     st.textContent = `讀取中…（共 ${list.length} 份）`; AIB_DOC.loading = true; AIB_DOC.files = []; AIB_DOC.pages = []; AIB_DOC.pdf = null;
     try {
       const files = [], pages = [], notes = [];
@@ -6210,7 +6290,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
         notes.push(`文件${fi + 1}：${esc(f.name)}（${pdf.numPages} 頁${chars < 30 ? `，讀不到文字，可能是掃描檔${rd.ocrError ? `；文字辨識沒有成功：${esc(rd.ocrError)}` : ''}` : ''}）${imgNote}`);
       }
       AIB_DOC.files = files; AIB_DOC.pages = pages; AIB_DOC.source = 'pdf'; AIB_DOC.pdf = (files.find((x) => x.pdf) || {}).pdf || null; AIB_DOC.name = files.map((x) => x.name).join('、');
-      st.innerHTML = '✓ ' + notes.join('<br>') + (files.length ? '<br><span class="text-slate-500">送給 AI 時每頁只標「文件N（文件種類）」，<b>不含檔名</b>（檔名常有姓名、案號）；上面的檔名只顯示在你的畫面</span>' : '') + (notes.some((x) => x.includes('掃描檔')) ? '<br><span class="text-red-600">掃描檔要靠文字辨識（OCR）才讀得到：請確認網路連線後重新選擇檔案，或改用貼入文字</span>' : '');
+      st.innerHTML = '✓ ' + notes.join('<br>') + (files.length ? '<br><span class="text-slate-500">送給 AI 時每頁只標「文件N（文件種類）」，<b>不含檔名</b>（檔名常有姓名、案號）；上面的檔名只顯示在你的畫面</span>' : '') + (notes.some((x) => x.includes('掃描檔')) ? '<br><span class="text-red-600">掃描檔要靠文字辨識（OCR）才讀得到：請重新整理頁面後再選一次檔案，或改用貼入文字</span>' : '');
       // 文字框的頁首和送 AI 的一樣只寫「文件N（文件種類）」：檔名常含姓名、案號，不放進會送出的文字
       const safeLbl = (fi) => { const t = window.Deid && Deid.safeFileLabel ? Deid.safeFileLabel(files[fi].name) : ''; return `文件${fi + 1}${t ? '（' + t + '）' : ''}`; };
       document.getElementById('aib-text').value = pages.map((p) => `【${safeLbl(p.file)}｜第${p.fn}頁】\n${p.image ? '（這一頁是圖片，讀不到文字）' : p.gemini ? window.LF_GeminiOcr.PAGE_MARK + '\n' + p.text : (p.ocr ? `（此頁為 OCR 辨識，可能有錯字，請核對原文；標〔?〕的字辨識信心較低${p.skipped ? `；有 ${p.skipped} 行無法辨識，已略過` : ''}）\n` + (p.marked || p.text) : p.text)}`).join('\n\n');
@@ -6221,11 +6301,16 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
   const AIB_DEMO_FILES = ['01_民事起訴狀', '02_民事答辯狀', '03_言詞辯論筆錄', '04_原告民事準備書狀'];
   async function aibLoadDemoCase() {
     const sel = document.getElementById('aib-case-select'); if (sel) { aibFillCaseSelect(); sel.value = DEMO_BRIEF_CASE.id; }
-    const files = [];
-    for (const n of AIB_DEMO_FILES) {
-      const blob = await (await fetch(encodeURIComponent(n) + '.pdf')).blob();
-      files.push(new File([blob], n + '.pdf', { type: 'application/pdf' }));
-    }
+    const files = []; const st = document.getElementById('aib-pdf-status');
+    AIB_DOC.fetching = true; // 下載中也算「還在載入」，一鍵示範才不會誤以為失敗
+    try {
+      for (const [i, n] of AIB_DEMO_FILES.entries()) {
+        if (st) st.textContent = `下載示範文件 ${i + 1}/${AIB_DEMO_FILES.length}：${n}…`;
+        const res = await fetch(encodeURIComponent(n) + '.pdf');
+        if (!res.ok) throw new Error(`${n}.pdf 下載失敗（${res.status}）`);
+        files.push(new File([await res.blob()], n + '.pdf', { type: 'application/pdf' }));
+      }
+    } finally { AIB_DOC.fetching = false; }
     await aibLoadFiles(files);
   }
   document.getElementById('aib-load-case').addEventListener('click', () => aibLoadDemoCase().catch((err) => alert('示範案件載入失敗：' + err.message)));
@@ -6244,27 +6329,24 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
 
   const aibEngSel = document.getElementById('aib-engine');
   if (window.LF_GeminiOcr) document.getElementById('aib-gemini-ocr-wrap').innerHTML = window.LF_GeminiOcr.checkboxHtml('aib-gemini-ocr');
-  const aibKeyIn = document.getElementById('aib-gemini-key');
-  const aibModelSel = document.getElementById('aib-gemini-model');
-  try { aibKeyIn.value = sessionStorage.getItem('aib_gemini_key') || ''; } catch (e) { /* ignore */ }
-  aibEngSel.addEventListener('change', () => document.getElementById('aib-gemini-box').classList.toggle('hidden', aibEngSel.value !== 'gemini'));
+  // 2026-11-05：金鑰與模型只從「管理員設定」頁讀（modules/ai-config.js，存在這台電腦的瀏覽器）；主畫面不再有金鑰框
+  const AI = window.LF_AI || { getKey: () => '', getModel: () => '', hasKey: () => false };
+  function aibEngineStatus() {
+    const v = aibEngSel.value, box = document.getElementById('aib-engine-status');
+    document.getElementById('aib-gemini-box').classList.toggle('hidden', v !== 'gemini');
+    if (!box) return;
+    const html = v === 'gemini' ? ['border-emerald-300 bg-emerald-50 text-emerald-800', `🟢 AI 分析：Google Gemini（${esc(AI.getModel())}）`]
+      : v === 'gemini-mock' ? ['border-slate-300 bg-slate-50 text-slate-700', '去識別化測試（Gemini 假回應，不連網）']
+      : AI.hasKey() ? ['border-slate-300 bg-slate-50 text-slate-700', '示意版（一鍵示範）'] : ['border-amber-300 bg-amber-50 text-amber-800', '尚未設定 AI，目前為示意版'];
+    box.className = 'text-sm rounded border px-3 py-2 ' + html[0]; box.innerHTML = html[1];
+  }
+  // 預設：有金鑰就用 Gemini，沒有就示意版
+  function aibEngineDefault() { aibEngSel.value = AI.hasKey() ? 'gemini' : 'local'; aibEngineStatus(); }
+  aibEngineDefault();
+  aibEngSel.addEventListener('change', aibEngineStatus);
+  window.addEventListener('lf-ai-config', aibEngineDefault);
   // 比賽示範版：把 AI 閱卷助理的完整角色指令攤開給使用者看（與 LINE 接待一樣，靠角色設定讓 AI 照事務所的規矩做事）
   try { document.getElementById('aib-role-prompt').textContent = aibCasePrompt('自動'); } catch (e) { /* ignore */ }
-  aibKeyIn.addEventListener('change', () => { try { sessionStorage.setItem('aib_gemini_key', aibKeyIn.value.trim()); } catch (e) { /* ignore */ } });
-  document.getElementById('aib-gemini-load').addEventListener('click', async () => {
-    const key = aibKeyIn.value.trim();
-    if (!key) { alert('請先貼上 Gemini API 金鑰'); return; }
-    aibModelSel.innerHTML = '<option value="">載入中…</option>';
-    try {
-      const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=200&key=' + encodeURIComponent(key));
-      const j = await r.json();
-      if (!r.ok) throw new Error((j.error && j.error.message) || ('HTTP ' + r.status));
-      const ms = (j.models || []).filter((m) => (m.supportedGenerationMethods || []).includes('generateContent') && /gemini/i.test(m.name)).map((m) => m.name.replace('models/', ''));
-      ms.sort((a, b) => (/flash/.test(b) ? 1 : 0) - (/flash/.test(a) ? 1 : 0));
-      aibModelSel.innerHTML = ms.length ? ms.map((m) => `<option value="${esc(m)}">${esc(m)}</option>`).join('') : '<option value="">找不到可用的 Gemini 模型</option>';
-    } catch (err) { aibModelSel.innerHTML = '<option value="">載入失敗</option>'; alert('載入模型失敗：' + err.message); }
-  });
-
   function aibGeminiPrompt(caseType) {
     return buildLegalAnalysisSystemPrompt(caseType) + '\n\n' + [
       '# 溯源輸出規則（本次改用此格式，取代上面的【輸出格式】）',
@@ -6312,8 +6394,8 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
     ].join('\n');
   }
   async function aibCallGemini(docText, caseType, promptText) {
-    const key = aibKeyIn.value.trim(), model = aibModelSel.value;
-    if (!key || !model) throw new Error('請貼上金鑰，按「載入模型」並選擇一個模型');
+    const key = AI.getKey(), model = AI.getModel();
+    if (!key || !model) throw new Error('尚未設定 AI（請管理員到「管理員設定」頁設定 Gemini 金鑰）');
     const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -6557,7 +6639,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
     const tierTxt = (f) => f.tier === '待核' ? (f.status === 'ok' ? '已確認' : f.status === 'wrong' ? '有出入' : '重點') : f.tier;
     const files = AIB_DOC.files.length ? AIB_DOC.files.map((x, i) => `文件${i + 1}：${x.name}`) : ['貼入的文字'];
     return { app: 'lawfirm-ai-brief-report', version: 2, exportedAt: stamp, caseLabel: meta.caseLabel || '', caseType: meta.caseType || '', engine: meta.engineLabel || '', summary: meta.summary || '', files,
-      items: F.filter((f) => f.status !== 'wrong').map((f) => ({ section: f.category, kind: aibKindOf(f.category, f), role: aibRoleOf(f), date: f.date || '', text: f.text.replace(/^(原告主張|被告主張|原告|被告)[：:]\s*/, ''), tier: tierTxt(f), source: aibSourceLabel(f), quote: f.quote || '' })) };
+      items: F.filter((f) => f.status !== 'wrong').map((f) => ({ section: f.category, kind: aibKindOf(f.category, f), role: aibRoleOf(f), date: f.date || '', text: f.category === '當事人' ? f.text : f.text.replace(/^(原告主張|被告主張|原告|被告)[：:]\s*/, ''), tier: tierTxt(f), source: aibSourceLabel(f), quote: f.quote || '' })) };
   }
   function aibBriefPage(d) {
     const e = (x) => esc(x == null ? '' : x);
@@ -6575,7 +6657,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
       if (k === 'summary') return `<section class="card"><h2><i>01</i>案情概要</h2>${its.map(row).join('')}</section>`;
       if (k === 'update') return `<section class="card upd"><h2><i>新</i>${e(sec)}</h2>${its.map(row).join('')}</section>`;
       const rocD = (x) => { const m = String(x || '').match(/^(\d{2,3})(\d{2})(\d{2})$/); return m ? `${+m[1]}年${+m[2]}月${+m[3]}日` : (x || ''); };
-      if (k === 'timeline') return `<section class="card"><h2><i>02</i>${e(sec)}</h2><ol class="tl">${its.map((it) => `<li><b>${e(rocD(it.date))}</b>${row(it)}</li>`).join('')}</ol></section>`;
+      if (k === 'timeline') return `<section class="card"><h2><i>${secs.some((x) => kindOf(x) === 'summary') ? '02' : '時'}</i>${e(sec)}</h2><ol class="tl">${its.map((it) => `<li><b>${e(rocD(it.date))}</b>${row(it)}</li>`).join('')}</ol></section>`;
       if (k === 'issue') {
         const col = (r) => its.filter((it) => it.role === r).map(row).join('') || '<div class="none">文件未載明</div>';
         const evals = its.filter((it) => it.role === '評估'), others = its.filter((it) => !['原告', '被告', '評估'].includes(it.role));
@@ -6589,7 +6671,9 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
       return `<section class="card"><h2>${e(sec)}</h2>${its.map(row).join('')}</section>`;
     };
     const order = ['update', 'summary', 'timeline', 'issue', 'strategy', 'todo', 'other'];
-    const sorted = secs.slice().sort((a, b) => order.indexOf(kindOf(a)) - order.indexOf(kindOf(b)));
+    // 2026-11-05：示意版的「當事人」排在時間軸前面（之前被當成「其他」排到時間軸後面）
+    const rank = (sec) => (sec === '當事人' ? order.indexOf('summary') + 0.5 : order.indexOf(kindOf(sec)));
+    const sorted = secs.slice().sort((a, b) => rank(a) - rank(b));
     const css = `:root{--ink:#0e1826;--paper:#f4f1ea;--brass:#a8834a;--rule:#e2dccf;--text:#1c2431;--sub:#5b6472}
 *{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--text);font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;font-size:16px;line-height:1.75}
 .wrap{max-width:1040px;margin:0 auto;padding:0 28px 48px}
@@ -6742,13 +6826,35 @@ footer{font-size:12.5px;color:#8a8273;border-top:1px solid var(--rule);padding-t
     };
     if (draw()) return;
     if (!src.ocrChars && src.boxes) {
-      note('正在用本機辨識取得這一頁的文字位置（圖片不上傳），完成後會自動標出黃色位置…', 'text-slate-500');
+      // 2026-11-05：這一頁插隊先做，並顯示進度（不用等整份每一頁都辨識完）
+      if (src.prioritizeBoxes) src.prioritizeBoxes();
       const token = aibViewing;
-      src.boxes.then(() => { if (aibViewing !== token || !hl.isConnected) return; if (!draw()) fallback(); });
+      const tick = () => {
+        const ahead = src.boxAhead ? src.boxAhead() : 0;
+        const pct = Math.round((src.boxProgress || 0) * 100);
+        note(`正在用本機辨識取得這一頁的文字位置（圖片不上傳）…${ahead ? `前面還有 ${ahead} 頁` : `${pct}%`}，完成後會自動標出黃色位置`, 'text-slate-500');
+      };
+      tick();
+      const timer = setInterval(() => { if (aibViewing !== token || !hl.isConnected || src.ocrChars) { clearInterval(timer); return; } tick(); }, 400);
+      src.boxes.then(() => { clearInterval(timer); if (aibViewing !== token || !hl.isConnected) return; if (!draw()) fallback(); });
       return;
     }
     fallback();
   }
+
+  // 2026-11-05 體檢：所有跳出視窗都可以按 Esc 關閉（按最上層視窗的「✕／關閉／取消」，沒有這種按鈕就不動）
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape' || e.defaultPrevented) return;
+    const ovs = [...document.querySelectorAll('.fixed.inset-0, #pr-modal')]
+      .filter((o) => o.id !== 'login-gate' && o.id !== 'sidebar-backdrop' && !o.classList.contains('hidden') && getComputedStyle(o).display !== 'none' && o.getBoundingClientRect().width > 0);
+    if (!ovs.length) return;
+    const z = (o) => Number(getComputedStyle(o).zIndex) || 0;
+    const top = ovs.reduce((a, b) => (z(b) >= z(a) ? b : a));
+    const btns = [...top.querySelectorAll('button')].filter((b) => b.getClientRects().length > 0);
+    const btn = btns.find((b) => /^(✕|×|✖)$/.test(b.textContent.trim()) || b.getAttribute('aria-label') === '關閉' || /-close$/.test(b.id) || b.dataset.act === 'cancel')
+      || btns.find((b) => /^(關閉|取消)$/.test(b.textContent.trim()));
+    if (btn) { e.preventDefault(); btn.click(); }
+  });
 
   // 測試與示範用：從外部打開原文視窗（f＝{ page, quote }）
   window.LF_AibViewer = (f) => aibOpenViewer(f);
@@ -6839,12 +6945,9 @@ footer{font-size:12.5px;color:#8a8273;border-top:1px solid var(--rule);padding-t
     const text = pages.map((p) => p.text).join('\n');
     if (aibNorm(text).length < 30) { alert('請先貼入至少 30 字的書狀或判決書內容、上傳 PDF，或點「貼入示範文字（測試用）」測試'); return; }
     const caseType = aibDetectCaseType(text);
-    if (aibEngSel.value === 'gemini' && (!aibKeyIn.value.trim() || !aibModelSel.value)) {
-      if (confirm('還沒有貼上 Gemini 金鑰或選擇模型。\n要先用「示意版」看一次流程嗎？（不需金鑰，不會傳送任何資料；正式使用為 Gemini）')) { aibEngSel.value = 'local'; aibEngSel.dispatchEvent(new Event('change')); }
-      else return;
-    }
+    if (aibEngSel.value === 'gemini' && !AI.hasKey()) { aibEngSel.value = 'local'; aibEngineStatus(); } // 金鑰被清掉了：自動改示意版
     const aibUseGem = aibEngSel.value === 'gemini' || aibEngSel.value === 'gemini-mock';
-    if (aibEngSel.value === 'gemini' && !document.getElementById('aib-gemini-consent').checked) { alert('使用 Gemini 前，請先勾選同意卷宗文字傳送給 Google 分析；也可改用示意版體驗流程'); return; }
+    if (aibEngSel.value === 'gemini' && !document.getElementById('aib-gemini-consent').checked) { alert('使用 AI 分析前，請先勾選同意文件文字傳送給 Google 分析'); return; }
     const skeleton = document.getElementById('aib-skeleton'), result = document.getElementById('aib-result'), trace = document.getElementById('aib-trace');
     btn.disabled = true; btn.classList.add('opacity-60'); btn.textContent = '分析中…';
     result.classList.add('hidden'); trace.classList.add('hidden'); skeleton.classList.remove('hidden');
@@ -6880,23 +6983,31 @@ footer{font-size:12.5px;color:#8a8273;border-top:1px solid var(--rule);padding-t
           }));
         }
         if (g.scores) Object.keys(local.scores).forEach((k) => { const v = Number(g.scores[k]); if (Number.isFinite(v)) local.scores[k] = Math.max(0, Math.min(100, Math.round(v))); });
-        meta.engineLabel = (aibEngSel.value === 'gemini-mock' ? '去識別化測試（Gemini 假回應，非 AI 分析）' : `AI 閱卷助理・Google Gemini（${aibModelSel.value}）`)
+        meta.engineLabel = (aibEngSel.value === 'gemini-mock' ? '去識別化測試（Gemini 假回應，非 AI 分析）' : `AI 閱卷助理・Google Gemini（${AI.getModel()}）`)
           + (g.__deid ? `｜🛡️ 已去識別化 ${g.__deid.count} 項後送出${g.__deid.leftovers.length ? `｜⚠ 有 ${g.__deid.leftovers.length} 個代號無法還原：${g.__deid.leftovers.join('、')}` : ''}` : '');
         meta.summary = String(g.summary || '');
       } else {
         await new Promise((r) => setTimeout(r, 600));
         if (AIB_DOC.files.length) {
           // 多份文件時逐頁分析，避免時間軸片段跨頁、跨文件黏在一起；同樣內容只留一筆
+          // 2026-11-05 修正：優勢／劣勢／風險改用「全案文字」判斷一次，不再逐頁判斷後拼起來
+          //（之前會同時出現「已援引法條」和「全文未見法條」這種互相矛盾的句子）；時間軸跨文件照日期排序
           findings = []; const seen = new Set();
+          const WHOLE_CASE = ['優勢', '劣勢', '風險'];
           pages.forEach((pg) => {
             const t = pg.text.replace(/【示範案件[^】]*】/g, '');
             aibLocalFindings(analyzeBriefLocally(t, caseType), t).forEach((f) => {
+              if (WHOLE_CASE.includes(f.category)) return;
               if (f.category === '當事人' && (f.text.split('：')[1] || '').length > 4) return; // 規則式抓人名容易抓到整句，只留像人名的
               const k = f.category + '|' + f.text; if (!seen.has(k)) { seen.add(k); findings.push(f); }
             });
           });
+          const wholeText = text.replace(/【示範案件[^】]*】/g, '');
+          aibLocalFindings(analyzeBriefLocally(wholeText, caseType), wholeText).filter((f) => WHOLE_CASE.includes(f.category)).forEach((f) => findings.push(f));
+          const tl = findings.filter((f) => f.category === '時間軸').sort((a, b) => a.text.slice(0, 11).localeCompare(b.text.slice(0, 11)));
+          let ti = 0; findings = findings.map((f) => (f.category === '時間軸' ? tl[ti++] : f));
         } else findings = aibLocalFindings(local, text);
-        meta.engineLabel = '示意版（免金鑰；正式使用為 Gemini AI 閱卷助理）'; meta.caseType = caseType;
+        meta.engineLabel = AI.hasKey() ? '示意版（規則式整理，非 AI 分析）' : '示意版（尚未設定 AI，規則式整理）'; meta.caseType = caseType;
       }
       AIB_STATE.findings = aibVerify(findings); AIB_STATE.meta = meta;
       skeleton.classList.add('hidden');
@@ -7273,7 +7384,8 @@ footer{font-size:12.5px;color:#8a8273;border-top:1px solid var(--rule);padding-t
   renderTaxCaseForm();
   renderAll();
 
-  const initial = (location.hash || '#page-dashboard').slice(1);
+  const initial0 = (location.hash || '#page-dashboard').slice(1);
+  const initial = initial0 === 'admin' ? 'page-admin' : initial0; // 管理員設定：網址加 #admin
   let startPage = document.getElementById(initial) ? initial : 'page-dashboard';
   if (['page-billing', 'page-audit'].includes(startPage) && !(currentUser() && currentUser().canSeeFinance)) startPage = 'page-dashboard';
   if (startPage === 'page-petty-cash' && !canSeePettyCash(currentUser())) startPage = 'page-dashboard';
@@ -7301,7 +7413,7 @@ footer{font-size:12.5px;color:#8a8273;border-top:1px solid var(--rule);padding-t
     currentUserId = u.id; saveState('lf_currentUserId', u.id);
     applyRoleVisibility();
     const mode = q.get('autorun') || '';
-    const target = mode ? 'page-ai-brief' : ((location.hash || '#page-dashboard').slice(1));
+    const target = mode ? 'page-ai-brief' : initial; // initial 已把 #admin 換成 page-admin
     showPage(document.getElementById(target) ? target : 'page-dashboard');
     if (!mode) return;
     const wait = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -7313,7 +7425,13 @@ footer{font-size:12.5px;color:#8a8273;border-top:1px solid var(--rule);padding-t
         try {
           document.getElementById('aib-load-case').click();
           await wait(300);
-          for (let i = 0; i < 60 && (AIB_DOC.loading || !AIB_DOC.files.length); i++) await wait(250);
+          // 2026-11-05：網路慢時不要 15 秒就放棄（之前會跳「請先貼入至少 30 字」卡住）。
+          // 還在下載就繼續等（最多 2 分鐘）；下載結束卻沒有文件（失敗），改用示範文字，示範照樣跑得完
+          for (let i = 0; i < 480 && (AIB_DOC.loading || AIB_DOC.fetching || !AIB_DOC.files.length); i++) {
+            if (!AIB_DOC.loading && !AIB_DOC.fetching && !AIB_DOC.files.length && i > 12) break;
+            await wait(250);
+          }
+          if (!AIB_DOC.files.length) document.getElementById('aib-load-sample').click();
         } catch (e) { document.getElementById('aib-load-sample').click(); }
       }
       document.getElementById('aib-analyze').click();

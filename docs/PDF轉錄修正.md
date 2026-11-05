@@ -1,5 +1,7 @@
 # PDF 轉錄修正（分支 `fix/pdf-cjk`，2026-11-04；同日加做瀏覽器內 OCR）
 
+> **2026-11-05 更新**：pdf.js、Tesseract（含繁中語言檔）、xlsx、Tailwind 已全部放進網站的 `vendor/`，不再從 CDN 下載；本文提到 cdnjs、jsDelivr、`CDN_DIR`、「暖機」的地方是舊版說明。測試現在一律在斷網模式下跑（`tests/offline.js`）。詳見 `docs/正式版規格-1105.md`。
+
 ## 一句話結論
 這次修了兩件事：
 1. **中文字型對照表（CMap）**：見下方。
