@@ -8,7 +8,7 @@
  *   - 只送「抓不到文字的頁」（pdftext.js 判斷），有文字層的頁不送
  *   - 頁面圖片會原樣送給 Google，沒辦法先遮姓名；轉回來的文字之後照原流程去識別化，再送去分析
  *   - 任何失敗（沒網路、金鑰錯、超過額度…）都退回本機 OCR，並把原因寫在畫面上
- * 金鑰、模型沿用網站現有作法：「AI 智慧閱卷」頁貼的金鑰（sessionStorage aib_gemini_key）與選的模型。
+ * 金鑰、模型：2026-11-05 起只從「管理員設定」頁（#admin）讀（modules/ai-config.js，存在這台電腦的瀏覽器）。沒設定時勾選框不顯示。
  * 純函式可在 node 測試：node tests/gemini-ocr.test.js（用假回應，不連網）
  */
 (function (root) {
@@ -79,11 +79,10 @@
     return { error: '這一頁 Gemini 沒有回傳文字' + why, fatal: false };
   }
 
-  // 金鑰與模型：沿用「AI 智慧閱卷」頁的欄位
+  // 金鑰與模型：管理員設定頁（modules/ai-config.js）
   function credentials() {
-    let key = ''; let model = '';
-    try { key = (root.document && (root.document.getElementById('aib-gemini-key') || {}).value) || root.sessionStorage.getItem('aib_gemini_key') || ''; } catch (e) { /* ignore */ }
-    try { model = (root.document && (root.document.getElementById('aib-gemini-model') || {}).value) || ''; } catch (e) { /* ignore */ }
+    const A = root.LF_AI; let key = ''; let model = '';
+    try { key = A ? A.getKey() : ''; model = A ? A.getModel() : ''; } catch (e) { /* ignore */ }
     return { key: String(key || '').trim(), model: String(model || '').trim() || DEFAULT_MODEL };
   }
 
@@ -118,8 +117,11 @@
 
   // 畫面上的勾選框（每個功能各一個；狀態只在畫面上，不記住）
   function checkboxHtml(id) {
-    return `<label class="text-xs text-slate-600 flex items-start gap-2"><input id="${id}" type="checkbox" class="mt-0.5" data-lf-gemini-ocr="1" /><span>${LABEL}<span class="block text-[11px] text-slate-400">選檔前勾選才有效；要用「AI 智慧閱卷」頁貼的金鑰。沒勾、沒金鑰或失敗時，改用本機辨識（圖片不上傳）。</span></span></label>`;
+    const on = !!credentials().key; // 沒設定 AI 就不顯示（反正不會送）
+    return `<label class="lf-gemini-ocr-wrap text-xs text-slate-600 flex items-start gap-2${on ? '' : ' hidden'}"><input id="${id}" type="checkbox" class="mt-0.5" data-lf-gemini-ocr="1" /><span>${LABEL}<span class="block text-[11px] text-slate-400">選檔前勾選才有效。沒勾或失敗時，改用本機辨識（圖片不上傳）。</span></span></label>`;
   }
+  // 管理員設定改了金鑰：勾選框跟著顯示／隱藏
+  try { if (root.addEventListener) root.addEventListener('lf-ai-config', () => { const on = !!credentials().key; root.document.querySelectorAll('.lf-gemini-ocr-wrap').forEach((el) => { el.classList.toggle('hidden', !on); if (!on) { const c = el.querySelector('input'); if (c) c.checked = false; } }); }); } catch (e) { /* ignore */ }
 
   // 給 LF_PdfText.read 的 opts.remoteOcr：沒勾就回傳 undefined（照舊本機 OCR）
   //   ctx：{ pdf, pages, imagePages }（pdftext.js 傳入）；回傳 { pages:[頁碼], error }

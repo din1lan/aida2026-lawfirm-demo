@@ -22,9 +22,11 @@ function fakeFetch(replies) {
   f.calls = calls; return f;
 }
 
-// 假的畫面（勾選框、金鑰欄、畫布）與假的 PDF（pages：每頁的文字；空字串＝掃描頁）
+// 假的畫面（勾選框、畫布）＋假的管理員設定（金鑰）與假的 PDF（pages：每頁的文字；空字串＝掃描頁）
 function fakeDom(checked, key) {
-  const els = { 'my-box': { checked }, 'aib-gemini-key': { value: key || '' }, 'aib-gemini-model': { value: 'gemini-test-model' } };
+  const els = { 'my-box': { checked } };
+  // 2026-11-05：金鑰改由管理員設定頁（LF_AI）提供，不再從畫面欄位讀
+  global.LF_AI = { getKey: () => key || '', getModel: () => 'gemini-test-model', hasKey: () => !!key };
   global.document = {
     getElementById: (id) => els[id] || null,
     createElement: () => ({ width: 0, height: 0, getContext: () => ({ fillRect() {} }), toDataURL: () => 'data:image/jpeg;base64,RkFLRQ==' }),

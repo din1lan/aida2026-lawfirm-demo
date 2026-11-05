@@ -7,6 +7,7 @@
 <!-- 外部元件全部放在網站自己的 vendor/ 裡（2026-11-05），斷網也能開；只有呼叫 Gemini 需要網路 -->
 <script src="vendor/xlsx/xlsx.full.min.js"></script>
 <script src="vendor/pdfjs/pdf.min.js"></script>
+<script src="modules/ai-config.js"></script>
 <script src="modules/pdftext.js"></script>
 <script src="modules/gemini-ocr.js"></script>
 <!-- 去識別化模組（送 AI 前遮個資；規格見 docs/去識別化-規格.md） -->
@@ -264,6 +265,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
         <p id="sidebar-user-name" class="text-sm text-white truncate">尚未登入</p>
         <p id="sidebar-user-role" class="text-xs text-slate-400 truncate">－</p>
       </div>
+      <button id="btn-admin" type="button" class="text-xs text-slate-400 hover:text-white flex-shrink-0" title="管理員設定（AI 金鑰）">⚙</button>
       <button id="btn-logout" type="button" class="text-xs text-slate-400 hover:text-white flex-shrink-0" title="登出">登出</button>
     </div>
   </aside>
@@ -1084,7 +1086,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
           <p class="text-slate-500 text-sm mt-1">上傳同一案件的全部文件（書狀、筆錄、證據），AI 閱卷助理整理案情概要、爭點、攻防注意與下次開庭準備；也可以直接貼入文字</p>
         </div>
         <div class="text-xs bg-amber-50 border border-amber-200 text-amber-800 rounded-lg px-4 py-2.5">
-          由 <b>AI 閱卷助理</b>（Google Gemini，依事務所設定的角色與規矩工作）讀文件、整理爭點，並標示原文／推論／重點。標為「原文」的句子可以一鍵跳回文件原句對照；「推論」是綜合判斷、對不到單一句子，由律師自行確認。沒有金鑰時可切換<b>示意版</b>體驗流程。</div>
+          由 <b>AI 閱卷助理</b>（Google Gemini，依事務所設定的角色與規矩工作）讀文件、整理爭點，並標示原文／推論／重點。標為「原文」的句子可以一鍵跳回文件原句對照；「推論」是綜合判斷、對不到單一句子，由律師自行確認。尚未設定 AI 時，自動以<b>示意版</b>執行。</div>
 
         <div class="bg-white rounded-lg border-2 border-indigo-300 p-5">
           <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -1132,22 +1134,16 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
               <div id="aib-gemini-ocr-wrap"></div>
               <button id="aib-load-case" type="button" class="w-full text-xs px-3 py-2 rounded border border-slate-300 text-slate-600 hover:bg-slate-50">載入示範案件（4 份虛構文件）</button>
             </div>
-            <label class="text-xs text-slate-500 space-y-1 block">
+            <div class="lg:col-span-2 text-xs text-slate-500 space-y-2">
               <span>③ 分析引擎</span>
-              <select id="aib-engine" class="w-full text-sm border rounded px-3 py-2">
+              <!-- 2026-11-05：主畫面不再貼金鑰。金鑰由「管理員設定」頁（網址加 #admin）設定；沒設定就自動用示意版 -->
+              <div id="aib-engine-status" class="text-sm rounded border px-3 py-2"></div>
+              <select id="aib-engine" class="hidden" aria-hidden="true" tabindex="-1">
                 <option value="gemini">AI 閱卷助理（Google Gemini）</option>
-                <option value="local">示意版（免金鑰，供評審快速體驗）</option>
+                <option value="local">示意版</option>
                 <option value="gemini-mock">去識別化測試（Gemini 假回應，不連網）</option>
               </select>
-            </label>
-            <div id="aib-gemini-box" class="text-xs text-slate-500 space-y-1">
-              <span>④ Gemini API 金鑰（只存在這個分頁，關掉就清除，不寫進檔案）</span>
-              <input id="aib-gemini-key" type="password" autocomplete="off" placeholder="貼上你自己的金鑰" class="w-full text-sm border rounded px-3 py-2" />
-              <div class="flex gap-2">
-                <select id="aib-gemini-model" class="flex-1 text-xs border rounded px-2 py-1.5"><option value="">先輸入金鑰再載入模型</option></select>
-                <button id="aib-gemini-load" type="button" class="text-xs px-2 py-1.5 rounded border border-slate-300 hover:bg-slate-50 whitespace-nowrap">載入模型</button>
-              </div>
-              <label class="flex items-start gap-2 pt-1 text-slate-600"><input id="aib-gemini-consent" type="checkbox" class="mt-1" /><span>我了解選用 Gemini 時，文件文字會傳送給 Google 進行分析（正式版會留存同意紀錄）</span></label>
+              <label id="aib-gemini-box" class="flex items-start gap-2 pt-1 text-slate-600"><input id="aib-gemini-consent" type="checkbox" class="mt-1" /><span>我了解使用 AI 分析時，文件文字（已先遮蔽姓名等個資）會傳送給 Google 進行分析</span></label>
             </div>
           </div>
           <details id="aib-role" class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
@@ -1216,6 +1212,34 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
       </section>
 
       <!-- ============ 垃圾桶（2026-08-04）============ -->
+      <!-- 2026-11-05：管理員設定（不在主選單；網址加 #admin 或點左下角 ⚙ 進入）。Gemini 金鑰只存在這台電腦的瀏覽器 -->
+      <section id="page-admin" class="page space-y-4">
+        <h1 class="text-2xl font-bold text-slate-900">管理員設定</h1>
+        <p class="text-slate-500 text-sm -mt-2">這一頁不在主選單：網址後面加 <code>#admin</code>，或點左下角 ⚙ 進入。</p>
+        <div class="bg-white rounded-lg border border-slate-200 p-5 space-y-3 max-w-3xl">
+          <h3 class="font-semibold text-slate-800">AI 分析（Google Gemini）</h3>
+          <div id="adm-ai-status" class="text-sm rounded border px-3 py-2"></div>
+          <p id="adm-role-note" class="hidden text-xs text-amber-700">只有主持律師可以修改這裡的設定。</p>
+          <label class="block text-xs text-slate-500 space-y-1"><span>Gemini API 金鑰</span>
+            <input id="adm-key" type="password" autocomplete="off" spellcheck="false" placeholder="貼上金鑰（設定過的話留空＝沿用目前的）" class="w-full text-sm border rounded px-3 py-2" /></label>
+          <div class="flex flex-wrap items-end gap-2">
+            <label class="text-xs text-slate-500 space-y-1 flex-1 min-w-[220px]"><span>模型</span>
+              <select id="adm-model" class="w-full text-sm border rounded px-3 py-2"></select></label>
+            <button id="adm-load-models" type="button" class="text-sm px-3 py-2 rounded border border-slate-300 hover:bg-slate-50">載入可用模型（測試金鑰）</button>
+          </div>
+          <div class="flex flex-wrap gap-2 pt-1">
+            <button id="adm-save" type="button" class="text-sm px-4 py-2 rounded bg-navy-900 text-white hover:bg-navy-800">儲存</button>
+            <button id="adm-clear" type="button" class="text-sm px-4 py-2 rounded border border-red-300 text-red-700 hover:bg-red-50">清除金鑰</button>
+            <span id="adm-msg" class="text-xs text-slate-500 self-center"></span>
+          </div>
+          <ul class="text-xs text-slate-500 list-disc pl-5 space-y-1">
+            <li>金鑰只存在<b>這台電腦的這個瀏覽器</b>（localStorage）：不寫進網站程式、不上傳到任何伺服器、不會出現在「一鍵備份」檔裡。換電腦或清除瀏覽器資料後要重新設定。</li>
+            <li>設定後，AI 智慧閱卷、AI 自動填、掃描頁辨識會自動改用 Gemini；沒有設定時一律用示意版。</li>
+            <li>使用 AI 分析時，文件文字會先遮蔽姓名、電話、地址等個資，再連同金鑰送到 Google。</li>
+          </ul>
+        </div>
+      </section>
+
       <section id="page-trash" class="page space-y-4">
         <h1 class="text-2xl font-bold text-slate-900">垃圾桶</h1>
         <p class="text-slate-500 text-sm -mt-2">刪除的資料（案件、任務、員工、零用金、請假…）會先放這裡，可「復原」放回原處，或「永久刪除」。比賽示範版沒有雲端：資料只在這台電腦的瀏覽器。</p>
@@ -2703,6 +2727,54 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
     document.querySelectorAll('.navitem').forEach((n) => n.classList.toggle('active', n.dataset.page === id));
     location.hash = id;
     renderAll();
+    if (id === 'page-admin') renderAdminPage();
+  }
+  // 管理員設定頁：網址 #admin 或左下角 ⚙
+  window.addEventListener('hashchange', () => { if (location.hash === '#admin' && currentUser()) showPage('page-admin'); });
+  document.getElementById('btn-admin').addEventListener('click', () => { if (currentUser()) showPage('page-admin'); });
+  function renderAdminPage() {
+    const A = window.LF_AI; if (!A) return;
+    const u = currentUser(); const canEdit = !!(u && u.roleGroup === 'boss');
+    const st = document.getElementById('adm-ai-status');
+    st.className = 'text-sm rounded border px-3 py-2 ' + (A.hasKey() ? 'border-emerald-300 bg-emerald-50 text-emerald-800' : 'border-amber-300 bg-amber-50 text-amber-800');
+    st.textContent = A.hasKey() ? `🟢 已設定：金鑰 ${A.masked()}，模型 ${A.getModel()}` : '尚未設定 AI：各功能目前為示意版';
+    const sel = document.getElementById('adm-model');
+    if (!sel.options.length || ![...sel.options].some((o) => o.value === A.getModel())) sel.innerHTML = `<option value="${esc(A.getModel())}">${esc(A.getModel())}</option>`;
+    sel.value = A.getModel();
+    document.getElementById('adm-role-note').classList.toggle('hidden', canEdit);
+    ['adm-key', 'adm-model', 'adm-load-models', 'adm-save', 'adm-clear'].forEach((id) => { document.getElementById(id).disabled = !canEdit; });
+    document.getElementById('adm-key').value = '';
+  }
+  {
+    const msg = (t, cls) => { const el = document.getElementById('adm-msg'); el.className = 'text-xs self-center ' + (cls || 'text-slate-500'); el.textContent = t; };
+    const keyNow = () => document.getElementById('adm-key').value.trim() || (window.LF_AI ? window.LF_AI.getKey() : '');
+    document.getElementById('adm-load-models').addEventListener('click', async () => {
+      const key = keyNow(); if (!key) { msg('請先貼上金鑰', 'text-amber-700'); return; }
+      msg('連線中…');
+      try {
+        const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=200&key=' + encodeURIComponent(key));
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error((j.error && j.error.message) || ('HTTP ' + r.status));
+        const ms = (j.models || []).filter((m) => (m.supportedGenerationMethods || []).includes('generateContent') && /gemini/i.test(m.name)).map((m) => m.name.replace('models/', ''));
+        ms.sort((a, b) => (/flash/.test(b) ? 1 : 0) - (/flash/.test(a) ? 1 : 0));
+        if (!ms.length) throw new Error('找不到可用的 Gemini 模型');
+        const sel = document.getElementById('adm-model'); const cur = sel.value;
+        sel.innerHTML = ms.map((m) => `<option value="${esc(m)}">${esc(m)}</option>`).join('');
+        if (ms.includes(cur)) sel.value = cur;
+        msg(`✓ 金鑰可以用，找到 ${ms.length} 個模型`, 'text-emerald-700');
+      } catch (e) { msg('⚠ 連線失敗：' + ((e && e.message) || e), 'text-red-600'); }
+    });
+    document.getElementById('adm-save').addEventListener('click', () => {
+      const k = document.getElementById('adm-key').value.trim(); const m = document.getElementById('adm-model').value;
+      if (!k && !(window.LF_AI && window.LF_AI.hasKey())) { msg('請先貼上金鑰', 'text-amber-700'); return; }
+      try { window.LF_AI.save(k, m); logAudit('更新 AI 設定', '', '模型 ' + m); persistAll(); renderAdminPage(); msg('✓ 已儲存（只存在這台電腦的瀏覽器）', 'text-emerald-700'); }
+      catch (e) { msg('⚠ ' + ((e && e.message) || e), 'text-red-600'); }
+    });
+    document.getElementById('adm-clear').addEventListener('click', () => {
+      confirmModal({ title: '清除 AI 金鑰', message: '清除後，這台電腦上的 AI 智慧閱卷、AI 自動填會改用示意版。確定要清除嗎？', confirmText: '清除' }, () => {
+        window.LF_AI.clear(); logAudit('清除 AI 金鑰', '', ''); persistAll(); renderAdminPage(); msg('已清除', 'text-slate-500');
+      });
+    });
   }
   document.querySelectorAll('.navitem').forEach((btn) => btn.addEventListener('click', () => showPage(btn.dataset.page)));
 
@@ -5714,6 +5786,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
     e.target.reset(); populateLoginRoleSelect();
     applyRoleVisibility();
     let startId = (location.hash || '#page-dashboard').slice(1);
+    if (startId === 'admin') startId = 'page-admin';
     if (['page-billing', 'page-audit'].includes(startId) && !u.canSeeFinance) startId = 'page-dashboard';
     if (startId === 'page-petty-cash' && !canSeePettyCash(u)) startId = 'page-dashboard';
     showPage(document.getElementById(startId) ? startId : 'page-dashboard');
@@ -6256,27 +6329,24 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
 
   const aibEngSel = document.getElementById('aib-engine');
   if (window.LF_GeminiOcr) document.getElementById('aib-gemini-ocr-wrap').innerHTML = window.LF_GeminiOcr.checkboxHtml('aib-gemini-ocr');
-  const aibKeyIn = document.getElementById('aib-gemini-key');
-  const aibModelSel = document.getElementById('aib-gemini-model');
-  try { aibKeyIn.value = sessionStorage.getItem('aib_gemini_key') || ''; } catch (e) { /* ignore */ }
-  aibEngSel.addEventListener('change', () => document.getElementById('aib-gemini-box').classList.toggle('hidden', aibEngSel.value !== 'gemini'));
+  // 2026-11-05：金鑰與模型只從「管理員設定」頁讀（modules/ai-config.js，存在這台電腦的瀏覽器）；主畫面不再有金鑰框
+  const AI = window.LF_AI || { getKey: () => '', getModel: () => '', hasKey: () => false };
+  function aibEngineStatus() {
+    const v = aibEngSel.value, box = document.getElementById('aib-engine-status');
+    document.getElementById('aib-gemini-box').classList.toggle('hidden', v !== 'gemini');
+    if (!box) return;
+    const html = v === 'gemini' ? ['border-emerald-300 bg-emerald-50 text-emerald-800', `🟢 AI 分析：Google Gemini（${esc(AI.getModel())}）`]
+      : v === 'gemini-mock' ? ['border-slate-300 bg-slate-50 text-slate-700', '去識別化測試（Gemini 假回應，不連網）']
+      : AI.hasKey() ? ['border-slate-300 bg-slate-50 text-slate-700', '示意版（一鍵示範）'] : ['border-amber-300 bg-amber-50 text-amber-800', '尚未設定 AI，目前為示意版'];
+    box.className = 'text-sm rounded border px-3 py-2 ' + html[0]; box.innerHTML = html[1];
+  }
+  // 預設：有金鑰就用 Gemini，沒有就示意版
+  function aibEngineDefault() { aibEngSel.value = AI.hasKey() ? 'gemini' : 'local'; aibEngineStatus(); }
+  aibEngineDefault();
+  aibEngSel.addEventListener('change', aibEngineStatus);
+  window.addEventListener('lf-ai-config', aibEngineDefault);
   // 比賽示範版：把 AI 閱卷助理的完整角色指令攤開給使用者看（與 LINE 接待一樣，靠角色設定讓 AI 照事務所的規矩做事）
   try { document.getElementById('aib-role-prompt').textContent = aibCasePrompt('自動'); } catch (e) { /* ignore */ }
-  aibKeyIn.addEventListener('change', () => { try { sessionStorage.setItem('aib_gemini_key', aibKeyIn.value.trim()); } catch (e) { /* ignore */ } });
-  document.getElementById('aib-gemini-load').addEventListener('click', async () => {
-    const key = aibKeyIn.value.trim();
-    if (!key) { alert('請先貼上 Gemini API 金鑰'); return; }
-    aibModelSel.innerHTML = '<option value="">載入中…</option>';
-    try {
-      const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=200&key=' + encodeURIComponent(key));
-      const j = await r.json();
-      if (!r.ok) throw new Error((j.error && j.error.message) || ('HTTP ' + r.status));
-      const ms = (j.models || []).filter((m) => (m.supportedGenerationMethods || []).includes('generateContent') && /gemini/i.test(m.name)).map((m) => m.name.replace('models/', ''));
-      ms.sort((a, b) => (/flash/.test(b) ? 1 : 0) - (/flash/.test(a) ? 1 : 0));
-      aibModelSel.innerHTML = ms.length ? ms.map((m) => `<option value="${esc(m)}">${esc(m)}</option>`).join('') : '<option value="">找不到可用的 Gemini 模型</option>';
-    } catch (err) { aibModelSel.innerHTML = '<option value="">載入失敗</option>'; alert('載入模型失敗：' + err.message); }
-  });
-
   function aibGeminiPrompt(caseType) {
     return buildLegalAnalysisSystemPrompt(caseType) + '\n\n' + [
       '# 溯源輸出規則（本次改用此格式，取代上面的【輸出格式】）',
@@ -6324,8 +6394,8 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
     ].join('\n');
   }
   async function aibCallGemini(docText, caseType, promptText) {
-    const key = aibKeyIn.value.trim(), model = aibModelSel.value;
-    if (!key || !model) throw new Error('請貼上金鑰，按「載入模型」並選擇一個模型');
+    const key = AI.getKey(), model = AI.getModel();
+    if (!key || !model) throw new Error('尚未設定 AI（請管理員到「管理員設定」頁設定 Gemini 金鑰）');
     const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -6875,12 +6945,9 @@ footer{font-size:12.5px;color:#8a8273;border-top:1px solid var(--rule);padding-t
     const text = pages.map((p) => p.text).join('\n');
     if (aibNorm(text).length < 30) { alert('請先貼入至少 30 字的書狀或判決書內容、上傳 PDF，或點「貼入示範文字（測試用）」測試'); return; }
     const caseType = aibDetectCaseType(text);
-    if (aibEngSel.value === 'gemini' && (!aibKeyIn.value.trim() || !aibModelSel.value)) {
-      if (confirm('還沒有貼上 Gemini 金鑰或選擇模型。\n要先用「示意版」看一次流程嗎？（不需金鑰，不會傳送任何資料；正式使用為 Gemini）')) { aibEngSel.value = 'local'; aibEngSel.dispatchEvent(new Event('change')); }
-      else return;
-    }
+    if (aibEngSel.value === 'gemini' && !AI.hasKey()) { aibEngSel.value = 'local'; aibEngineStatus(); } // 金鑰被清掉了：自動改示意版
     const aibUseGem = aibEngSel.value === 'gemini' || aibEngSel.value === 'gemini-mock';
-    if (aibEngSel.value === 'gemini' && !document.getElementById('aib-gemini-consent').checked) { alert('使用 Gemini 前，請先勾選同意卷宗文字傳送給 Google 分析；也可改用示意版體驗流程'); return; }
+    if (aibEngSel.value === 'gemini' && !document.getElementById('aib-gemini-consent').checked) { alert('使用 AI 分析前，請先勾選同意文件文字傳送給 Google 分析'); return; }
     const skeleton = document.getElementById('aib-skeleton'), result = document.getElementById('aib-result'), trace = document.getElementById('aib-trace');
     btn.disabled = true; btn.classList.add('opacity-60'); btn.textContent = '分析中…';
     result.classList.add('hidden'); trace.classList.add('hidden'); skeleton.classList.remove('hidden');
@@ -6916,7 +6983,7 @@ footer{font-size:12.5px;color:#8a8273;border-top:1px solid var(--rule);padding-t
           }));
         }
         if (g.scores) Object.keys(local.scores).forEach((k) => { const v = Number(g.scores[k]); if (Number.isFinite(v)) local.scores[k] = Math.max(0, Math.min(100, Math.round(v))); });
-        meta.engineLabel = (aibEngSel.value === 'gemini-mock' ? '去識別化測試（Gemini 假回應，非 AI 分析）' : `AI 閱卷助理・Google Gemini（${aibModelSel.value}）`)
+        meta.engineLabel = (aibEngSel.value === 'gemini-mock' ? '去識別化測試（Gemini 假回應，非 AI 分析）' : `AI 閱卷助理・Google Gemini（${AI.getModel()}）`)
           + (g.__deid ? `｜🛡️ 已去識別化 ${g.__deid.count} 項後送出${g.__deid.leftovers.length ? `｜⚠ 有 ${g.__deid.leftovers.length} 個代號無法還原：${g.__deid.leftovers.join('、')}` : ''}` : '');
         meta.summary = String(g.summary || '');
       } else {
@@ -6940,7 +7007,7 @@ footer{font-size:12.5px;color:#8a8273;border-top:1px solid var(--rule);padding-t
           const tl = findings.filter((f) => f.category === '時間軸').sort((a, b) => a.text.slice(0, 11).localeCompare(b.text.slice(0, 11)));
           let ti = 0; findings = findings.map((f) => (f.category === '時間軸' ? tl[ti++] : f));
         } else findings = aibLocalFindings(local, text);
-        meta.engineLabel = '示意版（免金鑰；正式使用為 Gemini AI 閱卷助理）'; meta.caseType = caseType;
+        meta.engineLabel = AI.hasKey() ? '示意版（規則式整理，非 AI 分析）' : '示意版（尚未設定 AI，規則式整理）'; meta.caseType = caseType;
       }
       AIB_STATE.findings = aibVerify(findings); AIB_STATE.meta = meta;
       skeleton.classList.add('hidden');
@@ -7316,7 +7383,8 @@ footer{font-size:12.5px;color:#8a8273;border-top:1px solid var(--rule);padding-t
   renderTaxCaseForm();
   renderAll();
 
-  const initial = (location.hash || '#page-dashboard').slice(1);
+  const initial0 = (location.hash || '#page-dashboard').slice(1);
+  const initial = initial0 === 'admin' ? 'page-admin' : initial0; // 管理員設定：網址加 #admin
   let startPage = document.getElementById(initial) ? initial : 'page-dashboard';
   if (['page-billing', 'page-audit'].includes(startPage) && !(currentUser() && currentUser().canSeeFinance)) startPage = 'page-dashboard';
   if (startPage === 'page-petty-cash' && !canSeePettyCash(currentUser())) startPage = 'page-dashboard';
@@ -7342,7 +7410,7 @@ footer{font-size:12.5px;color:#8a8273;border-top:1px solid var(--rule);padding-t
     currentUserId = u.id; saveState('lf_currentUserId', u.id);
     applyRoleVisibility();
     const mode = q.get('autorun') || '';
-    const target = mode ? 'page-ai-brief' : ((location.hash || '#page-dashboard').slice(1));
+    const target = mode ? 'page-ai-brief' : initial; // initial 已把 #admin 換成 page-admin
     showPage(document.getElementById(target) ? target : 'page-dashboard');
     if (!mode) return;
     const wait = (ms) => new Promise((r) => setTimeout(r, ms));

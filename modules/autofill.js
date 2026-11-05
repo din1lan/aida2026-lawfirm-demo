@@ -415,11 +415,13 @@
       </div>
       <div class="bg-white rounded-lg border border-slate-200 p-4 space-y-3">
         <div class="grid md:grid-cols-3 gap-3 text-sm">
-          <label class="space-y-1 text-xs text-slate-500"><span>① 由誰讀</span>
-            <select id="af-engine" class="w-full text-sm border rounded px-2 py-1.5">
-              <option value="mock">示意版（免金鑰、不連網，固定規則抓取）</option>
-              <option value="gemini">Gemini（用「AI 智慧閱卷」頁貼的金鑰與模型）</option>
-            </select></label>
+          <div class="space-y-1 text-xs text-slate-500"><span>① 由誰讀</span>
+            <!-- 2026-11-05：不再選、不再貼金鑰。管理員在「管理員設定」頁（#admin）設好就用 Gemini，沒設定自動用示意版 -->
+            <div id="af-engine-status" class="text-sm rounded border px-2 py-1.5"></div>
+            <select id="af-engine" class="hidden" aria-hidden="true" tabindex="-1">
+              <option value="mock">示意版</option>
+              <option value="gemini">Gemini</option>
+            </select></div>
           <label class="space-y-1 text-xs text-slate-500 md:col-span-2"><span>② 上傳 PDF 或照片（一次一份）</span>
             <input id="af-file" type="file" accept=".pdf,image/*" class="w-full text-sm border rounded px-2 py-1" /></label>
         </div>
@@ -447,7 +449,9 @@
     $('af-sample-judgment').addEventListener('click', () => loadSample('範例_民事判決.pdf', 'case'));
     $('af-sample-notice-pdf').addEventListener('click', () => loadSample('範例_開庭通知書.pdf', 'notice'));
     $('af-sample-notice-img').addEventListener('click', () => loadSample('範例_開庭通知書.png', 'notice'));
-    $('af-engine').addEventListener('change', paintConsent);
+    $('af-engine').addEventListener('change', () => { paintEngine(); paintConsent(); });
+    engineDefault();
+    window.addEventListener('lf-ai-config', engineDefault);
     $('af-run').addEventListener('click', () => run().catch((err) => setStatus('⚠ ' + (err && err.message ? err.message : err), 'text-red-600')));
   }
   function paintTabs() {
@@ -455,6 +459,15 @@
       const on = b.dataset.afKind === UI.kind;
       b.className = `af-tab text-sm px-4 py-2 rounded border ${on ? 'bg-navy-900 text-white border-navy-900' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'}`;
     });
+  }
+  // 有管理員設定的金鑰就用 Gemini，沒有就示意版
+  const AI = () => window.LF_AI || { getKey: () => '', getModel: () => '', hasKey: () => false };
+  function engineDefault() { const sel = $('af-engine'); if (!sel) return; sel.value = AI().hasKey() ? 'gemini' : 'mock'; paintEngine(); paintConsent(); }
+  function paintEngine() {
+    const el = $('af-engine-status'); if (!el) return;
+    const g = $('af-engine').value === 'gemini';
+    el.className = 'text-sm rounded border px-2 py-1.5 ' + (g ? 'border-emerald-300 bg-emerald-50 text-emerald-800' : 'border-amber-300 bg-amber-50 text-amber-800');
+    el.textContent = g ? `🟢 Google Gemini（${AI().getModel()}）` : (AI().hasKey() ? '示意版' : '尚未設定 AI，目前為示意版');
   }
   function paintConsent() {
     const w = $('af-img-consent-wrap'); if (!w) return;
@@ -511,11 +524,8 @@
   }
 
   async function callGemini(promptText, doc, sentText) {
-    let key = ''; let model = '';
-    try { key = (document.getElementById('aib-gemini-key') || {}).value || sessionStorage.getItem('aib_gemini_key') || ''; } catch (e) { /* ignore */ }
-    model = (document.getElementById('aib-gemini-model') || {}).value || '';
-    key = String(key).trim();
-    if (!key || !model) throw new Error('請先到「AI 智慧閱卷」貼上 Gemini 金鑰、按「載入模型」並選一個模型');
+    const key = AI().getKey(); const model = AI().getModel();
+    if (!key || !model) throw new Error('尚未設定 AI（請管理員到「管理員設定」頁設定 Gemini 金鑰）');
     const parts = doc.image
       ? [{ text: '以下是一張法院文件的照片，請依指示抄出欄位。' }, { inline_data: { mime_type: doc.mime, data: String(doc.dataUrl).split(',')[1] || '' } }]
       : [{ text: sentText }];
@@ -531,7 +541,7 @@
 
   async function run() {
     const doc = UI.doc; if (!doc) return;
-    const engine = $('af-engine').value;
+    const engine = $('af-engine').value === 'gemini' && AI().hasKey() ? 'gemini' : 'mock'; // 金鑰被清掉就自動改示意版
     if (doc.image && engine === 'gemini' && !$('af-img-consent').checked) { setStatus('⚠ 圖片無法先遮個資，請先勾選上方同意說明再送出', 'text-red-600'); return; }
     $('af-run').disabled = true; setStatus('AI 讀取中…');
     try {

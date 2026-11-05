@@ -41,15 +41,19 @@ async function route(ctx, gem) {
       const text = String((truth[n - 1] || {}).text || '').replace(/乙○○/g, '李大華');
       return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ candidates: [{ content: { parts: [{ text }] }, finishReason: 'STOP' }] }) });
     });
+    // 金鑰：2026-11-05 起由「管理員設定」頁存在瀏覽器 localStorage（這裡直接放假的）
+    await ctx.addInitScript((k) => { try { localStorage.setItem('lf_admin_gemini_key', k); } catch (e) { /* ignore */ } }, FAKE_KEY);
     const p = await ctx.newPage(); const errs = [];
     p.on('pageerror', (e) => errs.push(String(e)));
     await p.goto('http://localhost:8765/index.html?demo=ding#page-ai-brief', { waitUntil: 'load' });
     await p.waitForTimeout(800);
-    // 金鑰：照網站作法貼在「AI 智慧閱卷」頁（假的）
-    await p.fill('#aib-gemini-key', FAKE_KEY); await p.dispatchEvent('#aib-gemini-key', 'change');
     const isAib = feature === 'aib';
     const box = isAib ? '#aib-gemini-ocr' : '#af-gemini-ocr'; const input = isAib ? '#aib-pdf' : '#af-file'; const status = isAib ? 'aib-pdf-status' : 'af-status';
-    if (!isAib) await p.evaluate(() => window.LF_AutofillHost.showPage('page-autofill'));
+    if (!isAib) {
+      await p.evaluate(() => window.LF_AutofillHost.showPage('page-autofill'));
+      // 欄位抽取用示意版（這個測試只測掃描頁辨識）；有金鑰時預設是 Gemini，所以手動切回
+      await p.evaluate(() => { const s = document.getElementById('af-engine'); s.value = 'mock'; s.dispatchEvent(new Event('change')); });
+    }
     await p.waitForSelector(box, { state: 'attached' });
     check(!(await p.isChecked(box)), '勾選框預設沒打勾');
     if (checked) await p.check(box);
@@ -66,7 +70,7 @@ async function route(ctx, gem) {
       check(/OCR 辨識，可能有錯字|圖片、讀不到文字/.test(st), '沒勾選：照舊用本機 OCR');
     } else if (mode === 'ok') {
       check(calls.length === 1 && calls[0].page === 2 && calls[0].hasImg, '只送第 2 頁（掃描頁）的圖片，第 1、3 頁有文字層不送');
-      check(calls.every((c) => c.url.includes('key=' + FAKE_KEY)), '用「AI 智慧閱卷」頁貼的金鑰');
+      check(calls.every((c) => c.url.includes('key=' + FAKE_KEY)), '用管理員設定頁存的金鑰');
       check(st.includes('第 2 頁由 Gemini 辨識') && st.includes('沒有遮姓名') && st.includes('會先遮姓名'), '畫面標示「由 Gemini 辨識」與圖片沒遮、分析有遮');
       // AI 智慧閱卷：文字用 Gemini 的，但背景會用本機 OCR 取得座標（只為了「原文」螢光，圖片不上傳）；AI 自動填不需要
       if (!isAib) check(tess === 0, '全部成功時不下載本機 OCR 元件（AI 自動填）');
@@ -81,7 +85,7 @@ async function route(ctx, gem) {
 
     // 接著照原流程分析：送出前去識別化（閱卷用「去識別化測試」假回應引擎；自動填用示意版）
     if (isAib && checked && mode === 'ok') {
-      await p.selectOption('#aib-engine', 'gemini-mock');
+      await p.evaluate(() => { const s = document.getElementById('aib-engine'); s.value = 'gemini-mock'; s.dispatchEvent(new Event('change')); });
       await p.click('#aib-analyze');
       await p.waitForSelector('#deid-preview', { timeout: 30000 });
       const prev = await p.evaluate(() => document.getElementById('deid-preview').innerText);
