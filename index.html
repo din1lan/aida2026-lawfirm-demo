@@ -379,7 +379,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
         <div class="bg-white rounded-lg border border-slate-200 p-5">
           <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm" id="line-inbox-steps">
             <div class="inbox-step"><b>① 預約進件</b><span>LINE AI 接待問清案情與聯絡方式</span></div>
-            <div class="inbox-step"><b>② 利益衝突審核</b><span>律師輸入對造，比對管制表、現有案件與結案紀錄</span></div>
+            <div class="inbox-step"><b>② 利益衝突審核</b><span>自動用民眾本人全名比對管制表、現有案件、客戶與結案紀錄</span></div>
             <div class="inbox-step"><b>③ 諮詢</b><span>律師諮詢前先看案情卡片</span></div>
             <div class="inbox-step"><b>④ 轉為接案</b><span>確定委任才建立客戶與案件</span></div>
           </div>
@@ -2980,14 +2980,16 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
   const LINE_BOOKINGS_SEED = (() => {
     const d = (n, hm) => { const t = new Date(); t.setDate(t.getDate() + n); return t.toISOString().slice(0, 10) + ' ' + hm; };
     return [
-      { id: 'lb1', received: d(-1, '23:12'), slot: d(1, '15:30'), name: '鄭家瑜', phone: '0900-000-201', type: '租賃糾紛', opponent: '何建良', summary: '押金約 6 萬元未返還，房東以「牆面損壞」為由拒還；諮詢重點為請求返還押金之程序與舉證。', status: 'pending' },
-      { id: 'lb2', received: d(-1, '21:47'), slot: d(2, '10:00'), name: '蘇怡安', phone: '0900-000-203', type: '車禍損害賠償', opponent: '林小華', summary: '騎機車與對方汽車擦撞，醫療費與工作損失約 15 萬元，對方不願和解；想了解求償項目與時效。', status: 'pending' },
-      { id: 'lb3', received: d(-2, '07:05'), slot: d(2, '14:00'), name: '許明哲', phone: '0900-000-204', type: '承攬契約糾紛', opponent: '示範建設股份有限公司', summary: '承包裝修工程完工後，業主以瑕疵為由扣留尾款約 42 萬元；諮詢重點為尾款請求與瑕疵抗辯。', status: 'pending' },
-      { id: 'lb4', received: d(-2, '19:30'), slot: d(3, '11:00'), name: '吳承翰', phone: '0900-000-202', type: '勞資爭議', opponent: '宇辰科技有限公司', summary: '公司未給付最後兩個月薪資及資遣費，勞工局調解不成立；想了解提起訴訟的流程與費用。', status: 'cleared' },
-      { id: 'lb5', received: d(-4, '22:58'), slot: d(-1, '16:00'), name: '陳佩君', phone: '0900-000-205', type: '繼承', opponent: '陳國華', summary: '父親過世後兄長占用房屋並拒絕分割遺產；諮詢重點為遺產分割程序與占用期間的不當得利。', status: 'converted' },
+      { id: 'lb1', received: d(-1, '23:12'), slot: d(1, '15:30'), name: '鄭家瑜', lineName: '小瑜 Yu', phone: '0900-000-201', type: '租賃糾紛', opponent: '何建良', summary: '押金約 6 萬元未返還，房東以「牆面損壞」為由拒還；諮詢重點為請求返還押金之程序與舉證。', status: 'pending' },
+      { id: 'lb2', received: d(-1, '21:47'), slot: d(2, '10:00'), name: '李大華', lineName: '大華', phone: '0900-000-203', type: '債務糾紛', opponent: '', summary: '朋友起訴請求返還借款約 50 萬元，主張當時是合夥出資不是借款；想了解如何答辯、能否分期清償。', status: 'pending' },
+      { id: 'lb3', received: d(-2, '07:05'), slot: d(2, '14:00'), name: '黃志豪', lineName: 'Howard 黃', phone: '0900-000-204', type: '承攬契約糾紛', opponent: '示範建設股份有限公司', summary: '承包裝修工程完工後，業主以瑕疵為由扣留尾款約 42 萬元；諮詢重點為尾款請求與瑕疵抗辯。', status: 'pending' },
+      { id: 'lb4', received: d(-2, '19:30'), slot: d(3, '11:00'), name: '吳承翰', lineName: '承翰', phone: '0900-000-202', type: '勞資爭議', opponent: '宇辰科技有限公司', summary: '公司未給付最後兩個月薪資及資遣費，勞工局調解不成立；想了解提起訴訟的流程與費用。', status: 'cleared' },
+      { id: 'lb5', received: d(-4, '22:58'), slot: d(-1, '16:00'), name: '陳佩君', lineName: 'Peggy', phone: '0900-000-205', type: '繼承', opponent: '陳國華', summary: '父親過世後兄長占用房屋並拒絕分割遺產；諮詢重點為遺產分割程序與占用期間的不當得利。', status: 'converted' },
     ];
   })();
   let lineBookings = loadState('lf_lineBookings', null) || LINE_BOOKINGS_SEED.map((b) => ({ ...b }));
+  // 舊版存的 LINE 進件只有暱稱（放在 name）：搬到 lineName，name 留給客戶全名（重新接收時會補上）
+  lineBookings.forEach((b) => { if (b.lineName === undefined) { if (b.fromLine) { b.lineName = b.name; b.name = ''; } else b.lineName = ''; } delete b.checked; delete b.hits; });
   let lineInboxFilter = 'all';
   const LINE_STATUS = {
     pending: { label: '待審核', cls: 'bg-amber-50 text-amber-700 border-amber-200' },
@@ -2997,15 +2999,40 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
     declined: { label: '未委任', cls: 'bg-slate-100 text-slate-400 border-slate-200' },
   };
   function saveLineBookings() { saveState('lf_lineBookings', lineBookings); }
-  function lineConflictHits(name) {
-    const q = (name || '').trim(); if (q.length < 2) return [];
-    const hits = [];
-    conflictRecords.forEach(([party, opp, cause2, num]) => { if ((party && party.includes(q)) || (opp && opp.includes(q))) hits.push(`管制表：${party || '—'} 對 ${opp || '—'}（${cause2 || '—'}，${num || '—'}）`); });
-    cases.forEach((c) => { if ((c.title || '').includes(q)) hits.push(`現有案件當事人：${c.caseNumber || ''} ${c.title}`); if ((c.opponentName || '').includes(q)) hits.push(`現有案件對造：${c.caseNumber || ''} ${c.title}`); });
-    clients.forEach((cl) => { if ((cl.name || '').includes(q)) hits.push(`本所客戶：${cl.name}`); });
-    closedCases.forEach((cc) => { if ((cc.person || '').includes(q)) hits.push(`已結案當事人：${cc.person}（${cc.cause || '—'}）`); });
-    return hits;
+  // ---- lineInboxCore ----（tests/line-inbox.test.js 會把這段單獨取出來測）
+  // Make 回傳 LINEINBOX1，之後每行用 tab 分隔：row、時間、LINE 暱稱、摘要、電話、預約時段、狀態、客戶全名
+  // 欄位都是 base64；「客戶全名」是後來加的第 7 欄，舊資料沒有或是空字串
+  function lineParseFeed(text, decode) {
+    const t = String(text || '');
+    if (!t.startsWith('LINEINBOX1')) return [];
+    return t.split('\n').slice(1).filter((l) => l.trim()).map((line) => {
+      const [row, ...cols] = line.replace(/\r$/, '').split('\t');
+      const [received, lineName, summary, phone, slot, status, fullName] = cols.map((c) => decode(c) || '');
+      return { row: String(row || '').trim(), received: received || '', lineName: String(lineName || '').trim(), summary: summary || '', phone: phone || '', slot: slot || '', status: status || '', fullName: String(fullName || '').trim() };
+    }).filter((r) => r.row && (r.lineName || r.fullName));
   }
+  // 用「來諮詢的民眾本人全名」比對利衝表。level：opponent＝曾為本所案件對造、client＝曾為本所客戶／當事人、clear＝查無紀錄、noname＝沒有全名無法比對
+  // 同名不等於同一人，結果只是提醒，由律師判斷
+  function lineConflictCheck(name, d) {
+    const q = String(name || '').trim();
+    if (q.length < 2) return { level: 'noname', hits: [] };
+    const hits = []; let opp = false, party = false;
+    (d.conflictRecords || []).forEach(([p, o, cause2, num]) => {
+      const inP = !!p && p.includes(q), inO = !!o && o.includes(q);
+      if (inP) party = true; if (inO) opp = true;
+      if (inP || inO) hits.push(`管制表：${p || '—'} 對 ${o || '—'}（${cause2 || '—'}，${num || '—'}）`);
+    });
+    (d.cases || []).forEach((c) => {
+      if ((c.title || '').includes(q)) { party = true; hits.push(`現有案件當事人：${c.caseNumber || ''} ${c.title}`); }
+      if ((c.opponentName || '').includes(q)) { opp = true; hits.push(`現有案件對造：${c.caseNumber || ''} ${c.title}`); }
+    });
+    (d.clients || []).forEach((cl) => { if ((cl.name || '').includes(q)) { party = true; hits.push(`本所客戶：${cl.name}`); } });
+    (d.closedCases || []).forEach((cc) => { if ((cc.person || '').includes(q)) { party = true; hits.push(`已結案當事人：${cc.person}（${cc.cause || '—'}）`); } });
+    return { level: opp ? 'opponent' : party ? 'client' : 'clear', hits };
+  }
+  // ---- /lineInboxCore ----
+  const lineConflictData = () => ({ conflictRecords, cases, clients, closedCases });
+  function lineConflictHits(name) { return lineConflictCheck(name, lineConflictData()).hits; }
   function renderLineInbox() {
     const list = document.getElementById('line-inbox-list'); if (!list) return;
     const pendingCount = lineBookings.filter((b) => b.status === 'pending').length;
@@ -3020,27 +3047,32 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
     const rows = lineBookings.filter((b) => lineInboxFilter === 'all' || b.status === lineInboxFilter);
     list.innerHTML = rows.map((b) => {
       const st = LINE_STATUS[b.status] || LINE_STATUS.pending;
-      const hits = b.checked ? (b.hits || []) : null;
-      const hitHtml = hits === null ? '' : hits.length
-        ? `<div class="mt-3 border border-red-200 bg-red-50 rounded px-3 py-2 text-sm text-red-800"><b>比對到 ${hits.length} 筆相關紀錄，請律師判斷是否構成利益衝突：</b>${hits.slice(0, 6).map((h) => `<div>・${esc(h)}</div>`).join('')}</div>`
-        : `<div class="mt-3 border border-emerald-200 bg-emerald-50 rounded px-3 py-2 text-sm text-emerald-800">✓ 當事人「${esc(b.name)}」${b.opponent ? `與對造「${esc(b.opponent)}」` : '（未填對造）'}在管制表、現有案件、客戶與結案紀錄中均查無相符資料。</div>`;
+      // 自動用民眾本人全名比對利衝表（每次畫面更新都重算，管制表或案件有變動會跟著反映）
+      const cc = lineConflictCheck(b.name, lineConflictData());
+      const LV = {
+        opponent: ['border-red-200 bg-red-50 text-red-800', '🔴 曾為本所案件對造', '需律師判斷是否構成利益衝突'],
+        client: ['border-amber-200 bg-amber-50 text-amber-800', '🟡 曾為本所客戶／當事人', '請確認是否為同一人、與既有案件有無衝突'],
+        clear: ['border-emerald-200 bg-emerald-50 text-emerald-800', '✅ 利衝表無紀錄', '管制表、現有案件、客戶與結案紀錄都查無此姓名'],
+        noname: ['border-slate-200 bg-slate-50 text-slate-600', '無全名，無法比對', '民眾沒有提供全名，請諮詢前向民眾確認姓名後再審核'],
+      }[cc.level];
+      const hitList = cc.hits.length ? `<details class="mt-1"><summary class="cursor-pointer text-xs underline">看命中明細（${cc.hits.length} 筆）</summary>${cc.hits.slice(0, 10).map((h) => `<div class="text-xs">・${esc(h)}</div>`).join('')}${cc.hits.length > 10 ? `<div class="text-[11px] opacity-70">…僅顯示前 10 筆</div>` : ''}</details>` : '';
+      const hitHtml = `<div class="mt-3 border rounded px-3 py-2 text-sm line-conflict ${LV[0]}" data-level="${cc.level}"><b>${LV[1]}</b><span class="ml-2 text-xs">${LV[2]}</span>${hitList}</div>
+        ${cc.level === 'noname' ? '' : `<div class="mt-1 text-[11px] text-slate-400">以民眾本人全名「${esc(b.name)}」自動比對利衝表；同名僅供參考，請律師確認。</div>`}`;
       const btn = (act, label, extra = '') => `<button type="button" data-lb="${esc(b.id)}" data-act="${act}" class="line-act text-xs px-3 py-1.5 rounded border ${extra || 'border-slate-300 text-slate-700 hover:bg-slate-50'}">${label}</button>`;
       let actions = '';
-      if (b.status === 'pending' || b.status === 'conflict') actions = btn('check', '利益衝突比對') + (b.checked ? btn('clear', '審核通過', 'border-emerald-300 text-emerald-700 hover:bg-emerald-50') + btn('flag', '標記有衝突', 'border-red-300 text-red-700 hover:bg-red-50') : '');
+      if (b.status === 'pending' || b.status === 'conflict') actions = btn('clear', '審核通過', 'border-emerald-300 text-emerald-700 hover:bg-emerald-50') + (b.status === 'pending' ? btn('flag', '標記有衝突', 'border-red-300 text-red-700 hover:bg-red-50') : '');
       else if (b.status === 'cleared') actions = btn('convert', '轉為接案 →', 'bg-navy-900 text-white border-navy-900') + btn('decline', '諮詢後未委任');
       else actions = btn('reopen', '改回待審核');
       return `<div class="bg-white rounded-lg border border-slate-200 p-5 line-card">
         <div class="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <div class="flex items-center gap-2 flex-wrap"><span class="text-base font-semibold text-slate-900">${esc(b.name)}</span><span class="text-xs px-2 py-0.5 rounded border ${st.cls}">${st.label}</span><span class="text-xs px-2 py-0.5 rounded bg-slate-100 text-slate-600">${esc(b.type)}</span>${b.fromLine ? '<span class="text-xs px-2 py-0.5 rounded bg-[#06C755] text-white">LINE 即時進件</span>' : ''}</div>
+            <div class="flex items-center gap-2 flex-wrap"><span class="text-base font-semibold text-slate-900 line-name">${esc(b.name || b.lineName || '（未具名）')}</span>${b.name ? '' : '<span class="text-xs px-2 py-0.5 rounded border border-slate-300 text-slate-500">未提供全名</span>'}<span class="text-xs px-2 py-0.5 rounded border ${st.cls}">${st.label}</span><span class="text-xs px-2 py-0.5 rounded bg-slate-100 text-slate-600">${esc(b.type)}</span>${b.fromLine ? '<span class="text-xs px-2 py-0.5 rounded bg-[#06C755] text-white">LINE 即時進件</span>' : ''}</div>
+            ${b.name && b.lineName ? `<div class="text-xs text-slate-400 mt-0.5 line-nick">LINE：${esc(b.lineName)}</div>` : ''}
             <div class="text-xs text-slate-500 mt-1">諮詢時段：<b class="text-slate-700">${esc(b.slot)}</b>　｜　電話：${esc(b.phone)}　｜　LINE 進件：${esc(b.received)}</div>
           </div>
           <div class="flex flex-wrap gap-2">${actions}</div>
         </div>
         <div class="mt-3 text-sm text-slate-700 leading-relaxed"><span class="text-xs text-slate-400 mr-1">AI 整理案情</span>${esc(b.summary)}</div>
-        ${(b.status === 'pending' || b.status === 'conflict')
-          ? `<label class="mt-3 flex flex-wrap items-center gap-2 text-sm text-slate-600">對造（對方）姓名或公司：<input type="text" data-lb-opp="${esc(b.id)}" value="${esc(b.opponent || '')}" placeholder="律師諮詢前輸入，再按「利益衝突比對」" class="flex-1 min-w-[14rem] text-sm border rounded px-2.5 py-1.5" /></label>`
-          : `<div class="mt-1 text-sm text-slate-500">對造：<b class="text-slate-700">${esc(b.opponent || '（未填）')}</b></div>`}
         ${hitHtml}
       </div>`;
     }).join('') || '<div class="text-sm text-slate-400">這個分類目前沒有預約</div>';
@@ -3048,28 +3080,22 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
   }
   function lineInboxAction(id, act) {
     const b = lineBookings.find((x) => x.id === id); if (!b) return;
-    if (act === 'check') {
-      const inp = document.querySelector(`[data-lb-opp="${CSS.escape(id)}"]`);
-      if (inp) b.opponent = inp.value.trim();
-      if (!b.opponent && !confirm('還沒有輸入對造姓名，只會比對當事人本人。要繼續嗎？')) return;
-      b.hits = [...lineConflictHits(b.name), ...lineConflictHits(b.opponent)]; b.checked = true;
-    }
     if (act === 'clear') b.status = 'cleared';
     if (act === 'flag') b.status = 'conflict';
     if (act === 'decline') b.status = 'declined';
-    if (act === 'reopen') { b.status = 'pending'; b.checked = false; b.hits = []; }
+    if (act === 'reopen') b.status = 'pending';
     if (act === 'convert') {
       b.status = 'converted'; saveLineBookings();
-      logAudit('LINE 預約轉接案', b.name, `${b.type}（對造：${b.opponent}）`);
+      logAudit('LINE 預約轉接案', b.name || b.lineName, b.opponent ? `${b.type}（對造：${b.opponent}）` : b.type);
       showPage('page-new-intake');
       const f = document.getElementById('form-case');
       const set = (n, v) => { const el = f && f.elements[n]; if (el) el.value = v; };
-      set('person', b.name); set('clientPhone', b.phone); set('cause', b.type); set('opponentName', b.opponent);
+      set('person', b.name || b.lineName); set('clientPhone', b.phone); set('cause', b.type); set('opponentName', b.opponent || '');
       set('intakeNote', `【LINE 預約轉入】${b.received} 進件，諮詢時段 ${b.slot}。AI 整理案情：${b.summary}`);
       const sel = document.getElementById('case-type-select');
       if (sel && [...sel.options].some((o) => o.value === '法律諮詢')) { sel.value = '法律諮詢'; sel.dispatchEvent(new Event('change')); }
       const res = document.getElementById('case-open-result');
-      if (res) { res.className = 'text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-3 py-2'; res.textContent = `已從 LINE 預約帶入「${b.name}」的資料，請確認委任內容與承辦律師後送出開案。`; }
+      if (res) { res.className = 'text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-3 py-2'; res.textContent = `已從 LINE 預約帶入「${b.name || b.lineName}」的資料，請確認委任內容與承辦律師後送出開案。`; }
       try { f.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) { /* ignore */ }
       return;
     }
@@ -3093,22 +3119,26 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
       const res = await fetch(url, { method: 'GET', cache: 'no-store' });
       const text = await res.text();
       if (!res.ok) throw new Error('HTTP ' + res.status);
-      const lines = text.startsWith('LINEINBOX1') ? text.split('\n').slice(1).filter((l) => l.trim()) : [];
       let added = 0, updated = 0;
-      lines.forEach((line) => {
-        const [row, ...cols] = line.split('\t'); const [received, name, summary, phone, slot] = cols.map(b64utf8);
-        if (!row || !name) return;
-        const id = 'line-r' + row.trim();
+      lineParseFeed(text, b64utf8).forEach(({ row, received, lineName, summary, phone, slot, fullName }) => {
+        const id = 'line-r' + row;
         const type = (String(summary).match(/【([^】]{1,12})】/) || [])[1] || 'LINE 預約';
         const ex = lineBookings.find((b) => b.id === id);
-        if (ex) { if (slot && ex.slot !== slot) { ex.slot = slot; updated++; } return; }
-        lineBookings.unshift({ id, received: received || '', slot: slot || '尚未選時段（等民眾在 Google 日曆預約）', name, phone: fmtPhone(phone), type, opponent: '', summary: String(summary || '').replace(/^\s*【[^】]{1,12}】\s*/, ''), status: 'pending', fromLine: true });
+        if (ex) {
+          let ch = false;
+          if (slot && ex.slot !== slot) { ex.slot = slot; ch = true; }
+          if (fullName && ex.name !== fullName) { ex.name = fullName; ch = true; }
+          if (lineName && !ex.lineName) { ex.lineName = lineName; ch = true; }
+          if (ch) updated++;
+          return;
+        }
+        lineBookings.unshift({ id, received, slot: slot || '尚未選時段（等民眾在 Google 日曆預約）', name: fullName, lineName, phone: fmtPhone(phone), type, opponent: '', summary: String(summary || '').replace(/^\s*【[^】]{1,12}】\s*/, ''), status: 'pending', fromLine: true });
         added++;
       });
       if (added || updated) { saveLineBookings(); lineInboxFilter = 'all'; }
       renderLineInbox();
       const now = new Date().toLocaleTimeString('zh-TW', { hour12: false, hour: '2-digit', minute: '2-digit' });
-      if (msg) msg.textContent = added ? `收到 ${added} 筆新預約（${now}）` : updated ? `更新 ${updated} 筆預約時段（${now}）` : `沒有新的預約（${now} 檢查）`;
+      if (msg) msg.textContent = added ? `收到 ${added} 筆新預約（${now}）` : updated ? `更新 ${updated} 筆預約資料（${now}）` : `沒有新的預約（${now} 檢查）`;
       if (added) logAudit('接收 LINE 預約', '', `${added} 筆`);
     } catch (err) {
       if (msg) msg.textContent = '接收失敗：' + err.message + '（請確認 Make 的讀取流程已開啟、網路正常）';
