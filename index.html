@@ -2016,7 +2016,8 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
   (function shiftDemoDates() {
     const ANCHOR = new Date(2026, 6, 22); // 示範資料原本以 2026-07-22 為「今天」編寫
     const now = new Date(); const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const off = Math.round((today - ANCHOR) / 86400000);
+    // 2026-11-05：平移整週（7 的倍數），星期幾不變，開庭不會被移到週末
+    const off = Math.round(Math.round((today - ANCHOR) / 86400000) / 7) * 7;
     if (!off) return;
     const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     const sh = (v) => { const [y, mo, da] = v.split('-').map(Number); return fmt(new Date(y, mo - 1, da + off)); };
@@ -2026,6 +2027,18 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
       else if (v && typeof v === 'object') walk(v);
     }); };
     [SEED_CASES, SEED_HEARINGS, SEED_DEADLINES, SEED_FILES, SEED_CLIENTS, SEED_BILLING, SEED_RETAINER_CONTRACTS, SEED_TAX_CASES, SEED_CASE_HOURS, SEED_TASKS, SEED_PETTY_CASH].forEach((arr) => (arr || []).forEach(walk));
+    // 平移後期限用法定規則重算（末日遇週末、國定假日順延到次一工作日），提前提醒跟著末日重算
+    SEED_DEADLINES.forEach((d) => {
+      if ((d.kind === 'main' || d.kind === 'general') && d.triggerDate && d.periodDays != null) {
+        const r = computeActionDeadline(d.triggerDate, d.periodDays);
+        d.computedDeadline = r.finalDeadline; if (d.kind === 'main') { d.naiveDeadline = r.naiveDeadline; d.rolledForward = r.rolledForward; }
+      }
+    });
+    SEED_DEADLINES.forEach((d) => {
+      const m = d.kind === 'reminder' && SEED_DEADLINES.find((x) => x.id === d.linkedDeadlineId);
+      const rem = m && computeReminderDate(m.computedDeadline, m.periodDays);
+      if (rem) { d.computedDeadline = rem.reminderDate; d.advanceDays = rem.advanceDays; d.displayTitle = buildReminderTitle({ finalDeadline: m.computedDeadline, mainTitle: m.displayTitle }); }
+    });
   })();
 
   // 持久化儲存層 v2（2026-07-16 架構升級）
