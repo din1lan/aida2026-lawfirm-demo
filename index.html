@@ -470,13 +470,13 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
             <table class="w-full text-sm">
               <thead><tr class="text-left text-xs text-slate-500 border-b border-slate-100 bg-slate-50">
                 <th class="px-3 py-2 font-medium whitespace-nowrap">期日/收文日期</th>
-                <th class="px-3 py-2 font-medium">案號</th>
-                <th class="px-3 py-2 font-medium">股別</th>
+                <th class="px-3 py-2 font-medium whitespace-nowrap">案號</th>
+                <th class="px-3 py-2 font-medium whitespace-nowrap">股別</th>
                 <th class="px-3 py-2 font-medium">當事人/對造</th>
                 <th class="px-3 py-2 font-medium">負責律師</th>
                 <th class="px-3 py-2 font-medium" title="以案件為單位記錄，同案件的所有列都會同步顯示最新收文">最近收文</th>
                 <th class="px-3 py-2 font-medium">代辦/開庭項目</th>
-                <th class="px-3 py-2 font-medium w-36">行政工作進度條</th>
+                <th class="px-3 py-2 font-medium">進度條</th>
                 <th class="px-3 py-2 font-medium">進度狀態</th>
               </tr></thead>
               <tbody id="todo-board-body" class="divide-y divide-slate-100"></tbody>
@@ -3102,12 +3102,12 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
       const fee = feeStatusDisplay(c);
       return `
       <tr class="hover:bg-slate-50">
-        <td class="px-3 py-2 font-mono text-xs"><button type="button" class="btn-case-detail text-indigo-700 hover:underline" data-case-id="${esc(c.id)}" title="點案號檢視案件詳情">${esc(c.caseNumber)}</button>${c.division ? `<span class="ml-1 text-slate-400">(${esc(c.division)})</span>` : ''}</td>
+        <td class="px-3 py-2 font-mono text-xs whitespace-nowrap"><button type="button" class="btn-case-detail text-indigo-700 hover:underline" data-case-id="${esc(c.id)}" title="點案號檢視案件詳情">${esc(c.caseNumber)}</button>${c.division ? `<span class="ml-1 text-slate-400">(${esc(c.division)})</span>` : ''}</td>
         <td class="px-3 py-2">
           <div>${esc(caseParty(c))}${caseCause(c) ? ` <span class="text-slate-300">/</span> <span class="text-slate-500">${esc(caseCause(c))}</span>` : ''}</div>
           ${matchedClient ? `<div class="text-[11px] text-slate-400 mt-0.5">客戶資料：${esc(matchedClient.phone) || '—'}${matchedClient.idNumber ? ' · ' + esc(matchedClient.idNumber) : ''}</div>` : ''}
         </td>
-        <td class="px-3 py-2 text-slate-500">${esc(caseAttorneyText(c)) || '—'}</td>
+        <td class="px-3 py-2 text-slate-500 break-keep">${esc(caseAttorneyText(c)) || '—'}</td>
         <td class="px-3 py-2 text-xs">
           ${esc(c.opponentName) || '<span class="text-slate-300">—</span>'}
           ${c.opponentAttorney ? `<div class="text-slate-400">律師：${esc(c.opponentAttorney)}</div>` : ''}
@@ -3256,13 +3256,13 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
       return `
       <tr class="hover:bg-slate-50 ${urgent ? 'bg-red-50' : ''}">
         <td class="px-3 py-2 font-mono text-xs whitespace-nowrap ${urgent ? 'text-red-700 font-bold' : 'text-slate-600'}">${esc(isoToROC(i.date))}${urgent ? ' ⚠️' : ''}</td>
-        <td class="px-3 py-2 font-mono text-xs">${esc(i.caseNumberDisplay) || '—'}</td>
+        <td class="px-3 py-2 font-mono text-xs whitespace-nowrap">${esc(i.caseNumberDisplay) || '—'}</td>
         <td class="px-3 py-2 text-xs">${esc(i.division)}</td>
         <td class="px-3 py-2">${esc(i.person)}${i.opponent && i.opponent !== '—' ? `<span class="text-slate-400"> / ${esc(i.opponent)}</span>` : ''}</td>
-        <td class="px-3 py-2 text-slate-500">${esc(i.attorney) || '—'}</td>
+        <td class="px-3 py-2 text-slate-500 whitespace-nowrap">${esc(i.attorney) || '—'}</td>
         <td class="px-3 py-2">
           ${i.caseRef ? `
-          <div class="flex items-center gap-1">
+          <div class="flex flex-col items-start gap-1">
             <input type="date" data-case-id="${esc(i.caseRef.id)}" class="todo-received-date text-[11px] border rounded px-1 py-0.5 w-[108px]" value="${esc(i.caseRef.lastReceivedDate) || ''}" />
             <select data-case-id="${esc(i.caseRef.id)}" class="todo-received-type text-[11px] border rounded px-1 py-0.5">
               <option value="">（類型）</option>
@@ -3275,7 +3275,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
           ${i.kind === 'hearing' ? googleCalendarLinkHTML(i.ref) : ''}
         </td>
         <td class="px-3 py-2">
-          <div class="w-28 h-2 rounded-full bg-slate-100 overflow-hidden"><div class="h-full ${progressColor(i.progress)}" style="width:${i.progress}%"></div></div>
+          <div class="w-16 h-2 rounded-full bg-slate-100 overflow-hidden"><div class="h-full ${progressColor(i.progress)}" style="width:${i.progress}%"></div></div>
         </td>
         <td class="px-3 py-2">
           <select data-item-id="${esc(i.id)}" class="todo-progress-select text-xs border rounded px-1.5 py-1">
