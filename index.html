@@ -6435,7 +6435,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
           <div class="overflow-auto p-4 bg-slate-50 min-h-0"><div id="deid-text" class="bg-white rounded border p-4 text-sm leading-7 whitespace-pre-wrap"></div></div>
         </div>
         <div class="px-5 py-3 border-t flex items-center justify-between gap-3 flex-wrap">
-          <p class="text-[11px] text-slate-500">提醒：規則會漏抓「前面沒有原告、被告等角色字的陌生人名」、只寫名不寫姓、綽號、店名。送出前請律師過目。</p>
+          <p class="text-[11px] text-slate-500">提醒：規則可能漏抓只寫名不寫姓、綽號、店名、罕見姓氏的名字。送出前請過目。</p>
           <div class="flex gap-2"><button type="button" id="deid-cancel" class="text-sm px-4 py-2 rounded border border-slate-300 hover:bg-slate-50">取消，不送出</button>
           <button type="button" id="deid-ok" class="text-sm px-4 py-2 rounded bg-emerald-600 text-white hover:bg-emerald-700">確認送出</button></div>
         </div></div>`;
@@ -7398,6 +7398,8 @@ footer{font-size:12.5px;color:#8a8273;border-top:1px solid var(--rule);padding-t
     combineCaseNumberDivision, abbreviateCourtName, calendarLabelFor, showPage, persistAll, renderAll, logAudit,
     // 收文登記（modules/intake.js）另外借用：任務清單、工作日判斷、目前登入者、異動標記
     getTasks: () => tasks, TASK_STATUSES, isBusinessDay, touch, currentUserName: () => (currentUser() || {}).name || '',
+    // 2026-11-05：收文登記送 Gemini 前也跳出同一個「將送出的版本（已去識別化）」確認視窗
+    deidPreview: (text, known) => aibDeidPreview(text, known),
   };
   document.dispatchEvent(new Event('lf-autofill-host-ready'));
 

@@ -11,8 +11,8 @@
   {
    "page": "page-autofill",
    "name": "收文登記",
-   "buttons": 9,
-   "clicked": 8,
+   "buttons": 7,
+   "clicked": 7,
    "skipped": 0,
    "newErrors": 0
   },
@@ -43,9 +43,9 @@
   {
    "page": "page-cases",
    "name": "案件與時效",
-   "buttons": 33,
-   "clicked": 21,
-   "skipped": 12,
+   "buttons": 29,
+   "clicked": 19,
+   "skipped": 10,
    "newErrors": 0
   },
   {

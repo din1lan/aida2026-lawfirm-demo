@@ -74,11 +74,19 @@ const CASES = [
     await p.evaluate(() => window.LF_AutofillHost.showPage('page-autofill'));
     return { ctx, p, errs };
   }
-  async function runOne(p, file, engine) {
+  async function runOne(p, file, engine, opts = {}) {
     if (engine) await p.evaluate((e) => { const s = document.getElementById('in-engine'); s.value = e; s.dispatchEvent(new Event('change')); }, engine);
     await p.setInputFiles('#in-file', asFile(path.join(FX, file))); // 中文路徑在部分環境傳不進去，改傳內容
     await p.waitForFunction(() => /已讀入|讀取失敗/.test(document.getElementById('in-status').textContent), null, { timeout: 120000 });
     await p.click('#in-run');
+    // Gemini：先跳出「將送出的版本（已去識別化）」確認視窗（2026-11-05）；opts.cancel 時按取消
+    if (engine === 'gemini') {
+      await p.waitForSelector('#deid-preview', { timeout: 30000 });
+      const pv = await p.evaluate(() => ({ title: document.querySelector('#deid-preview').innerText.slice(0, 40), items: document.querySelectorAll('#deid-list .deid-chk').length, text: document.getElementById('deid-text').innerText }));
+      p.__preview = pv;
+      await p.click(opts.cancel ? '#deid-cancel' : '#deid-ok');
+      if (opts.cancel) { await p.waitForFunction(() => /已取消/.test(document.getElementById('in-status').textContent), null, { timeout: 10000 }); return; }
+    }
     await p.waitForFunction(() => /請逐欄確認|⚠/.test(document.getElementById('in-status').textContent), null, { timeout: 180000 });
   }
   const counts = (p) => p.evaluate(() => { const h = window.LF_AutofillHost; return { d: h.getDeadlines().length, t: h.getTasks().length, h: h.getHearings().length, c: h.getCases().length }; });
@@ -86,7 +94,10 @@ const CASES = [
   // ---------------------------------------------------------------- 1) 每種類別（示意版）
   const { ctx, p, errs } = await open();
   check(await p.evaluate(() => document.querySelector('.navitem[data-page="page-autofill"] span').textContent === '收文登記'), '選單名稱改成「收文登記」');
-  check(await p.evaluate(() => !!document.getElementById('af-sample-judgment') && !!document.querySelector('[data-af-kind="notice"]')), '原本「書狀」「開庭通知」兩個分頁與範例都還在');
+  // 2026-11-05：只留收文登記一個入口；沒有說明段落；判決、開庭通知（含照片）範例併進收文登記
+  check(await p.evaluate(() => { const tl = document.querySelector('#page-autofill [role="tablist"]'); return (!tl || tl.classList.contains('hidden')) && !document.getElementById('in-tab'); }), '沒有「書狀自動填」「開庭通知排行事曆」分頁，只留收文登記');
+  check(await p.evaluate(() => !document.querySelector('#page-autofill h2 + p') && !/送 AI 前會先把姓名/.test(document.getElementById('in-panel').innerText)), '頁面上沒有說明文字段落');
+  check(await p.evaluate(() => { const t = [...document.querySelectorAll('[data-in-sample]')].map((b) => b.textContent); return ['民事判決', '開庭通知書', '開庭通知書照片', '郵局繳款通知單'].every((x) => t.includes(x)); }), '範例清單有民事判決、開庭通知書（PDF、照片）、郵局繳款通知單');
   await p.screenshot({ path: path.join(SHOTS, '00_收文登記_首頁.png') });
   let i = 0;
   for (const c of CASES) {
@@ -130,7 +141,6 @@ const CASES = [
       // 待辦清單也看得到
       await p.evaluate(() => { const m = document.getElementById('case-detail-modal'); if (m) m.classList.add('hidden'); });
       await p.evaluate(() => window.LF_AutofillHost.showPage('page-autofill'));
-      await p.click('#in-tab');
     }
   }
   // 重新整理後資料還在
@@ -163,14 +173,42 @@ const CASES = [
   await runOne(g.p, '07_郵局繳款通知單.pdf', 'gemini');
   if (sent.length !== 1) log('    狀態：' + await g.p.$eval('#in-status', (el) => el.textContent));
   check(sent.length === 1, 'Gemini 只被呼叫 1 次（假回應）');
+  check(g.p.__preview && /將送出的版本/.test(g.p.__preview.title), '送出前跳出「將送出的版本（已去識別化）」確認視窗');
+  { const line = (g.p.__preview.text.split('\n').find((l) => l.trim().length > 8) || '').trim();
+    check(line && JSON.parse(sent[0] || '{}').contents[0].parts[0].text.includes(line), '實際送出的就是確認視窗裡那一份'); }
   check(await g.p.$eval('#in-category', (el) => el.value) === 'agency_payment', 'Gemini 判斷類別：其他機關繳款通知');
   const st = await g.p.$$eval('#in-rows tr', (rs) => Object.fromEntries(rs.map((r) => [r.dataset.inRow, r.dataset.inStatus])));
   check(st.caseNumber === 'ok' && st.amount === 'ok' && st.payDue === 'ok', '案號、金額、繳款期限綠燈');
   check(st.issueDate === 'badquote', '發文日期出處是編的 → 黃燈留空');
   check(st.issuer === 'uncertain', '發文機關 AI 沒把握 → 黃燈留空');
   await g.p.locator('#in-review-card').screenshot({ path: path.join(SHOTS, '17_Gemini假回應_黃燈留空.png') });
+  // 按「取消，不送出」：Gemini 不會被呼叫
+  await runOne(g.p, '07_郵局繳款通知單.pdf', 'gemini', { cancel: true });
+  check(sent.length === 1, '確認視窗按取消：沒有送出（Gemini 呼叫次數不變）');
   check(!g.errs.length, `頁面錯誤 ${g.errs.length} 個`);
   await g.ctx.close();
+
+  // ---------------------------------------------------------------- 2b) 用範例按鈕跑：判決、開庭通知、繳款通知各一（示意版）
+  log('\n■ 範例按鈕：判決、開庭通知、繳款通知');
+  const sm = await open();
+  for (const [label, cat, ck] of [['民事判決', 'judgment', 'deadline'], ['開庭通知書', 'hearing', 'hearing'], ['郵局繳款通知單', 'agency_payment', 'task']]) {
+    const before = await counts(sm.p);
+    await sm.p.evaluate((l) => [...document.querySelectorAll('[data-in-sample]')].find((b) => b.textContent === l).click(), label);
+    await sm.p.waitForFunction(() => /已讀入|讀取失敗/.test(document.getElementById('in-status').textContent), null, { timeout: 120000 });
+    await sm.p.click('#in-run');
+    await sm.p.waitForFunction(() => /請逐欄確認|⚠/.test(document.getElementById('in-status').textContent), null, { timeout: 60000 });
+    const cat2 = await sm.p.$eval('#in-category', (el) => el.value);
+    check(cat2 === cat, `範例「${label}」判斷為 ${cat2}`);
+    if (!(await sm.p.$eval('#in-case', (el) => el.value))) { await sm.p.selectOption('#in-case', '__new__'); await sm.p.fill('#in-newcase-name', '範例 ' + label); }
+    if (await sm.p.$('input[data-in-att][value="王大明律師"]')) await sm.p.evaluate(() => { const c = document.querySelector('input[data-in-att][value="王大明律師"]'); if (c && !c.checked) c.click(); });
+    await sm.p.click('#in-confirm');
+    const after = await counts(sm.p);
+    if (ck === 'deadline') check(after.d > before.d, '判決 → 建了期限');
+    if (ck === 'hearing') check(after.h > before.h, '開庭通知 → 排進開庭行事曆');
+    if (ck === 'task') check(after.t > before.t, '繳款通知 → 建了待辦');
+  }
+  check(!sm.errs.length, `頁面錯誤 ${sm.errs.length} 個`);
+  await sm.ctx.close();
 
   // ---------------------------------------------------------------- 3) 讀不到的檔案也不卡住
   log('\n■ 壞掉的檔案：仍可手動登記');

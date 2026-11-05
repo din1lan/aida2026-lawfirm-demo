@@ -7,7 +7,8 @@
  * 跟 AI 自動填（modules/autofill.js）的關係：
  *   - 沿用它的案號比對、民國日期換算、期限接點、開庭／期限資料產生器（window.Autofill）。
  *   - 沿用同一個接點 window.LF_AutofillHost（index.html 借出的既有函式與資料）。
- *   - 畫面放在同一頁（選單改名「收文登記」），原本「書狀」「開庭通知」兩個分頁保留不動。
+ *   - 畫面放在同一頁（選單改名「收文登記」）。2026-11-05 起只留「收文登記」一個入口：原本「書狀自動填」「開庭通知排行事曆」
+ *     兩個分頁拿掉（判決→建案＋期限、開庭通知→排行事曆的邏輯都在收文登記裡，範例檔也併進來）。舊畫面的程式還在、只是不再顯示。
  *
  * 鐵則（同 AI 自動填）：
  *   - 期限一律交給系統原有的 computeActionDeadline 算（法定期限、「收受後○日內」都是），AI 回什麼期限都不讀。
@@ -495,6 +496,7 @@
     ['法院函', '收文_法院函.pdf'],
     ['民事判決', '../範例_民事判決.pdf'],
     ['開庭通知書', '../範例_開庭通知書.pdf'],
+    ['開庭通知書照片', '../範例_開庭通知書.png'],
   ];
   const STATUS_STYLE = {
     ok: ['🟢', 'text-emerald-700'], image: ['🔵', 'text-sky-700'], uncertain: ['🟡', 'text-amber-700'], deflt: ['🟡', 'text-amber-700'],
@@ -512,7 +514,7 @@
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
   }
 
-  /** 掛到「AI 自動填」頁：選單改名「收文登記」、加一個分頁（預設打開），原本兩個分頁不動 */
+  /** 掛到「AI 自動填」頁：選單改名「收文登記」，只留收文登記一個入口（原本兩個分頁的按鈕與畫面不再顯示） */
   function mount() {
     const sec = $('page-autofill');
     if (!sec || !H() || !sec.querySelector('[role="tablist"]')) return false;
@@ -520,12 +522,9 @@
     const nav = document.querySelector('.navitem[data-page="page-autofill"] span');
     if (nav) nav.textContent = '收文登記';
     const h2 = sec.querySelector('h2'); if (h2) h2.textContent = '收文登記';
-    const intro = sec.querySelector('h2 + p');
-    if (intro) intro.innerHTML = '法院或機關寄來的任何文件（判決、開庭通知、補正或繳費通知、郵局繳款單、函…）都從這裡登記：上傳後先判斷<b>類別</b>、抄出欄位並附原文出處；<b>你逐欄確認後按「確認登記」才會寫進系統</b>。期限一律由系統原有規則計算，不讓 AI 算。';
+    const intro = sec.querySelector('h2 + p'); if (intro) intro.remove(); // 2026-11-05：拿掉說明段落
     const tabs = sec.querySelector('[role="tablist"]');
-    const tab = document.createElement('button');
-    tab.type = 'button'; tab.id = 'in-tab'; tab.textContent = '📥 收文登記（任何來文）';
-    tabs.insertBefore(tab, tabs.firstChild);
+    tabs.classList.add('hidden'); // 2026-11-05：不再有「書狀」「開庭通知」分頁，只留收文登記
     const panel = document.createElement('div');
     panel.id = 'in-panel'; panel.className = 'space-y-4';
     tabs.insertAdjacentElement('afterend', panel);
@@ -533,12 +532,8 @@
     const show = (intake) => {
       panel.classList.toggle('hidden', !intake);
       legacy().forEach((el) => el.classList.toggle('hidden', intake));
-      tab.className = `text-sm px-4 py-2 rounded border ${intake ? 'bg-navy-900 text-white border-navy-900' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'}`;
-      if (intake) tabs.querySelectorAll('.af-tab').forEach((b) => { b.className = 'af-tab text-sm px-4 py-2 rounded border bg-white text-slate-700 border-slate-300 hover:bg-slate-50'; });
     };
-    tab.addEventListener('click', () => show(true));
-    tabs.querySelectorAll('.af-tab').forEach((b) => b.addEventListener('click', () => show(false)));
-    // 直接把檔案放進原本分頁的上傳欄（舊流程、既有測試）時，自動切回原本分頁
+    // 舊畫面不再有入口；只有測試程式直接把檔案放進舊的上傳欄時才會顯示（既有測試沿用）
     const afFile = $('af-file'); if (afFile) afFile.addEventListener('change', () => show(false), true);
     renderPanel(panel);
     show(true);
@@ -562,9 +557,7 @@
           ${SAMPLES.map(([label, f], i) => `<button type="button" data-in-sample="${i}" class="px-3 py-1.5 rounded border border-slate-300 hover:bg-slate-50">${esc(label)}</button>`).join('')}
         </div>
         ${window.LF_GeminiOcr ? window.LF_GeminiOcr.checkboxHtml('in-gemini-ocr') : ''}
-        <div class="text-xs rounded px-3 py-2 ${hasDeid ? 'bg-emerald-50 border border-emerald-200 text-emerald-800' : 'bg-red-50 border border-red-300 text-red-700 font-semibold'}">
-          ${hasDeid ? '🛡️ 送 AI 前會先把姓名、地址、電話等換成代號，結果回來再換回真名。示意版完全不連網。' : '⚠ 尚未遮蔽個資：去識別化模組沒有載入，選 Gemini 時文字會原樣送出（示意版不連網）。'}
-        </div>
+        ${hasDeid ? '' : '<div class="text-xs rounded px-3 py-2 bg-red-50 border border-red-300 text-red-700 font-semibold">⚠ 尚未遮蔽個資：去識別化模組沒有載入，使用 Gemini 時文字會原樣送出。</div>'}
         <p id="in-img-consent-wrap" class="hidden text-xs text-red-700">照片沒辦法先遮個資，使用 Gemini 時會原樣送給 Google（付費 API，不用於訓練模型）。</p>
         <div class="flex items-center gap-3">
           <button type="button" id="in-run" class="text-sm px-4 py-2 rounded bg-navy-900 text-white hover:bg-navy-800 disabled:opacity-40" disabled>③ 判斷類別並抓欄位</button>
@@ -588,7 +581,7 @@
     const el = $('in-engine-status'); if (!el) return;
     const g = $('in-engine').value === 'gemini';
     el.className = 'text-sm rounded border px-2 py-1.5 ' + (g ? 'border-emerald-300 bg-emerald-50 text-emerald-800' : 'border-amber-300 bg-amber-50 text-amber-800');
-    el.textContent = g ? `🟢 Google Gemini（${AI().getModel()}）` : (AI().hasKey() ? '示意版（免金鑰、不連網，固定規則判斷）' : '尚未設定 AI，目前為示意版（固定規則判斷、不連網）');
+    el.textContent = g ? `🟢 Google Gemini（${AI().getModel()}）` : (AI().hasKey() ? '示意版' : '尚未設定 AI，目前為示意版');
   }
   function paintConsent() { const w = $('in-img-consent-wrap'); if (w) w.classList.toggle('hidden', !(UI.doc && UI.doc.image && $('in-engine').value === 'gemini')); }
 
@@ -616,8 +609,8 @@
         });
         const text = rd.pages.map((p) => p.text).join('\n');
         if (squash(text).length < 10) throw new Error('這份 PDF 讀不到文字（掃描檔辨識也沒有成功' + (rd.ocrError ? '：' + rd.ocrError : '') + '）。仍可在下方選類別、手動登記');
-        UI.doc = { name: file.name, image: false, text, numPages: rd.numPages, ocrPages: rd.ocrPages, imagePages: rd.imagePages };
-        setStatus(`✓ 已讀入：${esc(file.name)}（${rd.numPages} 頁，約 ${squash(text).length} 字${rd.ocrPages && rd.ocrPages.length ? `，其中 ${rd.ocrPages.length} 頁是掃描、已辨識文字（可能有錯字）` : ''}）`);
+        UI.doc = { name: file.name, image: false, text, numPages: rd.numPages, ocrPages: rd.ocrPages, imagePages: rd.imagePages, geminiPages: rd.geminiPages, geminiError: rd.geminiError };
+        setStatus(`✓ 已讀入：${esc(file.name)}（${rd.numPages} 頁，約 ${squash(text).length} 字）${pageNotes(UI.doc)}`);
       }
       $('in-run').disabled = false; paintConsent();
     } catch (err) {
@@ -627,6 +620,15 @@
       UI.result = checkIntake({ category: 'other', fields: {} }, '', 'other'); UI.category = 'other'; UI.ruleCls = null; UI.engine = 'manual';
       renderReview();
     }
+  }
+
+  // 掃描頁說明：哪幾頁由 Gemini 辨識（圖片沒遮姓名）、哪幾頁是本機 OCR（可能有錯字）
+  function pageNotes(doc) {
+    const P = window.LF_PdfText; const G = window.LF_GeminiOcr; if (!doc || !P) return '';
+    return (G && doc.geminiPages && doc.geminiPages.length ? `<br><b class="text-indigo-700">ⓘ ${esc(G.pagesNote(doc.geminiPages))}</b>` : '')
+      + (G && doc.geminiError ? `<br><b class="text-amber-700">⚠ ${esc(G.fallbackNote(doc.geminiError))}</b>` : '')
+      + (doc.ocrPages && doc.ocrPages.length ? `<br><b class="text-amber-700">⚠ ${esc(P.ocrPagesNote(doc.ocrPages))}</b>，確認欄位時請對照原檔` : '')
+      + (doc.imagePages && doc.imagePages.length ? `<br><b class="text-red-600">⚠ ${esc(P.imagePagesNote(doc.imagePages))}</b>，這幾頁的欄位請對照原檔自己填` : '');
   }
 
   /** 照片：在瀏覽器裡用同一套文字辨識（Tesseract，設定沿用 modules/pdftext.js） */
@@ -683,8 +685,17 @@
       let sent = text; let map = null; let masked = 0;
       const hasDeid = !!(window.Deid && typeof window.Deid.deidentify === 'function');
       if (text && hasDeid && engine === 'gemini') {
-        const d = window.Deid.deidentify(text, knownNames().concat(A.partyNamesFromText(text)));
-        sent = d.text; map = d.map; masked = (d.items || []).length;
+        const known = knownNames().concat(A.partyNamesFromText(text));
+        if (H() && H().deidPreview) {
+          // 2026-11-05：跟 AI 智慧閱卷一樣，先跳出「將送出的版本（已去識別化）」讓人確認；按取消就不送
+          setStatus('請確認將送出的版本（已去識別化）…');
+          const d = await H().deidPreview(text, known);
+          if (!d) { setStatus('已取消，沒有送出任何資料'); return; }
+          sent = d.text; map = d.map; masked = d.count;
+        } else {
+          const d = window.Deid.deidentify(text, known);
+          sent = d.text; map = d.map; masked = (d.items || []).length;
+        }
       }
       let raw;
       if (engine === 'gemini') raw = await callGemini(buildPrompt(), doc, doc.image ? '' : sent);
@@ -696,7 +707,7 @@
       UI.category = UI.result.category; UI.engine = engine;
       const sw = $('in-sent-wrap'); if (sw) { sw.classList.remove('hidden'); $('in-sent').textContent = doc.image && engine === 'gemini' ? '（照片，原圖送出，未遮蔽個資）' : (engine === 'gemini' ? sent : text); }
       const catNote = UI.category === 'other' ? '判斷不出類別，先歸「其他」（仍可登記、手動設期限）' : `類別：${CAT_LABEL[UI.category]}`;
-      setStatus(`${UI.result.ok ? '✓ ' + esc(catNote) + '，請逐欄確認' : '⚠ ' + esc(UI.result.error)}${doc.ocr ? '<span class="text-amber-700">｜照片已在本機辨識文字，可能有錯字，請對照原圖</span>' : ''}${doc.ocrError ? `<span class="text-red-600">｜照片辨識失敗：${esc(doc.ocrError)}，請手動填</span>` : ''}${engine === 'gemini' ? (doc.image ? '<span class="text-red-600 font-semibold">｜照片無法先遮個資</span>' : hasDeid ? `<span class="text-emerald-700">｜已遮蔽 ${masked} 項個資</span>` : '<span class="text-red-600 font-semibold">｜尚未遮蔽個資</span>') : ''}<span class="text-slate-400">｜${engine === 'gemini' ? 'Gemini' : '示意版'}</span>`, UI.result.ok ? 'text-slate-600' : 'text-amber-700');
+      setStatus(`${UI.result.ok ? '✓ ' + esc(catNote) + '，請逐欄確認' : '⚠ ' + esc(UI.result.error)}${doc.ocr ? '<span class="text-amber-700">｜照片已在本機辨識文字，可能有錯字，請對照原圖</span>' : ''}${doc.ocrError ? `<span class="text-red-600">｜照片辨識失敗：${esc(doc.ocrError)}，請手動填</span>` : ''}${engine === 'gemini' ? (doc.image ? '<span class="text-red-600 font-semibold">｜照片無法先遮個資</span>' : hasDeid ? `<span class="text-emerald-700">｜已遮蔽 ${masked} 項個資</span>` : '<span class="text-red-600 font-semibold">｜尚未遮蔽個資</span>') : ''}<span class="text-slate-400">｜${engine === 'gemini' ? 'Gemini' : '示意版'}</span>${doc.image ? '' : pageNotes(doc)}`, UI.result.ok ? 'text-slate-600' : 'text-amber-700');
       renderReview();
     } finally { $('in-run').disabled = false; }
   }
