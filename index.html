@@ -4,24 +4,14 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>法律事務所（比賽示範版）</title>
-<script src="https://cdn.tailwindcss.com"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<!-- 外部元件全部放在網站自己的 vendor/ 裡（2026-11-05），斷網也能開；只有呼叫 Gemini 需要網路 -->
+<script src="vendor/xlsx/xlsx.full.min.js"></script>
+<script src="vendor/pdfjs/pdf.min.js"></script>
 <script src="modules/pdftext.js"></script>
 <script src="modules/gemini-ocr.js"></script>
 <!-- 去識別化模組（送 AI 前遮個資；規格見 docs/去識別化-規格.md） -->
 <script src="modules/deidentify.js"></script>
-<script>
-  tailwind.config = {
-    theme: {
-      extend: {
-        colors: {
-          navy: { 950: '#0a1128', 900: '#0f172a', 800: '#1e293b', 700: '#334155' },
-        },
-      },
-    },
-  }
-</script>
+<!-- Tailwind 已預先編好（vendor/tailwind.css，設定在 tools/tailwind.config.js），放在 head 最後面，跟原本 CDN 版插入樣式的位置一樣 -->
 <style>
   body { font-family: "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", system-ui, sans-serif; background:#f5f6f8; }
   .page.hidden { display: none; }
@@ -32,7 +22,7 @@
   ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
 </style>
 <!-- 比賽示範版（AIDA 2026）：已移除 Firebase 與所有雲端連線，資料只存在使用者自己的瀏覽器。 -->
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
 <style id="theme-ledger">
 /* ===== 比賽版視覺主題「Ledger」：只改外觀，不動任何功能 ===== */
 :root{
@@ -129,6 +119,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
 .inbox-step span{font-size:.79rem;color:#6b7280}
 #dash-backup-box,#dash-maint-box{display:none!important} /* 比賽示範版：首頁不顯示資料保全與系統資料維護 */
 </style>
+<link rel="stylesheet" href="vendor/tailwind.css">
 </head>
 <body class="h-screen flex text-sm text-slate-800">
 
@@ -6159,7 +6150,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
   const AIB_RADICALS = { '⺠': '民', '⻑': '長', '⻔': '門', '⺟': '母', '⻄': '西', '⻝': '食', '⻣': '骨', '⺩': '王', '⻅': '見', '⻆': '角', '⻓': '長', '⻋': '車', '⻤': '鬼', '⻢': '馬', '⺁': '厂', '⺅': '人', '⺈': '刀', '⺌': '小', '⺍': '小', '⺮': '竹', '⺶': '羊', '⺺': '聿', '⻊': '足', '⻌': '辵', '⻍': '辵', '⻏': '邑', '⻖': '阜', '⻗': '雨', '⻘': '青', '⻙': '韋', '⻚': '頁', '⻛': '風', '⻜': '飛', '⻥': '魚', '⻦': '鳥', '⻨': '麥', '⻩': '黃', '⻬': '齊', '⻮': '齒', '⻯': '龍', '⻳': '龜' };
   const aibFixChars = (s) => String(s || '').replace(/[\u2F00-\u2FDF]/g, (c) => c.normalize('NFKC')).replace(/[\u2E80-\u2EFF]/g, (c) => AIB_RADICALS[c] || c);
   const aibNorm = (s) => aibFixChars(s).replace(/[\s\u3000]+/g, '');
-  if (window.pdfjsLib) { try { pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; } catch (e) { /* ignore */ } }
+  if (window.pdfjsLib) { try { pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('vendor/pdfjs/pdf.worker.min.js', document.baseURI).href; } catch (e) { /* ignore */ } }
 
   // 全案模式：一次讀多份 PDF，每頁記住「第幾份文件、該文件第幾頁」；pages 的 n 是全案流水頁碼
   async function aibLoadFiles(fileList) {

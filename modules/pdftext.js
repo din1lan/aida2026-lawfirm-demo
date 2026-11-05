@@ -5,21 +5,24 @@
  * 結果整份中文被丟掉、被誤判成掃描檔。這裡統一帶上對照表與標準字型的位置。
  *
  * 另外逐頁檢查：某頁幾乎沒有文字、但有圖片（掃描檔）→ 在使用者自己的瀏覽器裡做文字辨識（OCR，Tesseract.js 繁體中文）。
- * 圖片不送到任何伺服器；只從 CDN 下載辨識程式與繁中語言檔（第一次約 3MB 傳輸量、解開約 5.8MB，之後瀏覽器會快取）。
- * 辨識失敗（例如沒網路）就照舊標成「圖片頁」，讓畫面明確告訴使用者，不默默漏掉。
+ * 圖片不送到任何伺服器；辨識程式與繁中語言檔都放在網站自己的 vendor/tesseract/（不需要網路）。
+ * 辨識失敗就照舊標成「圖片頁」，讓畫面明確告訴使用者，不默默漏掉。
  * 純函式（pageText、imagePagesNote、ocrPagesNote、cleanOcr）可在 node 測試：node tests/pdftext.test.js
  */
 (function (root) {
   'use strict';
-  const BASE = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
+  // 2026-11-05：pdf.js 的對照表、標準字型、OCR 元件與繁中語言檔都放在網站自己的 vendor/ 裡，不靠 CDN（斷網也能用）。
+  // 一律轉成完整網址：Tesseract 的 worker 是從 blob 啟動的，相對路徑在那裡會解析錯。
+  const abs = (p) => { try { return new URL(p, (root.document && root.document.baseURI) || root.location.href).href; } catch (e) { return p; } };
+  const BASE = abs('vendor/pdfjs/');
   const OPTIONS = { cMapUrl: BASE + 'cmaps/', cMapPacked: true, standardFontDataUrl: BASE + 'standard_fonts/' };
   const MIN_PAGE_CHARS = 5; // 一頁少於 5 個字（不算空白）就當「幾乎沒有文字」
-  // 文字辨識（OCR）元件：全部釘死版本，從 jsDelivr 下載
+  // 文字辨識（OCR）元件：tesseract.js 5.1.1、core 5.1.1、繁中語言檔 4.0.0_best_int，全部放在 vendor/tesseract/
   const OCR = {
-    script: 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js',
-    workerPath: 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/worker.min.js',
-    corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.1',
-    langPath: 'https://cdn.jsdelivr.net/npm/@tesseract.js-data/chi_tra@1.0.0/4.0.0_best_int',
+    script: abs('vendor/tesseract/tesseract.min.js'),
+    workerPath: abs('vendor/tesseract/worker.min.js'),
+    corePath: abs('vendor/tesseract/core'),
+    langPath: abs('vendor/tesseract/lang'),
     lang: 'chi_tra',
     scale: 3,          // pdf.js 算圖倍率（A4 約 1786×2526 像素）
     colorDrop: true,   // 灰階時取 RGB 最亮的值：紅色印章、彩色對話框會變淡，黑字不受影響

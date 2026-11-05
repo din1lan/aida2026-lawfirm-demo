@@ -1,41 +1,21 @@
 // 掃描頁用 Gemini 辨識：瀏覽器實測（假回應，不連 Google、不用真的金鑰）
 //   先在專案根目錄 python3 -m http.server 8765，再 node tests/gemini-ocr.e2e.js
-//   沙箱擋外部 CDN 時：CDN_DIR＝本機 npm 同版本套件（同 tests/pdf-cjk.e2e.js）；TW_CSS＝先編好的 Tailwind 樣式（只為了截圖好看）
 // 跑 4 種情況，截圖到 docs/screenshots/gemini-ocr/：
 //   AI 智慧閱卷 × {不勾選→本機 OCR、勾選→Gemini}、AI 自動填 × {不勾選、勾選}，另加「勾選但金鑰錯→退回本機」
 // 用的檔案：tests/fixtures/pdf-cjk/T2_含圖片頁_3頁.pdf（虛構判決，第 2 頁是掃描圖片，第 1、3 頁有文字層）
 'use strict';
 const { chromium } = require('playwright');
 const fs = require('fs'); const path = require('path');
+const { offline, unexpected } = require('./offline');
 const FX = path.join(__dirname, 'fixtures', 'pdf-cjk');
 const FILE = 'T2_含圖片頁_3頁.pdf';
 const SHOTS = path.join(__dirname, '..', 'docs', 'screenshots', 'gemini-ocr');
 const FAKE_KEY = 'fake-key-for-test-only';
 
 async function route(ctx, gem) {
-  const dir = process.env.CDN_DIR; const tw = process.env.TW_CSS;
-  await ctx.route(/^https:\/\/cdn\.tailwindcss\.com/, (r) => (tw
-    ? r.fulfill({ contentType: 'application/javascript', body: `(function(){var s=document.createElement('style');s.textContent=${JSON.stringify(fs.readFileSync(tw, 'utf8'))};document.head.appendChild(s);window.tailwind={};})();` })
-    : r.abort()));
+  // 斷網：外部網址全擋（元件都在 vendor/）；只有 Gemini 走假回應
+  ctx.__blocked = await offline(ctx);
   await ctx.route(/^https:\/\/generativelanguage\.googleapis\.com\//, gem);
-  await ctx.route(/^https:\/\/(cdnjs\.cloudflare\.com|cdn\.jsdelivr\.net)\//, (r) => {
-    const u = r.request().url(); const H = { 'Access-Control-Allow-Origin': '*' };
-    if (/cdn\.jsdelivr\.net/.test(u)) ctx.__tessHits = (ctx.__tessHits || 0) + 1;
-    if (!dir) return r.continue();
-    const file = (p, type) => r.fulfill({ path: path.join(dir, p), contentType: type || 'application/octet-stream', headers: H });
-    let m = u.match(/pdf\.js\/3\.11\.174\/(pdf\.min\.js|pdf\.worker\.min\.js)$/);
-    if (m) return file('pdfjs-dist-3.11.174/package/build/' + m[1], 'application/javascript');
-    m = u.match(/pdf\.js\/3\.11\.174\/(cmaps|standard_fonts)\/(.+)$/);
-    if (m) return file(`pdfjs-dist-3.11.174/package/${m[1]}/${decodeURIComponent(m[2])}`);
-    if (/xlsx\/0\.18\.5\/xlsx\.full\.min\.js$/.test(u)) return file('xlsx-0.18.5/package/dist/xlsx.full.min.js', 'application/javascript');
-    m = u.match(/npm\/tesseract\.js@5\.1\.1\/dist\/(.+)$/);
-    if (m) return file('tesseract.js-5.1.1/package/dist/' + m[1], 'application/javascript');
-    m = u.match(/npm\/tesseract\.js-core@5\.1\.1\/(.+)$/);
-    if (m) return file('tesseract.js-core-5.1.1/package/' + m[1], m[1].endsWith('.wasm') ? 'application/wasm' : 'application/javascript');
-    m = u.match(/npm\/@tesseract\.js-data\/(chi_tra)@1\.0\.0\/(.+)$/);
-    if (m) return file(`tesseract.js-data-${m[1]}-1.0.0/package/${m[2]}`);
-    return r.abort();
-  });
 }
 
 (async () => {
@@ -62,7 +42,7 @@ async function route(ctx, gem) {
       return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ candidates: [{ content: { parts: [{ text }] }, finishReason: 'STOP' }] }) });
     });
     const p = await ctx.newPage(); const errs = [];
-    p.on('pageerror', (e) => { if (!/tailwind/.test(String(e))) errs.push(String(e)); });
+    p.on('pageerror', (e) => errs.push(String(e)));
     await p.goto('http://localhost:8765/index.html?demo=ding#page-ai-brief', { waitUntil: 'load' });
     await p.waitForTimeout(800);
     // 金鑰：照網站作法貼在「AI 智慧閱卷」頁（假的）
@@ -79,7 +59,7 @@ async function route(ctx, gem) {
     const st = await p.evaluate((id) => document.getElementById(id).textContent, status);
     log('  狀態：' + st.replace(/\s+/g, ' ').slice(0, 260));
     const aibText = isAib ? await p.inputValue('#aib-text') : '';
-    const tess = ctx.__tessHits || 0;
+    const tess = (ctx.__vendorHits && ctx.__vendorHits.tesseract) || 0;
 
     if (!checked) {
       check(calls.length === 0, '沒勾選：完全沒有呼叫 Gemini');
