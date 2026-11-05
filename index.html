@@ -6215,11 +6215,16 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
   const AIB_DEMO_FILES = ['01_民事起訴狀', '02_民事答辯狀', '03_言詞辯論筆錄', '04_原告民事準備書狀'];
   async function aibLoadDemoCase() {
     const sel = document.getElementById('aib-case-select'); if (sel) { aibFillCaseSelect(); sel.value = DEMO_BRIEF_CASE.id; }
-    const files = [];
-    for (const n of AIB_DEMO_FILES) {
-      const blob = await (await fetch(encodeURIComponent(n) + '.pdf')).blob();
-      files.push(new File([blob], n + '.pdf', { type: 'application/pdf' }));
-    }
+    const files = []; const st = document.getElementById('aib-pdf-status');
+    AIB_DOC.fetching = true; // 下載中也算「還在載入」，一鍵示範才不會誤以為失敗
+    try {
+      for (const [i, n] of AIB_DEMO_FILES.entries()) {
+        if (st) st.textContent = `下載示範文件 ${i + 1}/${AIB_DEMO_FILES.length}：${n}…`;
+        const res = await fetch(encodeURIComponent(n) + '.pdf');
+        if (!res.ok) throw new Error(`${n}.pdf 下載失敗（${res.status}）`);
+        files.push(new File([await res.blob()], n + '.pdf', { type: 'application/pdf' }));
+      }
+    } finally { AIB_DOC.fetching = false; }
     await aibLoadFiles(files);
   }
   document.getElementById('aib-load-case').addEventListener('click', () => aibLoadDemoCase().catch((err) => alert('示範案件載入失敗：' + err.message)));
@@ -7336,7 +7341,13 @@ footer{font-size:12.5px;color:#8a8273;border-top:1px solid var(--rule);padding-t
         try {
           document.getElementById('aib-load-case').click();
           await wait(300);
-          for (let i = 0; i < 60 && (AIB_DOC.loading || !AIB_DOC.files.length); i++) await wait(250);
+          // 2026-11-05：網路慢時不要 15 秒就放棄（之前會跳「請先貼入至少 30 字」卡住）。
+          // 還在下載就繼續等（最多 2 分鐘）；下載結束卻沒有文件（失敗），改用示範文字，示範照樣跑得完
+          for (let i = 0; i < 480 && (AIB_DOC.loading || AIB_DOC.fetching || !AIB_DOC.files.length); i++) {
+            if (!AIB_DOC.loading && !AIB_DOC.fetching && !AIB_DOC.files.length && i > 12) break;
+            await wait(250);
+          }
+          if (!AIB_DOC.files.length) document.getElementById('aib-load-sample').click();
         } catch (e) { document.getElementById('aib-load-sample').click(); }
       }
       document.getElementById('aib-analyze').click();
