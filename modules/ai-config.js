@@ -10,6 +10,7 @@
   const KEY = 'lf_admin_gemini_key';
   const MODEL = 'lf_admin_gemini_model';
   const DEFAULT_MODEL = 'gemini-2.5-flash';
+  const DEID = 'lf_admin_deid_before_send'; // 2026-11-05：送出前去識別化開關，預設關（事務所決定直接交給 Google 付費 API）
   const store = () => { try { return root.localStorage || null; } catch (e) { return null; } };
   const get = (k) => { try { const s = store(); return s ? String(s.getItem(k) || '').trim() : ''; } catch (e) { return ''; } };
   const notify = () => { try { if (root.dispatchEvent && typeof root.CustomEvent === 'function') root.dispatchEvent(new root.CustomEvent('lf-ai-config')); } catch (e) { /* ignore */ } };
@@ -26,9 +27,11 @@
     if (m) s.setItem(MODEL, m);
     notify();
   }
+  function deidOn() { return get(DEID) === '1'; }
+  function setDeid(on) { const s = store(); if (!s) return; if (on) s.setItem(DEID, '1'); else s.removeItem(DEID); notify(); }
   function clear() { const s = store(); if (s) { s.removeItem(KEY); s.removeItem(MODEL); } notify(); }
 
-  const api = { getKey, getModel, hasKey, masked, save, clear, DEFAULT_MODEL, STORAGE_KEYS: [KEY, MODEL] };
+  const api = { getKey, getModel, hasKey, masked, save, clear, deidOn, setDeid, DEFAULT_MODEL, STORAGE_KEYS: [KEY, MODEL, DEID] };
   if (typeof module === 'object' && module.exports) module.exports = api;
   root.LF_AI = api;
 })(typeof window !== 'undefined' ? window : globalThis);

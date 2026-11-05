@@ -116,10 +116,8 @@
   }
 
   // 畫面上的勾選框（每個功能各一個；狀態只在畫面上，不記住）
-  function checkboxHtml(id) {
-    const on = !!credentials().key; // 沒設定 AI 就不顯示（反正不會送）
-    return `<label class="lf-gemini-ocr-wrap text-xs text-slate-600 flex items-start gap-2${on ? '' : ' hidden'}"><input id="${id}" type="checkbox" class="mt-0.5" data-lf-gemini-ocr="1" /><span>${LABEL}<span class="block text-[11px] text-slate-400">選檔前勾選才有效。沒勾或失敗時，改用本機辨識（圖片不上傳）。</span></span></label>`;
-  }
+  function checkboxHtml() { return ''; } // 2026-11-05：勾選框拿掉（有金鑰就用 Gemini）
+
   // 管理員設定改了金鑰：勾選框跟著顯示／隱藏
   try { if (root.addEventListener) root.addEventListener('lf-ai-config', () => { const on = !!credentials().key; root.document.querySelectorAll('.lf-gemini-ocr-wrap').forEach((el) => { el.classList.toggle('hidden', !on); if (!on) { const c = el.querySelector('input'); if (c) c.checked = false; } }); }); } catch (e) { /* ignore */ }
 
@@ -128,8 +126,10 @@
   //   onStatus(text)：進度文字
   function hookFor(checkboxId, onStatus, opt) {
     opt = opt || {};
+    // 2026-11-05：不再有勾選框。有設定金鑰 → 掃描頁直接交給 Gemini；沒設定 → 照舊本機 OCR（備用）
+    //（畫面上若還有同名勾選框，例如單元測試，照它的勾選狀態）
     const el = root.document && root.document.getElementById(checkboxId);
-    if (!el || !el.checked) return undefined;
+    if (el ? !el.checked : !(opt.credentials ? opt.credentials() : credentials()).key) return undefined;
     return async function remoteOcr(ctx) {
       const say = (t) => { if (onStatus) { try { onStatus(t); } catch (e) { /* ignore */ } } };
       const cred = opt.credentials ? opt.credentials() : credentials();
@@ -138,7 +138,8 @@
       const list = ctx.imagePages || [];
       for (let k = 0; k < list.length; k++) {
         const pg = ctx.pages[list[k] - 1];
-        say(`Gemini 辨識中：掃描頁 ${k + 1}／${list.length}（第 ${pg.n} 頁）｜頁面圖片會原樣送給 Google`);
+        say(`Gemini 辨識中：掃描頁 ${k + 1}／${list.length}（第 ${pg.n} 頁）`);
+        if (opt.onProgress) { try { opt.onProgress({ done: k, total: list.length, page: pg.n, percent: Math.round((k / list.length) * 100), label: `Gemini 辨識中：第 ${k + 1}／${list.length} 頁（文件第 ${pg.n} 頁）` }); } catch (e) { /* ignore */ } }
         const cv = await renderPage(await ctx.pdf.getPage(pg.n));
         const b64 = cv.toDataURL('image/jpeg', 0.9).split(',')[1] || '';
         cv.width = cv.height = 0;
@@ -150,6 +151,7 @@
           if (r.fatal) break;
         }
       }
+      if (opt.onProgress) { try { opt.onProgress(null); } catch (e) { /* ignore */ } }
       return { pages: done, error };
     };
   }

@@ -6270,7 +6270,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
         }
         // 共用讀取（modules/pdftext.js）：帶中文字型對照表，並標出「是圖片、讀不到文字」的頁
         const rd = await window.LF_PdfText.read(await f.arrayBuffer(), {
-          remoteOcr: window.LF_GeminiOcr && window.LF_GeminiOcr.hookFor('aib-gemini-ocr', (t) => { st.textContent = f.name + '：' + t; }),
+          remoteOcr: window.LF_GeminiOcr && window.LF_GeminiOcr.hookFor('aib-gemini-ocr', (t) => { st.textContent = f.name + '：' + t; }, { onProgress: (x) => window.LF_PdfText.progressBar(st, x) }),
           onProgress: (x) => { st.textContent = x.done < x.total ? `文字辨識中（OCR）：${f.name}｜在你的瀏覽器裡辨識，圖片不會上傳` : `文字辨識完成：${f.name}`; window.LF_PdfText.progressBar(st, x); },
         });
         const pdf = rd.pdf;

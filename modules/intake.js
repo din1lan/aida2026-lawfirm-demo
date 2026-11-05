@@ -603,7 +603,7 @@
       } else {
         if (typeof pdfjsLib === 'undefined' || !window.LF_PdfText) throw new Error('PDF 讀取元件沒有載入');
         const rd = await window.LF_PdfText.read(await file.arrayBuffer(), {
-          remoteOcr: window.LF_GeminiOcr && window.LF_GeminiOcr.hookFor('in-gemini-ocr', (t) => setStatus(esc(t))),
+          remoteOcr: window.LF_GeminiOcr && window.LF_GeminiOcr.hookFor('in-gemini-ocr', (t) => setStatus(esc(t)), { onProgress: (x) => { const el = $('in-status'); window.LF_PdfText.progressBar(el && el.parentNode, x); } }),
           locate: false,
           onProgress: (x) => { setStatus(x.done < x.total ? '文字辨識中（OCR）｜在你的瀏覽器裡辨識，檔案不會上傳' : '文字辨識完成'); const el = $('in-status'); window.LF_PdfText.progressBar(el && el.parentNode && /flex/.test(el.parentNode.className) ? el.parentNode : el, x); },
         });

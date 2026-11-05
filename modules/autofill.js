@@ -492,7 +492,7 @@
         if (typeof pdfjsLib === 'undefined' || !window.LF_PdfText) throw new Error('PDF 讀取元件沒有載入');
         // 共用讀取（modules/pdftext.js）：帶中文字型對照表，並標出「是圖片、讀不到文字」的頁
         const rd = await window.LF_PdfText.read(await file.arrayBuffer(), {
-          remoteOcr: window.LF_GeminiOcr && window.LF_GeminiOcr.hookFor('af-gemini-ocr', (t) => setStatus(esc(t))),
+          remoteOcr: window.LF_GeminiOcr && window.LF_GeminiOcr.hookFor('af-gemini-ocr', (t) => setStatus(esc(t)), { onProgress: (x) => { const el = $('af-status'); window.LF_PdfText.progressBar(el && el.parentNode, x); } }),
           locate: false, // AI 自動填沒有「原文」螢光，不用背景取座標
           onProgress: (x) => { setStatus(x.done < x.total ? '文字辨識中（OCR）｜在你的瀏覽器裡辨識，圖片不會上傳' : '文字辨識完成'); const el = $('af-status'); window.LF_PdfText.progressBar(el && el.parentNode, x); },
         });

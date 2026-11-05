@@ -417,7 +417,7 @@
 
   // ---- 本機 OCR 進度條（AI 智慧閱卷、收文登記、AI 自動填共用）：放在狀態文字下面，辨識完自動收起 ----
   //   x＝read() 的 onProgress 參數 { done, total, page, pageProgress, percent }；x 為 null 或 done>=total 就收起
-  function progressLabel(x) { return `本機文字辨識中：第 ${Math.min(x.done + 1, x.total)}／${x.total} 頁${x.page ? `（文件第 ${x.page} 頁）` : ''}　${x.percent || 0}%`; }
+  function progressLabel(x) { if (x.label) return `${x.label}${x.indeterminate ? '' : `　${x.percent || 0}%`}`; return `本機文字辨識中：第 ${Math.min(x.done + 1, x.total)}／${x.total} 頁${x.page ? `（文件第 ${x.page} 頁）` : ''}　${x.percent || 0}%`; }
   function progressBar(anchor, x) {
     const doc = root.document; if (!doc || !anchor || !anchor.parentNode) return null;
     let box = anchor.nextElementSibling && anchor.nextElementSibling.classList && anchor.nextElementSibling.classList.contains('lf-ocr-progress') ? anchor.nextElementSibling : null;
@@ -434,7 +434,7 @@
       box.innerHTML = '<div class="l"></div><div class="t"><div class="f" style="width:0%"></div></div>';
       anchor.insertAdjacentElement('afterend', box);
     }
-    const pct = Math.max(1, x.percent || 0); // 至少露出一點，看得出在跑
+    const pct = x.indeterminate ? 100 : Math.max(3, x.percent || 0); // 至少露出一點；indeterminate＝整條跑動畫（Gemini 處理中）
     box.setAttribute('aria-valuenow', String(x.percent || 0));
     box.querySelector('.l').textContent = progressLabel(x);
     box.querySelector('.f').style.width = pct + '%';
