@@ -697,7 +697,7 @@
       const ups = Object.entries(p.updates).map(([k, v]) => `${FIELDS.case.find((d) => d.key === k).label}＝${esc(v)}`);
       parts.push(`<div>${p.isNew ? '🆕 建立新案件' : p.case ? `📁 寫入案件 <b>${esc(p.case.caseNumber || '')}</b>` : '📁 （尚未選案件）'}：${ups.length ? ups.join('、') : '<span class="text-slate-400">沒有勾選要寫入的欄位</span>'}</div>`);
       if (p.deadline) parts.push(p.deadline.ok
-        ? `<div data-af-deadline="${esc(p.deadline.finalDeadline)}">⏰ 期限（系統原有規則：${esc(p.deadline.rule.label)} ${p.deadline.periodDays} 日，收文隔日起算）：末日 <b>${esc(p.deadline.finalDeadline)}</b>${p.deadline.rolledForward ? `<span class="text-amber-700">（原本 ${esc(p.deadline.naiveDeadline)} 不是工作日，已往前調到前一個工作日）</span>` : ''}${p.deadline.reminder ? `；提前提醒 ${esc(p.deadline.reminder.reminderDate)}` : ''}</div>`
+        ? `<div data-af-deadline="${esc(p.deadline.finalDeadline)}">⏰ 期限（系統原有規則：${esc(p.deadline.rule.label)} ${p.deadline.periodDays} 日，收文隔日起算）：末日 <b>${esc(p.deadline.finalDeadline)}</b>${p.deadline.rolledForward ? `<span class="text-amber-700">（原本 ${esc(p.deadline.naiveDeadline)} 不是工作日，依法順延到次一工作日）</span>` : ''}${p.deadline.reminder ? `；提前提醒 ${esc(p.deadline.reminder.reminderDate)}` : ''}</div>`
         : `<div class="text-amber-700">⏰ 不建立期限：${esc(p.deadline.reason)}</div>`);
     }
     if (p.hearing) parts.push(`<div>📅 開庭：<b>${esc(p.hearing.date)} ${esc(p.hearing.time || '（整日）')}</b> ${esc(p.hearing.courtroom || '')} ${esc(p.hearing.court || '')}${p.hearing.attorneys.length ? `｜${esc(p.hearing.attorneys.join('、'))}` : ''}${p.hearing.duplicate ? '<span class="text-amber-700">｜⚠ 這件案件同一時間已有開庭，確認後會再多排一筆</span>' : ''}</div>`);

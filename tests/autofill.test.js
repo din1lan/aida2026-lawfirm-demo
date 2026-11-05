@@ -29,18 +29,18 @@ function t(name, fn) {
 const iso = (y, m, d) => `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 
 console.log('【期限計算接點：結果必須跟系統原有規則一致】');
-t('1 民事判決 20 日：收文 10/19，第 20 日 11/8 是星期日 → 往前調到 11/6（星期五）', () => {
+t('1 民事判決 20 日：收文 10/19，第 20 日 11/8 是星期日 → 順延到 11/9（星期一）', () => {
   const r = A.computeDeadlineFor({ receivedDate: '2026-10-19', docType: '民事判決' }, HOST);
   assert.strictEqual(r.ok, true); assert.strictEqual(r.periodDays, 20);
-  assert.strictEqual(r.naiveDeadline, '2026-11-08'); assert.strictEqual(r.finalDeadline, '2026-11-06'); assert.strictEqual(r.rolledForward, true);
+  assert.strictEqual(r.naiveDeadline, '2026-11-08'); assert.strictEqual(r.finalDeadline, '2026-11-09'); assert.strictEqual(r.rolledForward, true);
 });
-t('2 民事裁定 10 日：收文 10/14，第 10 日 10/24 是假日 → 往前調到 10/23', () => {
+t('2 民事裁定 10 日：收文 10/14，第 10 日 10/24 是假日（10/24～10/26 連假）→ 順延到 10/27', () => {
   const r = A.computeDeadlineFor({ receivedDate: '2026-10-14', docType: '民事裁定正本' }, HOST);
-  assert.strictEqual(r.periodDays, 10); assert.strictEqual(r.finalDeadline, '2026-10-23');
+  assert.strictEqual(r.periodDays, 10); assert.strictEqual(r.finalDeadline, '2026-10-27');
 });
-t('3 收文日寫民國（中華民國115年9月5日）、刑事判決：9/25 中秋連假 → 往前調到 9/24', () => {
+t('3 收文日寫民國（中華民國115年9月5日）、刑事判決：9/25 中秋連假（9/25～9/28）→ 順延到 9/29', () => {
   const r = A.computeDeadlineFor({ receivedDate: '中華民國115年9月5日', docType: '刑事判決' }, HOST);
-  assert.strictEqual(r.triggerDate, '2026-09-05'); assert.strictEqual(r.naiveDeadline, '2026-09-25'); assert.strictEqual(r.finalDeadline, '2026-09-24');
+  assert.strictEqual(r.triggerDate, '2026-09-05'); assert.strictEqual(r.naiveDeadline, '2026-09-25'); assert.strictEqual(r.finalDeadline, '2026-09-29');
 });
 t('4 2026～2027 每一天 × 每條規則，接點結果都等於原有 computeActionDeadline（含提前提醒）', () => {
   let n = 0;
@@ -56,6 +56,17 @@ t('4 2026～2027 每一天 × 每條規則，接點結果都等於原有 compute
     }
   }
   assert(n > 4000);
+});
+t('4b 依法順延：末日一定不早於第 N 日，且中間跳過的每一天都不是工作日（不會往前調）；提前提醒照舊', () => {
+  for (let d = new Date(2026, 0, 1); d <= new Date(2027, 11, 1); d.setDate(d.getDate() + 1)) {
+    const day = iso(d.getFullYear(), d.getMonth() + 1, d.getDate());
+    for (const days of [5, 10, 20]) {
+      const e = HOST.computeActionDeadline(day, days);
+      assert(e.finalDeadline >= e.naiveDeadline, `${day}+${days} 往前調了`);
+      for (let x = e.naiveDeadline; x < e.finalDeadline; x = HOST.addDaysISO(x, 1)) assert(!HOST.isBusinessDay(x), `${x} 是工作日卻被跳過`);
+    }
+  }
+  assert.strictEqual(JSON.stringify(HOST.computeReminderDate('2026-11-09', 20)), JSON.stringify({ reminderDate: '2026-11-04', advanceDays: 5 }));
 });
 t('5 起訴狀、答辯狀、通知書 → 不自動算期限（系統沒有對應規則）', () => {
   ['民事起訴狀', '民事答辯狀', '開庭通知書', '準備書狀'].forEach((ty) => assert.strictEqual(A.computeDeadlineFor({ receivedDate: '2026-10-19', docType: ty }, HOST).ok, false));
@@ -169,8 +180,8 @@ t('24 寫入的開庭／期限資料跟原本手動表單長得一樣（標題�
   assert.strictEqual(h.hearing.caseNumberDisplay, '113訴101'); assert.strictEqual(h.hearing.division, '玄股');
   assert.strictEqual(h.transcript.computedDeadline, '2026-11-27'); assert.strictEqual(h.transcript.linkedHearingId, h.hearing.id);
   const d = A.buildDeadlineRecords(HOST, { caseRef: c, stamp: 5, triggerDate: '2026-10-19', periodDays: 20, action: '收到民事判決' });
-  assert.strictEqual(d[0].computedDeadline, '2026-11-06'); assert.strictEqual(d[0].displayTitle, '林小華收到民事判決末日-113訴101');
-  assert.strictEqual(d[1].kind, 'reminder'); assert.strictEqual(d[1].computedDeadline, '2026-11-01');
+  assert.strictEqual(d[0].computedDeadline, '2026-11-09'); assert.strictEqual(d[0].displayTitle, '林小華收到民事判決末日-113訴101');
+  assert.strictEqual(d[1].kind, 'reminder'); assert.strictEqual(d[1].computedDeadline, '2026-11-04');
 });
 
 t('25 PDF 標題字距被拆開（臺 灣 臺 北 地 方 法 院 民 事 判 決）仍抓得到；內文「提出上訴狀」不會被當成書狀種類', () => {
