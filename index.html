@@ -7181,6 +7181,7 @@ footer{font-size:12.5px;color:#8a8273;border-top:1px solid var(--rule);padding-t
         <div class="text-sm font-bold text-emerald-800 mb-2">📑 AI 閱卷整理紀錄（${relReports.length}）</div>
         ${relReports.map((r) => `<div class="flex flex-wrap items-start gap-2 mb-2 bg-white rounded border border-emerald-100 px-3 py-2.5"><div class="flex-1 min-w-[14rem]"><div class="text-sm font-semibold text-slate-800">${esc(r.at)}<span class="ml-2 font-normal text-slate-500">${esc(r.by || '')}｜${r.files.length} 份文件・${r.count} 項重點</span></div>${r.summary ? `<div class="text-sm text-slate-700 mt-1">${esc(r.summary.length > 110 ? r.summary.slice(0, 110) + '…' : r.summary)}</div>` : ''}<div class="text-xs text-slate-500 mt-1">${esc(r.files.join('、'))}</div></div><div class="flex gap-2"><button type="button" class="cdm-rep-open text-sm px-3 py-1.5 rounded border border-slate-300 text-slate-700 hover:bg-slate-50" data-rep="${esc(r.id)}">開啟報告</button><button type="button" class="cdm-rep-trace text-sm px-3 py-1.5 rounded bg-navy-900 text-white" data-rep="${esc(r.id)}">對回原文</button></div></div>`).join('') || '<div class="text-sm text-slate-500">尚無紀錄。在「AI 智慧閱卷」整理完這個案件的文件後按「歸檔到案件」，就會出現在這裡。</div>'}
       </div>
+      ${window.Intake && window.Intake.caseLogHtml ? window.Intake.caseLogHtml(c) : ''}<!-- 收文紀錄：modules/intake.js -->
       <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
         <div class="border border-slate-100 rounded-lg p-3">
           <div class="text-[11px] font-bold text-slate-600 mb-1.5">📅 開庭（${relHearings.length}）</div>
@@ -7396,6 +7397,8 @@ footer{font-size:12.5px;color:#8a8273;border-top:1px solid var(--rule);padding-t
     caseParty, caseCause, caseAttorneys, ATTORNEYS, DEADLINE_RULES, CASE_STAGES, CASE_TYPES, CONTRACT_STATUSES, FEE_STATUSES, BILLING_TYPES,
     computeActionDeadline, computeReminderDate, getAdvanceReminderDays, addDaysISO, buildDeadlineTitle, buildReminderTitle,
     combineCaseNumberDivision, abbreviateCourtName, calendarLabelFor, showPage, persistAll, renderAll, logAudit,
+    // 收文登記（modules/intake.js）另外借用：任務清單、工作日判斷、目前登入者、異動標記
+    getTasks: () => tasks, TASK_STATUSES, isBusinessDay, touch, currentUserName: () => (currentUser() || {}).name || '',
   };
   document.dispatchEvent(new Event('lf-autofill-host-ready'));
 
@@ -7466,5 +7469,7 @@ footer{font-size:12.5px;color:#8a8273;border-top:1px solid var(--rule);padding-t
 
 <!-- AI 自動填（書狀自動填案件／開庭通知排行事曆），規格見 docs/AI自動填-規格.md -->
 <script src="modules/autofill.js"></script>
+<!-- 收文登記（任何法院／機關來文：判斷類別、抓欄位、掛案件、建期限待辦），說明見 docs/收文登記-做了什麼.md -->
+<script src="modules/intake.js"></script>
 </body>
 </html>

@@ -50,7 +50,7 @@ async function route(ctx, gem) {
     const isAib = feature === 'aib';
     const box = isAib ? '#aib-gemini-ocr' : '#af-gemini-ocr'; const input = isAib ? '#aib-pdf' : '#af-file'; const status = isAib ? 'aib-pdf-status' : 'af-status';
     if (!isAib) {
-      await p.evaluate(() => window.LF_AutofillHost.showPage('page-autofill'));
+      await p.evaluate(() => { window.LF_AutofillHost.showPage('page-autofill'); const t = document.querySelector('[data-af-kind="case"]'); if (t) t.click(); }); // 收文登記上線後預設分頁改成「收文登記」，這裡切回原本的「書狀」分頁
       // 欄位抽取用示意版（這個測試只測掃描頁辨識）；有金鑰時預設是 Gemini，所以手動切回
       await p.evaluate(() => { const s = document.getElementById('af-engine'); s.value = 'mock'; s.dispatchEvent(new Event('change')); });
     }
