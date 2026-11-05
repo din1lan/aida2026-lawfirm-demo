@@ -6750,6 +6750,20 @@ footer{font-size:12.5px;color:#8a8273;border-top:1px solid var(--rule);padding-t
     fallback();
   }
 
+  // 2026-11-05 體檢：所有跳出視窗都可以按 Esc 關閉（按最上層視窗的「✕／關閉／取消」，沒有這種按鈕就不動）
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape' || e.defaultPrevented) return;
+    const ovs = [...document.querySelectorAll('.fixed.inset-0, #pr-modal')]
+      .filter((o) => o.id !== 'login-gate' && o.id !== 'sidebar-backdrop' && !o.classList.contains('hidden') && getComputedStyle(o).display !== 'none' && o.getBoundingClientRect().width > 0);
+    if (!ovs.length) return;
+    const z = (o) => Number(getComputedStyle(o).zIndex) || 0;
+    const top = ovs.reduce((a, b) => (z(b) >= z(a) ? b : a));
+    const btns = [...top.querySelectorAll('button')].filter((b) => b.getClientRects().length > 0);
+    const btn = btns.find((b) => /^(✕|×|✖)$/.test(b.textContent.trim()) || b.getAttribute('aria-label') === '關閉' || /-close$/.test(b.id) || b.dataset.act === 'cancel')
+      || btns.find((b) => /^(關閉|取消)$/.test(b.textContent.trim()));
+    if (btn) { e.preventDefault(); btn.click(); }
+  });
+
   // 測試與示範用：從外部打開原文視窗（f＝{ page, quote }）
   window.LF_AibViewer = (f) => aibOpenViewer(f);
   async function aibOpenViewer(f) {
