@@ -372,13 +372,22 @@
     if (ocrTodo.length && opts.ocr !== false) {
       const t0 = Date.now(); let worker = null;
       try {
-        const report = (done) => { if (opts.onProgress) { try { opts.onProgress({ done, total: ocrTodo.length, page: ocrTodo[done] || null }); } catch (e) { /* ignore */ } } };
+        // 2026-11-05：進度多帶「這一頁辨識到幾 %」（pageProgress）與整體百分比（percent），畫面的進度條單頁辨識中也會動
+        let curK = 0;
+        const report = (done, frac) => {
+          if (!opts.onProgress) return;
+          const f = Math.max(0, Math.min(1, frac || 0)); const total = ocrTodo.length;
+          try { opts.onProgress({ done, total, page: ocrTodo[done] || null, pageProgress: f, percent: Math.min(100, Math.round(((done + (done < total ? f : 0)) / total) * 100)) }); } catch (e) { /* ignore */ }
+        };
         report(0);
         const T = await loadTesseract();
-        worker = await T.createWorker(OCR.lang, 1, { workerPath: OCR.workerPath, corePath: OCR.corePath, langPath: OCR.langPath });
+        worker = await T.createWorker(OCR.lang, 1, {
+          workerPath: OCR.workerPath, corePath: OCR.corePath, langPath: OCR.langPath,
+          logger: (m) => { if (m && m.status === 'recognizing text' && typeof m.progress === 'number') report(curK, m.progress); },
+        });
         if (OCR.psm) await worker.setParameters({ tessedit_pageseg_mode: String(OCR.psm) });
         for (let k = 0; k < ocrTodo.length; k++) {
-          report(k);
+          curK = k; report(k, 0);
           const pg = pages[ocrTodo[k] - 1];
           const cv = await renderToCanvas(await pdf.getPage(pg.n));
           const r = await worker.recognize(cv, {}, { text: true, blocks: true });
@@ -390,6 +399,8 @@
         report(ocrTodo.length);
       } catch (e) { ocrError = (e && e.message) || String(e); }
       finally { if (worker) { try { await worker.terminate(); } catch (e) { /* ignore */ } } ocrMs = Date.now() - t0; }
+      // 失敗也要讓畫面把進度條收起來
+      if (ocrError && opts.onProgress) { try { opts.onProgress({ done: ocrTodo.length, total: ocrTodo.length, page: null, pageProgress: 1, percent: 100 }); } catch (e) { /* ignore */ } }
     }
     // 辨識出來的頁（Gemini 與本機 OCR 共用）：拿掉紙本上印的行號、頁碼、文件序號
     let printMarks = 0;
@@ -404,7 +415,33 @@
     return { printMarks, pdf, numPages: pdf.numPages, pages, imagePages: stillImage, ocrPages, blankPages, chars, ocrError, ocrMs, geminiPages: remote.pages, geminiError: remote.error || '' };
   }
 
-  const api = { OPTIONS, OCR, MIN_PAGE_CHARS, pageText, imagePagesNote, ocrPagesNote, cleanOcr, ocrPageText, isJunkLine, joinLines, preprocess, skippedNote, stripPrintMarks, ocrChars, matchQuote, quoteRects, MATCH_MIN, open, read };
+  // ---- 本機 OCR 進度條（AI 智慧閱卷、收文登記、AI 自動填共用）：放在狀態文字下面，辨識完自動收起 ----
+  //   x＝read() 的 onProgress 參數 { done, total, page, pageProgress, percent }；x 為 null 或 done>=total 就收起
+  function progressLabel(x) { return `本機文字辨識中：第 ${Math.min(x.done + 1, x.total)}／${x.total} 頁${x.page ? `（文件第 ${x.page} 頁）` : ''}　${x.percent || 0}%`; }
+  function progressBar(anchor, x) {
+    const doc = root.document; if (!doc || !anchor || !anchor.parentNode) return null;
+    let box = anchor.nextElementSibling && anchor.nextElementSibling.classList && anchor.nextElementSibling.classList.contains('lf-ocr-progress') ? anchor.nextElementSibling : null;
+    if (!x || x.done >= x.total) { if (box) box.remove(); return null; }
+    if (!doc.getElementById('lf-ocr-progress-style')) {
+      const st = doc.createElement('style'); st.id = 'lf-ocr-progress-style';
+      st.textContent = '.lf-ocr-progress{margin:.4rem 0;font-size:12px;color:#334155}.lf-ocr-progress .t{height:8px;border-radius:999px;background:#e2e8f0;overflow:hidden;margin-top:4px}'
+        + '.lf-ocr-progress .f{height:100%;border-radius:999px;background:#4f46e5;transition:width .3s ease;background-image:linear-gradient(45deg,rgba(255,255,255,.25) 25%,transparent 25%,transparent 50%,rgba(255,255,255,.25) 50%,rgba(255,255,255,.25) 75%,transparent 75%);background-size:16px 16px;animation:lfocr 1s linear infinite}'
+        + '@keyframes lfocr{from{background-position:0 0}to{background-position:16px 0}}';
+      doc.head.appendChild(st);
+    }
+    if (!box) {
+      box = doc.createElement('div'); box.className = 'lf-ocr-progress'; box.setAttribute('role', 'progressbar'); box.setAttribute('aria-valuemin', '0'); box.setAttribute('aria-valuemax', '100');
+      box.innerHTML = '<div class="l"></div><div class="t"><div class="f" style="width:0%"></div></div>';
+      anchor.insertAdjacentElement('afterend', box);
+    }
+    const pct = Math.max(1, x.percent || 0); // 至少露出一點，看得出在跑
+    box.setAttribute('aria-valuenow', String(x.percent || 0));
+    box.querySelector('.l').textContent = progressLabel(x);
+    box.querySelector('.f').style.width = pct + '%';
+    return box;
+  }
+
+  const api = { progressBar, progressLabel, OPTIONS, OCR, MIN_PAGE_CHARS, pageText, imagePagesNote, ocrPagesNote, cleanOcr, ocrPageText, isJunkLine, joinLines, preprocess, skippedNote, stripPrintMarks, ocrChars, matchQuote, quoteRects, MATCH_MIN, open, read };
   if (typeof module === 'object' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') window.LF_PdfText = api;
 })(typeof window !== 'undefined' ? window : globalThis);

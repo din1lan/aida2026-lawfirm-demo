@@ -612,7 +612,7 @@
         const rd = await window.LF_PdfText.read(await file.arrayBuffer(), {
           remoteOcr: window.LF_GeminiOcr && window.LF_GeminiOcr.hookFor('in-gemini-ocr', (t) => setStatus(esc(t))),
           locate: false,
-          onProgress: (x) => setStatus(x.done < x.total ? `文字辨識中（OCR）：掃描頁 ${x.done + 1}／${x.total}｜在你的瀏覽器裡辨識，檔案不會上傳` : '文字辨識完成'),
+          onProgress: (x) => { setStatus(x.done < x.total ? '文字辨識中（OCR）｜在你的瀏覽器裡辨識，檔案不會上傳' : '文字辨識完成'); const el = $('in-status'); window.LF_PdfText.progressBar(el && el.parentNode && /flex/.test(el.parentNode.className) ? el.parentNode : el, x); },
         });
         const text = rd.pages.map((p) => p.text).join('\n');
         if (squash(text).length < 10) throw new Error('這份 PDF 讀不到文字（掃描檔辨識也沒有成功' + (rd.ocrError ? '：' + rd.ocrError : '') + '）。仍可在下方選類別、手動登記');
