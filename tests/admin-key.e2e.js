@@ -19,6 +19,7 @@ const FAKE = 'TEST-FAKE-KEY-0000';
   await p.click('button.navitem[data-page="page-autofill"]'); await p.waitForTimeout(300);
   ok(/尚未設定 AI，目前為示意版/.test(await p.textContent('#af-engine-status')), '沒有金鑰：AI 自動填顯示「尚未設定 AI，目前為示意版」');
   ok(await p.evaluate(() => document.querySelector('.lf-gemini-ocr-wrap').classList.contains('hidden')), '沒有金鑰：不顯示「掃描頁用 Gemini 辨識」');
+  ok(await p.evaluate(() => document.getElementById('aib-gemini-box').classList.contains('hidden')), '沒有金鑰：不顯示 Gemini 說明小字');
   await p.goto('http://localhost:8765/index.html?demo=ding#admin'); await p.waitForTimeout(800);
   ok(await p.evaluate(() => !document.getElementById('page-admin').classList.contains('hidden')), '網址加 #admin 進到管理員設定');
   await p.fill('#adm-key', FAKE); await p.click('#adm-save'); await p.waitForTimeout(300);
@@ -26,6 +27,7 @@ const FAKE = 'TEST-FAKE-KEY-0000';
   ok(/••••••0000/.test(await p.textContent('#adm-ai-status')) && !(await p.textContent('#adm-ai-status')).includes(FAKE), '畫面只顯示末 4 碼');
   await p.click('button.navitem[data-page="page-ai-brief"]'); await p.waitForTimeout(300);
   a = await aib(); ok(a.eng === 'gemini' && /Google Gemini/.test(a.st), '有金鑰：AI 智慧閱卷預設用 Gemini');
+  ok(await p.evaluate(() => !document.getElementById('aib-gemini-consent') && !document.getElementById('aib-gemini-box').classList.contains('hidden') && /付費 API，不用於訓練模型/.test(document.getElementById('aib-gemini-box').textContent)), '有金鑰：沒有同意勾選框，「開始分析」下方顯示「使用 Google Gemini 分析（付費 API，不用於訓練模型）」');
   await p.click('button.navitem[data-page="page-autofill"]'); await p.waitForTimeout(300);
   ok(/Google Gemini/.test(await p.textContent('#af-engine-status')), '有金鑰：AI 自動填預設用 Gemini');
   // 一鍵備份檔不含金鑰

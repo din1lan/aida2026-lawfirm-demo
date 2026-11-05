@@ -10,9 +10,9 @@
   },
   {
    "page": "page-autofill",
-   "name": "AI 自動填",
-   "buttons": 6,
-   "clicked": 6,
+   "name": "收文登記",
+   "buttons": 9,
+   "clicked": 8,
    "skipped": 0,
    "newErrors": 0
   },
@@ -43,9 +43,9 @@
   {
    "page": "page-cases",
    "name": "案件與時效",
-   "buttons": 29,
-   "clicked": 19,
-   "skipped": 10,
+   "buttons": 33,
+   "clicked": 21,
+   "skipped": 12,
    "newErrors": 0
   },
   {

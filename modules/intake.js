@@ -565,7 +565,7 @@
         <div class="text-xs rounded px-3 py-2 ${hasDeid ? 'bg-emerald-50 border border-emerald-200 text-emerald-800' : 'bg-red-50 border border-red-300 text-red-700 font-semibold'}">
           ${hasDeid ? '🛡️ 送 AI 前會先把姓名、地址、電話等換成代號，結果回來再換回真名。示意版完全不連網。' : '⚠ 尚未遮蔽個資：去識別化模組沒有載入，選 Gemini 時文字會原樣送出（示意版不連網）。'}
         </div>
-        <label id="in-img-consent-wrap" class="hidden text-xs text-red-700 flex items-start gap-2"><input id="in-img-consent" type="checkbox" class="mt-0.5" /><span>我了解<b>照片沒辦法先遮個資</b>，選 Gemini 時照片會原樣送給 Google。</span></label>
+        <p id="in-img-consent-wrap" class="hidden text-xs text-red-700">照片沒辦法先遮個資，使用 Gemini 時會原樣送給 Google（付費 API，不用於訓練模型）。</p>
         <div class="flex items-center gap-3">
           <button type="button" id="in-run" class="text-sm px-4 py-2 rounded bg-navy-900 text-white hover:bg-navy-800 disabled:opacity-40" disabled>③ 判斷類別並抓欄位</button>
           <span id="in-status" class="text-xs text-slate-500">請先上傳檔案</span>
@@ -670,7 +670,6 @@
   async function run() {
     const doc = UI.doc; if (!doc) return;
     const engine = $('in-engine').value === 'gemini' && AI().hasKey() ? 'gemini' : 'mock'; // 金鑰被清掉就自動改示意版
-    if (doc.image && engine === 'gemini' && !$('in-img-consent').checked) { setStatus('⚠ 照片無法先遮個資，請先勾選上方同意說明再送出', 'text-red-600'); return; }
     $('in-run').disabled = true;
     try {
       // 照片＋示意版：先在瀏覽器裡辨識文字
