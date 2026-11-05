@@ -6879,14 +6879,22 @@ footer{font-size:12.5px;color:#8a8273;border-top:1px solid var(--rule);padding-t
         await new Promise((r) => setTimeout(r, 600));
         if (AIB_DOC.files.length) {
           // 多份文件時逐頁分析，避免時間軸片段跨頁、跨文件黏在一起；同樣內容只留一筆
+          // 2026-11-05 修正：優勢／劣勢／風險改用「全案文字」判斷一次，不再逐頁判斷後拼起來
+          //（之前會同時出現「已援引法條」和「全文未見法條」這種互相矛盾的句子）；時間軸跨文件照日期排序
           findings = []; const seen = new Set();
+          const WHOLE_CASE = ['優勢', '劣勢', '風險'];
           pages.forEach((pg) => {
             const t = pg.text.replace(/【示範案件[^】]*】/g, '');
             aibLocalFindings(analyzeBriefLocally(t, caseType), t).forEach((f) => {
+              if (WHOLE_CASE.includes(f.category)) return;
               if (f.category === '當事人' && (f.text.split('：')[1] || '').length > 4) return; // 規則式抓人名容易抓到整句，只留像人名的
               const k = f.category + '|' + f.text; if (!seen.has(k)) { seen.add(k); findings.push(f); }
             });
           });
+          const wholeText = text.replace(/【示範案件[^】]*】/g, '');
+          aibLocalFindings(analyzeBriefLocally(wholeText, caseType), wholeText).filter((f) => WHOLE_CASE.includes(f.category)).forEach((f) => findings.push(f));
+          const tl = findings.filter((f) => f.category === '時間軸').sort((a, b) => a.text.slice(0, 11).localeCompare(b.text.slice(0, 11)));
+          let ti = 0; findings = findings.map((f) => (f.category === '時間軸' ? tl[ti++] : f));
         } else findings = aibLocalFindings(local, text);
         meta.engineLabel = '示意版（免金鑰；正式使用為 Gemini AI 閱卷助理）'; meta.caseType = caseType;
       }
