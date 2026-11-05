@@ -1227,6 +1227,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
               <select id="adm-model" class="w-full text-sm border rounded px-3 py-2"></select></label>
             <button id="adm-load-models" type="button" class="text-sm px-3 py-2 rounded border border-slate-300 hover:bg-slate-50">載入可用模型（測試金鑰）</button>
           </div>
+          <label class="flex items-start gap-2 text-sm text-slate-700"><input id="adm-deid" type="checkbox" class="mt-1" /><span>送出前去識別化（開：送 AI 前先把姓名、電話、地址換成代號，並跳出「將送出的版本」讓人確認；關：直接送出）</span></label>
           <div class="flex flex-wrap gap-2 pt-1">
             <button id="adm-save" type="button" class="text-sm px-4 py-2 rounded bg-navy-900 text-white hover:bg-navy-800">儲存</button>
             <button id="adm-clear" type="button" class="text-sm px-4 py-2 rounded border border-red-300 text-red-700 hover:bg-red-50">清除金鑰</button>
@@ -1235,7 +1236,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
           <ul class="text-xs text-slate-500 list-disc pl-5 space-y-1">
             <li>金鑰只存在<b>這台電腦的這個瀏覽器</b>（localStorage）：不寫進網站程式、不上傳到任何伺服器、不會出現在「一鍵備份」檔裡。換電腦或清除瀏覽器資料後要重新設定。</li>
             <li>設定後，AI 智慧閱卷、AI 自動填、掃描頁辨識會自動改用 Gemini；沒有設定時一律用示意版。</li>
-            <li>使用 AI 分析時，文件文字會先遮蔽姓名、電話、地址等個資，再連同金鑰送到 Google。</li>
+            <li>「送出前去識別化」預設關：文件直接交給 Google 付費 API 分析。</li>
           </ul>
         </div>
       </section>
@@ -2742,7 +2743,8 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
     if (!sel.options.length || ![...sel.options].some((o) => o.value === A.getModel())) sel.innerHTML = `<option value="${esc(A.getModel())}">${esc(A.getModel())}</option>`;
     sel.value = A.getModel();
     document.getElementById('adm-role-note').classList.toggle('hidden', canEdit);
-    ['adm-key', 'adm-model', 'adm-load-models', 'adm-save', 'adm-clear'].forEach((id) => { document.getElementById(id).disabled = !canEdit; });
+    document.getElementById('adm-deid').checked = !!(A.deidOn && A.deidOn());
+    ['adm-key', 'adm-model', 'adm-load-models', 'adm-save', 'adm-clear', 'adm-deid'].forEach((id) => { document.getElementById(id).disabled = !canEdit; });
     document.getElementById('adm-key').value = '';
   }
   {
@@ -2763,6 +2765,10 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
         if (ms.includes(cur)) sel.value = cur;
         msg(`✓ 金鑰可以用，找到 ${ms.length} 個模型`, 'text-emerald-700');
       } catch (e) { msg('⚠ 連線失敗：' + ((e && e.message) || e), 'text-red-600'); }
+    });
+    document.getElementById('adm-deid').addEventListener('change', (e) => {
+      window.LF_AI.setDeid(e.target.checked); logAudit('AI 設定', '', '送出前去識別化：' + (e.target.checked ? '開' : '關')); persistAll();
+      msg(e.target.checked ? '✓ 已開啟：送出前會先去識別化並讓你確認' : '已關閉：直接送出，不遮個資', 'text-emerald-700');
     });
     document.getElementById('adm-save').addEventListener('click', () => {
       const k = document.getElementById('adm-key').value.trim(); const m = document.getElementById('adm-model').value;
@@ -6500,7 +6506,8 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
     const csel = document.getElementById('aib-case-select');
     const c = cases.find((x) => csel && x.id === csel.value);
     const known = Deid.knownNamesFromCase(c).concat(ATTORNEYS.map((a) => ({ name: a.fullName.replace(/律師$/, ''), role: 'lawyer' })));
-    let sent = await aibDeidPreview(docText, known);
+    // 2026-11-05：管理員設定「送出前去識別化」開才遮、才跳確認視窗；預設關＝直接交給 Google 付費 API
+    let sent = AI.deidOn && AI.deidOn() ? await aibDeidPreview(docText, known) : { text: docText, map: { entries: [] }, count: 0, off: true };
     if (!sent) return null;
     // 角色指令裡的「本事務所律師為：…」也換成同一套代號，避免真名從指令外流
     const lawyerTok = ATTORNEYS.map((a) => { const e = sent.map.entries.find((x) => x.original === a.fullName.replace(/律師$/, '')); return e ? e.token + '律師' : ''; }).filter(Boolean);
@@ -6509,7 +6516,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
     try {
       const raw = aibEngSel.value === 'gemini-mock' ? await aibMockGemini(sent.text, !!promptText) : await aibCallGemini(sent.text, caseType, prompt);
       const g = Deid.reidentifyDeep(raw, sent.map);
-      g.__deid = { count: sent.count, leftovers: Deid.findLeftoverTokens(JSON.stringify(g), sent.map) };
+      g.__deid = sent.off ? null : { count: sent.count, leftovers: Deid.findLeftoverTokens(JSON.stringify(g), sent.map) };
       return g;
     } finally { sent = null; } // 用完即丟
   }

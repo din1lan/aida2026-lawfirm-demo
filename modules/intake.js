@@ -684,7 +684,8 @@
       UI.ruleCls = text ? classify(text) : null;
       let sent = text; let map = null; let masked = 0;
       const hasDeid = !!(window.Deid && typeof window.Deid.deidentify === 'function');
-      if (text && hasDeid && engine === 'gemini') {
+      const deidOn = !!(AI().deidOn && AI().deidOn()); // 2026-11-05：管理員設定「送出前去識別化」，預設關＝直接送
+      if (text && hasDeid && engine === 'gemini' && deidOn) {
         const known = knownNames().concat(A.partyNamesFromText(text));
         if (H() && H().deidPreview) {
           // 2026-11-05：跟 AI 智慧閱卷一樣，先跳出「將送出的版本（已去識別化）」讓人確認；按取消就不送
@@ -698,7 +699,12 @@
         }
       }
       let raw;
-      if (engine === 'gemini') raw = await callGemini(buildPrompt(), doc, doc.image ? '' : sent);
+      const bar = () => { const el = $('in-status'); return el && el.parentNode; };
+      if (engine === 'gemini') {
+        setStatus('Gemini 判斷類別、抓欄位中…');
+        window.LF_PdfText.progressBar(bar(), { done: 0, total: 1, indeterminate: true, label: 'Gemini 處理中…' });
+        try { raw = await callGemini(buildPrompt(), doc, doc.image ? '' : sent); } finally { window.LF_PdfText.progressBar(bar(), null); }
+      }
       else raw = mockExtract(text);
       let obj = extractJSON(raw);
       if (obj && map && window.Deid.reidentifyDeep) obj = window.Deid.reidentifyDeep(obj, map);
@@ -707,7 +713,7 @@
       UI.category = UI.result.category; UI.engine = engine;
       const sw = $('in-sent-wrap'); if (sw) { sw.classList.remove('hidden'); $('in-sent').textContent = doc.image && engine === 'gemini' ? '（照片，原圖送出，未遮蔽個資）' : (engine === 'gemini' ? sent : text); }
       const catNote = UI.category === 'other' ? '判斷不出類別，先歸「其他」（仍可登記、手動設期限）' : `類別：${CAT_LABEL[UI.category]}`;
-      setStatus(`${UI.result.ok ? '✓ ' + esc(catNote) + '，請逐欄確認' : '⚠ ' + esc(UI.result.error)}${doc.ocr ? '<span class="text-amber-700">｜照片已在本機辨識文字，可能有錯字，請對照原圖</span>' : ''}${doc.ocrError ? `<span class="text-red-600">｜照片辨識失敗：${esc(doc.ocrError)}，請手動填</span>` : ''}${engine === 'gemini' ? (doc.image ? '<span class="text-red-600 font-semibold">｜照片無法先遮個資</span>' : hasDeid ? `<span class="text-emerald-700">｜已遮蔽 ${masked} 項個資</span>` : '<span class="text-red-600 font-semibold">｜尚未遮蔽個資</span>') : ''}<span class="text-slate-400">｜${engine === 'gemini' ? 'Gemini' : '示意版'}</span>${doc.image ? '' : pageNotes(doc)}`, UI.result.ok ? 'text-slate-600' : 'text-amber-700');
+      setStatus(`${UI.result.ok ? '✓ ' + esc(catNote) + '，請逐欄確認' : '⚠ ' + esc(UI.result.error)}${doc.ocr ? '<span class="text-amber-700">｜照片已在本機辨識文字，可能有錯字，請對照原圖</span>' : ''}${doc.ocrError ? `<span class="text-red-600">｜照片辨識失敗：${esc(doc.ocrError)}，請手動填</span>` : ''}${engine === 'gemini' && deidOn ? (doc.image ? '<span class="text-red-600 font-semibold">｜照片無法先遮個資</span>' : hasDeid ? `<span class="text-emerald-700">｜已遮蔽 ${masked} 項個資</span>` : '<span class="text-red-600 font-semibold">｜尚未遮蔽個資</span>') : ''}<span class="text-slate-400">｜${engine === 'gemini' ? 'Gemini' : '示意版'}</span>${doc.image ? '' : pageNotes(doc)}`, UI.result.ok ? 'text-slate-600' : 'text-amber-700');
       renderReview();
     } finally { $('in-run').disabled = false; }
   }
