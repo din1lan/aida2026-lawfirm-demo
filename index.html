@@ -24,6 +24,8 @@
 <!-- 比賽示範版（AIDA 2026）：已移除 Firebase 與所有雲端連線，資料只存在使用者自己的瀏覽器。 -->
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
 <style id="theme-ledger">
+/* 2026-11-05 體檢：表格裡的日期、案號（等寬字）不要被拆成兩行，例如「2026-07-/08」「113訴/101」 */
+main td.font-mono{white-space:nowrap}
 /* ===== 比賽版視覺主題「Ledger」：只改外觀，不動任何功能 ===== */
 :root{
   --ink:#0f1b2d; --ink-2:#1b2a40; --paper:#f4f2ec; --card:#ffffff; --rule:#e4dfd3; --rule-2:#eeeae1;
@@ -4656,7 +4658,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
         <td class="px-5 py-3 font-mono text-xs">${esc(b.date)}</td>
         <td class="px-5 py-3 font-mono text-xs">${esc(b.caseNumber) || '—'}</td>
         <td class="px-5 py-3">${esc(b.item)}</td>
-        <td class="px-5 py-3">NT$ ${Number(b.amount).toLocaleString()}</td>
+        <td class="px-5 py-3 whitespace-nowrap">NT$ ${Number(b.amount).toLocaleString()}</td>
         <td class="px-5 py-3">
           <select data-billing-id="${esc(b.id)}" class="billing-status-select text-xs border rounded px-1.5 py-1 ${ADVANCE_STATUS_BADGE[b.advanceStatus] || ''}">
             ${ADVANCE_STATUSES.map((s) => `<option value="${esc(s)}" ${b.advanceStatus === s ? 'selected' : ''}>${esc(s)}</option>`).join('')}
@@ -4701,7 +4703,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
       <tr class="hover:bg-slate-50"><td class="px-5 py-2 font-mono text-xs">${esc(c.caseNumber)}</td><td class="px-5 py-2">${esc(caseParty(c))}${caseCause(c) ? ` <span class="text-slate-300">/</span> <span class="text-slate-500">${esc(caseCause(c))}</span>` : ''}</td><td class="px-5 py-2 text-slate-500">${esc(caseAttorneyText(c))}</td><td class="px-5 py-2">NT$ ${c.unpaid.toLocaleString()}</td></tr>
     `).join('') || '<tr><td class="px-5 py-3 text-slate-400" colspan="4">目前沒有未收款項</td></tr>';
     const total = rows.reduce((s, c) => s + c.unpaid, 0);
-    foot.innerHTML = rows.length ? `<tr class="font-semibold border-t border-slate-200"><td class="px-5 py-2" colspan="3">合計</td><td class="px-5 py-2">NT$ ${total.toLocaleString()}</td></tr>` : '';
+    foot.innerHTML = rows.length ? `<tr class="font-semibold border-t border-slate-200"><td class="px-5 py-2" colspan="3">合計</td><td class="px-5 py-2 whitespace-nowrap">NT$ ${total.toLocaleString()}</td></tr>` : '';
     const pBtn = document.getElementById('rcv-sort-party');
     const aBtn = document.getElementById('rcv-sort-attorney');
     const bind = (btn, key) => { if (btn) btn.onclick = () => { if (receivablesSort.key === key) receivablesSort.dir *= -1; else { receivablesSort.key = key; receivablesSort.dir = 1; } renderReceivablesSummary(); }; };
@@ -4740,7 +4742,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
         <td class="px-5 py-3 whitespace-nowrap">${esc(retainerAttorneyText(r)) || '—'}</td>
         <td class="px-5 py-3 font-mono text-xs">${esc(r.startDate) || '—'}</td>
         <td class="px-5 py-3 font-mono text-xs">${esc(r.endDate) || '—'}</td>
-        <td class="px-5 py-3">${r.amount ? 'NT$ ' + Number(r.amount).toLocaleString() : '—'}</td>
+        <td class="px-5 py-3 whitespace-nowrap">${r.amount ? 'NT$ ' + Number(r.amount).toLocaleString() : '—'}</td>
         <td class="px-5 py-3"><span class="text-xs px-2 py-0.5 rounded-full ${status.cls}">${esc(status.label)}</span></td>
         <td class="px-5 py-3 text-slate-500 text-xs">${esc(r.note) || '—'}</td>
         <td class="px-5 py-3 whitespace-nowrap">
@@ -5117,7 +5119,7 @@ section.page .bg-indigo-600:hover{background-color:var(--ink-2)!important}
     const body = document.getElementById('ch-table-body');
     if (!body) return;
     const sorted = caseHours.slice().sort((a, b) => b.date.localeCompare(a.date));
-    body.innerHTML = sorted.map((h) => `<tr><td class="px-5 py-2">${esc(h.date)}</td><td class="px-5 py-2 font-mono text-xs">${esc(h.caseNumber)}</td><td class="px-5 py-2">${esc(h.attorney)}</td><td class="px-5 py-2">${h.hours}h</td><td class="px-5 py-2">NT$${Number(h.rate).toLocaleString()}</td><td class="px-5 py-2 text-slate-400">${esc(h.note || '')}</td></tr>`).join('') || `<tr><td class="px-5 py-3 text-slate-400" colspan="6">尚無資料</td></tr>`;
+    body.innerHTML = sorted.map((h) => `<tr><td class="px-5 py-2 whitespace-nowrap">${esc(h.date)}</td><td class="px-5 py-2 font-mono text-xs">${esc(h.caseNumber)}</td><td class="px-5 py-2">${esc(h.attorney)}</td><td class="px-5 py-2">${h.hours}h</td><td class="px-5 py-2">NT$${Number(h.rate).toLocaleString()}</td><td class="px-5 py-2 text-slate-400">${esc(h.note || '')}</td></tr>`).join('') || `<tr><td class="px-5 py-3 text-slate-400" colspan="6">尚無資料</td></tr>`;
   }
   function renderClientHoursSection() {
     renderCaseHoursTable();
